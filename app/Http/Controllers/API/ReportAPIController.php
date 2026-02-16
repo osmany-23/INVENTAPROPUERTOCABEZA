@@ -250,6 +250,37 @@ class ReportAPIController extends AppBaseController
         return $this->sendResponse($data, 'Product purchases retrieved successfully');
     }
 
+    public function getStockAlertsExport(Request $request): JsonResponse
+    {
+        $warehouse = $request->get('warehouse_id');
+        $quantity = $request->get('quantity');
+
+        if (Storage::exists('excel/AlertasStock.xlsx')) {
+            Storage::delete('excel/AlertasStock.xlsx');
+        }
+
+        Excel::store(new \App\Exports\StockAlertsExport($warehouse, $quantity), 'excel/AlertasStock.xlsx');
+
+        $data['stock_alerts_excel_url'] = Storage::url('excel/AlertasStock.xlsx');
+
+        return $this->sendResponse($data, 'Stock alerts exported successfully');
+    }
+
+    /**
+     * Stream download of stock alerts Excel (authenticated).
+     */
+    public function downloadStockAlerts(Request $request)
+    {
+        if (!Auth::check()) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        $warehouse = $request->get('warehouse_id');
+        $quantity = $request->get('quantity');
+
+        return Excel::download(new \App\Exports\StockAlertsExport($warehouse, $quantity), 'AlertasStock.xlsx');
+    }
+
     public function getSaleReturnProductReportExport(): JsonResponse
     {
         if (Storage::exists('excel/product-sale-return-report-excel.xlsx')) {

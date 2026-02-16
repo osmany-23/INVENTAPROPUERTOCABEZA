@@ -121,22 +121,25 @@
 
 .alert-badge-icon{
     cursor: pointer;
-
 .product-alert-badge{
     position: absolute;
-    height: 22px;
-    top: 11px;
-    font-size: 10px;
-    width: 18px;
-    color: white;
-    font-weight: 500;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    font-size: 11px;
+    color: #d43f3a; /* número en rojo */
+    font-weight: 700;
+    line-height: 18px;
     text-align: center;
-    background-color: #f62947;
-    border: 0.2px solid white;
-    border-radius: 10px;
-    left: 7px;
-    box-shadow: 0px 0px 5px 5px rgb(0 0 0 / 6%), 0 1px 4px rgb(0 0 0 / 8%);
-
+    background-color: #ffffff; /* burbuja blanca */
+    border: 2px solid #ffffff;
+    border-radius: 999px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 .product-alert-message{
     left: -93px;

@@ -166,7 +166,8 @@ class DashboardAPIController extends AppBaseController
 
     public function stockAlerts(): JsonResponse
     {
-        $manageStocks = ManageStock::with('warehouse')->where('alert', true)->limit(10)->latest()->get();
+        // Return all manage stock records flagged as alert (include stock 0)
+        $manageStocks = ManageStock::with('warehouse')->where('alert', true)->latest()->get();
         $productResponse = [];
         foreach ($manageStocks as $stock) {
             $product = Product::where('id', $stock->product_id)->first();

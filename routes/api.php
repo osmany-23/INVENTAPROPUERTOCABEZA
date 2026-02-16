@@ -71,7 +71,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('week-selling-purchases', [DashboardAPIController::class, 'getWeekSalePurchases']);
         Route::get('yearly-top-selling', [DashboardAPIController::class, 'getYearlyTopSelling']);
         Route::get('top-customers', [DashboardAPIController::class, 'getTopCustomer']);
-        Route::get('stock-alerts', [DashboardAPIController::class, 'stockAlerts']);
+            Route::get('stock-alerts', [DashboardAPIController::class, 'stockAlerts']);
+            Route::get('stock-alerts/export', [ReportAPIController::class, 'getStockAlertsExport']);
+            Route::get('stock-alerts/export-download', [ReportAPIController::class, 'downloadStockAlerts']);
     });
     // get all permission
     Route::get('/permissions', [PermissionController::class, 'getPermissions'])->name('get-permissions');
