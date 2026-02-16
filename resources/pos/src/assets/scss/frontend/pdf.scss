@@ -21,3 +21,29 @@
     }
 }
 
+/* Ensure printed receipt uses pure black and no transparency */
+@media print {
+    .print-data,
+    .print-data * {
+        color: #000000 !important;
+        background: transparent !important;
+        opacity: 1 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .print-data img {
+        filter: none !important;
+        opacity: 1 !important;
+    }
+
+    /* SVG / icon fills */
+    .print-data svg,
+    .print-data svg * {
+        fill: #000000 !important;
+        stroke: #000000 !important;
+        fill-opacity: 1 !important;
+        stroke-opacity: 1 !important;
+    }
+}
+

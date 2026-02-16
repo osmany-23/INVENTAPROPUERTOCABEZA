@@ -71,6 +71,23 @@ class PrintData extends React.PureComponent {
                             )}
                         </span>
                     </div>
+
+                                <div
+                    style={{
+                        marginBottom: "4px",
+                    }}
+                >
+                    <span className="fw-bold me-2">
+                        Ruc:
+                    </span>
+                    <span>
+                        4891009760002Y
+                    </span>
+                </div>
+
+
+
+
                     {paymentPrint.settings &&
                         parseInt(
                             paymentPrint.settings.attributes.show_address

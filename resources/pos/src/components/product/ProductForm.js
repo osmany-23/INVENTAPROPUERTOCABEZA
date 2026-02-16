@@ -591,7 +591,7 @@ const ProductForm = (props) => {
             );
         } else if (
             productValue["notes"] &&
-            productValue["notes"].length > 500
+            productValue["notes"].length > 1500
         ) {
             errorss["notes"] = getFormattedMessage(
                 "globally.input.notes.validate.label"

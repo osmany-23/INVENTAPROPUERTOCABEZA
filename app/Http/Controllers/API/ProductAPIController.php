@@ -65,6 +65,17 @@ class ProductAPIController extends AppBaseController
             ]);
         }
 
+        // Support filtering by brand and category coming from frontend (eg. filter[brand_id], filter[product_category_id])
+        $filters = $request->get('filter');
+        if (is_array($filters)) {
+            if (!empty($filters['brand_id'])) {
+                $query->where('brand_id', $filters['brand_id']);
+            }
+            if (!empty($filters['product_category_id'])) {
+                $query->where('product_category_id', $filters['product_category_id']);
+            }
+        }
+
         $products = $query->paginate($perPage);
         ProductResource::usingWithCollection();
 

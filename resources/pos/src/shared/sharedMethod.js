@@ -124,17 +124,20 @@ export const currencySymbolHandling = (
     value,
     is_forment
 ) => {
+    const num = Number(value);
+    const safeNum = Number.isFinite(num) ? num : 0;
+    const formattedNumber = safeNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     if (isRightside?.is_currency_right === "true") {
         if (is_forment) {
-            return formatAmount(value) + " " + currency;
+            return formatAmount(safeNum) + " " + currency;
         } else {
-            return parseFloat(value).toFixed(2) + " " + currency;
+            return formattedNumber + " " + currency;
         }
     } else {
         if (is_forment) {
-            return currency + " " + formatAmount(value);
+            return currency + " " + formatAmount(safeNum);
         } else {
-            return currency + " " + parseFloat(value).toFixed(2);
+            return currency + " " + formattedNumber;
         }
     }
 };

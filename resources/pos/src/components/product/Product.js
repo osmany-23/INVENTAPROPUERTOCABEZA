@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { connect } from "react-redux";
 import moment from "moment";
-import { Button, Image } from "react-bootstrap-v5";
+import { Button, Image, OverlayTrigger, Tooltip } from "react-bootstrap-v5";
 import MasterLayout from "../MasterLayout";
 import { fetchAllMainProducts } from "../../store/action/productAction";
 import ReactDataTable from "../../shared/table/ReactDataTable";
@@ -83,12 +83,16 @@ const Product = (props) => {
         frontSetting.value.currency_symbol;
 
     const formattedPrice = (product_price) => {
-        return currencySymbolHandling(
-            allConfigData,
-            currencySymbol,
-            product_price
-        );
-    };
+    if (!product_price) return "";
+    // Formatear número con coma como separador de miles y punto como decimal
+    const formattedNumber = new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(product_price);
+
+    return `${formattedNumber} ${currencySymbol}`;
+};
+
     const itemsValue =
         currencySymbol &&
         products.length >= 0 &&
@@ -123,6 +127,20 @@ const Product = (props) => {
                             : 0,
                     0
                 ),
+                fullDescription:
+                    product?.attributes?.products &&
+                    product?.attributes?.products[0] &&
+                    product.attributes.products[0].notes
+                        ? product.attributes.products[0].notes
+                        : "",
+                description:
+                    product?.attributes?.products &&
+                    product?.attributes?.products[0] &&
+                    product.attributes.products[0].notes
+                        ? (product.attributes.products[0].notes.length > 50
+                              ? product.attributes.products[0].notes.slice(0, 50) + "..."
+                              : product.attributes.products[0].notes)
+                        : "",
                 images: product?.attributes.images,
                 id: product.id,
                 currency: currencySymbol,
@@ -221,6 +239,51 @@ const Product = (props) => {
             selector: (row) => row.in_stock,
             sortField: "in_stock",
             sortable: false,
+        },
+        {
+            name: "Descripción",
+            selector: (row) => (row.description ? row.description : ""),
+            sortField: "description",
+            sortable: false,
+            cell: (row) => {
+                const full = row.fullDescription || "";
+                const display = row.description || "";
+                const maxWidth = 220; // px, adjust column width
+                return (
+                    <OverlayTrigger
+                        placement="top"
+                        overlay={
+                            <Tooltip
+                                id={`tooltip-desc-${row.id}`}
+                                style={{
+                                    background: "rgba(0,0,0,0.45)",
+                                    color: "#fff",
+                                    maxWidth: "60vw",
+                                    whiteSpace: "pre-wrap",
+                                    borderRadius: 6,
+                                    padding: "0.6rem",
+                                }}
+                            >
+                                {full || "-"}
+                            </Tooltip>
+                        }
+                    >
+                        <div
+                            style={{
+                                maxWidth: maxWidth,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "normal",
+                                overflowWrap: "break-word",
+                                wordBreak: "break-word",
+                                cursor: full ? "pointer" : "default",
+                            }}
+                        >
+                            {display}
+                        </div>
+                    </OverlayTrigger>
+                );
+            },
         },
         {
             name: getFormattedMessage(
