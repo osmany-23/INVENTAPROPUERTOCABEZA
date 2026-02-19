@@ -392,6 +392,11 @@ export const route = [
         permission: Permissions.MANAGE_PURCHASE_RETURN,
     },
     {
+        path: "purchase-return/create/:id",
+        ele: <CreatePurchaseReturn />,
+        permission: Permissions.MANAGE_PURCHASE_RETURN,
+    },
+    {
         path: "purchase-return/edit/:id",
         ele: <EditPurchaseReturn />,
         permission: Permissions.MANAGE_PURCHASE_RETURN,

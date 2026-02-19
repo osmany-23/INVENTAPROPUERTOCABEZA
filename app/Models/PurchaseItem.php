@@ -6,6 +6,7 @@ use App\Models\Contracts\JsonResourceful;
 use App\Traits\HasJsonResourcefulData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Unit;
 
 /**
  * App\Models\PurchaseItem
@@ -149,5 +150,10 @@ class PurchaseItem extends BaseModel implements JsonResourceful
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class, 'product_id', 'id');
+    }
+
+    public function purchaseUnit(): BelongsTo
+    {
+        return $this->belongsTo(Unit::class, 'purchase_unit', 'id');
     }
 }

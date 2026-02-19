@@ -122,7 +122,7 @@ export default combineReducers({
     productSales: productSaleUnitReducers,
     settings: settingReducers,
     purchaseProducts: purchaseProductReducer,
-    purchases: purchaseReducer,
+    purchase: purchaseReducer,
     tansfers: transfersReducer,
     changePasswords: changePasswordReducers,
     posFetchProducts: posFetchProductReducers,

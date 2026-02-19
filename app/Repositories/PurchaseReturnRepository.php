@@ -3,6 +3,8 @@
 namespace App\Repositories;
 
 use App\Models\ManageStock;
+use App\Models\Product;
+use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\PurchaseReturn;
 use App\Models\PurchaseReturnItem;
@@ -86,19 +88,40 @@ class PurchaseReturnRepository extends BaseRepository
 
             $purchaseReturn = PurchaseReturn::create($purchaseReturnInputArray);
 
+            if (!empty($input['purchase_id'])) {
+                $this->validatePurchaseReturnQuantities(
+                    (int) $input['purchase_id'],
+                    $input['purchase_return_items']
+                );
+            }
+
             $purchaseReturn = $this->storePurchaseReturnItems($purchaseReturn, $input);
+            $productIds = collect($input['purchase_return_items'])->pluck('product_id')->filter()->unique()->values()->toArray();
+            $stockByProduct = ManageStock::whereWarehouseId($input['warehouse_id'])
+                ->whereIn('product_id', $productIds)
+                ->get()
+                ->keyBy('product_id');
+            $purchasedProductIds = PurchaseItem::whereIn('product_id', $productIds)
+                ->whereHas('purchase', function (Builder $q) use ($input) {
+                    $q->where('supplier_id', $input['supplier_id'])
+                        ->where('warehouse_id', $input['warehouse_id']);
+                })
+                ->pluck('product_id')
+                ->unique()
+                ->toArray();
+            $purchasedProductLookup = array_flip($purchasedProductIds);
+
             foreach ($input['purchase_return_items'] as $saleItem) {
-                $product = ManageStock::whereWarehouseId($input['warehouse_id'])->whereProductId($saleItem['product_id'])->first();
-                $purchaseExist = PurchaseItem::where('product_id', $saleItem['product_id'])->whereHas('purchase',
-                    function (Builder $q) use ($input) {
-                        $q->where('supplier_id', $input['supplier_id'])->where('warehouse_id', $input['warehouse_id']);
-                    })->exists();
+                $productId = (int) ($saleItem['product_id'] ?? 0);
+                $product = $stockByProduct->get($productId);
+                $purchaseExist = isset($purchasedProductLookup[$productId]);
                 if ($purchaseExist) {
                     if ($product && $product->quantity >= $saleItem['quantity']) {
                         $totalQuantity = $product->quantity - $saleItem['quantity'];
                         $product->update([
                             'quantity' => $totalQuantity,
                         ]);
+                        $stockByProduct->put($productId, $product);
                     } else {
                         throw new UnprocessableEntityHttpException('Quantity must be less than Available quantity.');
                     }
@@ -216,8 +239,30 @@ class PurchaseReturnRepository extends BaseRepository
                 }
             }
             $purchaseReturn = PurchaseReturn::findOrFail($id);
+            $purchaseId = !empty($input['purchase_id']) ? (int) $input['purchase_id'] : null;
+            if (!empty($purchaseId)) {
+                $this->validatePurchaseReturnQuantities(
+                    $purchaseId,
+                    $input['purchase_return_items'],
+                    (int) $purchaseReturn->id
+                );
+            }
             $purchaseReturnItemIds = PurchaseReturnItem::wherePurchaseReturnId($id)->pluck('id')->toArray();
             $purchaseReturnItemOldIds = [];
+            $incomingProductIds = collect($input['purchase_return_items'])->pluck('product_id')->filter()->unique()->values()->toArray();
+            $stockByProduct = ManageStock::whereWarehouseId($input['warehouse_id'])
+                ->whereIn('product_id', $incomingProductIds)
+                ->get()
+                ->keyBy('product_id');
+            $purchasedProductIds = PurchaseItem::whereIn('product_id', $incomingProductIds)
+                ->whereHas('purchase', function (Builder $q) use ($input) {
+                    $q->where('supplier_id', $input['supplier_id'])
+                        ->where('warehouse_id', $input['warehouse_id']);
+                })
+                ->pluck('product_id')
+                ->unique()
+                ->toArray();
+            $purchasedProductLookup = array_flip($purchasedProductIds);
             foreach ($input['purchase_return_items'] as $key => $purchaseReturnItem) {
                 //get different ids & update
                 $purchaseReturnItemOldIds[$key] = $purchaseReturnItem['purchase_return_item_id'];
@@ -237,19 +282,16 @@ class PurchaseReturnRepository extends BaseRepository
                         'sub_total',
                     ]);
                     $purchaseReturn->purchaseReturnItems()->create($purchaseReturnItemArr);
-                    $product = ManageStock::whereWarehouseId($input['warehouse_id'])->whereProductId($purchaseReturnItem['product_id'])->first();
-                    $purchaseExist = PurchaseItem::where('product_id',
-                        $purchaseReturnItem['product_id'])->whereHas('purchase',
-                            function (Builder $q) use ($input) {
-                                $q->where('supplier_id', $input['supplier_id'])->where('warehouse_id',
-                                    $input['warehouse_id']);
-                            })->exists();
+                    $productId = (int) ($purchaseReturnItem['product_id'] ?? 0);
+                    $product = $stockByProduct->get($productId);
+                    $purchaseExist = isset($purchasedProductLookup[$productId]);
                     if ($purchaseExist) {
                         if ($product) {
                             if ($product->quantity >= $purchaseReturnItem['quantity']) {
                                 $product->update([
                                     'quantity' => $product->quantity - $purchaseReturnItem['quantity'],
                                 ]);
+                                $stockByProduct->put($productId, $product);
                             } else {
                                 throw new UnprocessableEntityHttpException('Quantity must be less than Available quantity.');
                             }
@@ -371,5 +413,49 @@ class PurchaseReturnRepository extends BaseRepository
         $purchaseReturn->update($purchaseReturnInputArray);
 
         return $purchaseReturn;
+    }
+
+    /**
+     * Validate returned quantity per product against original purchase quantity.
+     * Max return qty = purchased qty for the selected purchase.
+     */
+    protected function validatePurchaseReturnQuantities(
+        int $purchaseId,
+        array $purchaseReturnItems,
+        ?int $excludePurchaseReturnId = null
+    ): void {
+        $purchase = Purchase::find($purchaseId);
+        if (!$purchase) {
+            throw new UnprocessableEntityHttpException('The selected purchase does not exist.');
+        }
+
+        $purchaseQtyByProduct = PurchaseItem::where('purchase_id', $purchaseId)
+            ->select('product_id', DB::raw('SUM(quantity) as total_qty'))
+            ->groupBy('product_id')
+            ->pluck('total_qty', 'product_id')
+            ->map(fn ($qty) => (float) $qty)
+            ->toArray();
+
+        $requestedQtyByProduct = [];
+        foreach ($purchaseReturnItems as $item) {
+            $productId = (int) ($item['product_id'] ?? 0);
+            $quantity = (float) ($item['quantity'] ?? 0);
+            if ($productId <= 0) {
+                continue;
+            }
+            $requestedQtyByProduct[$productId] = ($requestedQtyByProduct[$productId] ?? 0) + $quantity;
+        }
+
+        foreach ($requestedQtyByProduct as $productId => $requestedQty) {
+            $purchasedQty = (float) ($purchaseQtyByProduct[$productId] ?? 0);
+            $maxAllowed = max(0, $purchasedQty);
+
+            if ($requestedQty > $maxAllowed) {
+                $productName = Product::whereKey($productId)->value('name') ?: 'product';
+                throw new UnprocessableEntityHttpException(
+                    "Return quantity for {$productName} exceeds available amount. Max allowed: {$maxAllowed}."
+                );
+            }
+        }
     }
 }

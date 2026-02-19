@@ -75,10 +75,13 @@ const Product = (props) => {
         purchasePdfAction(id);
     };
 
-    const itemsValue =
-        currencySymbol &&
-        purchases.length >= 0 &&
-        purchases.map((purchase) => {
+    const goToCreatePurchaseReturn = (item) => {
+        const id = item.id;
+        window.location.href = "#/app/purchase-return/create/" + id;
+    };
+
+    const itemsValue = currencySymbol
+        ? (purchases || []).map((purchase) => {
             const supplier = suppliers.filter(
                 (supplier) => supplier.id === purchase.attributes.supplier_id
             );
@@ -100,7 +103,8 @@ const Product = (props) => {
                 currency: currencySymbol,
                 id: purchase.id,
             };
-        });
+        })
+        : [];
 
     useEffect(() => {
         const grandTotalSum = () => {
@@ -121,7 +125,7 @@ const Product = (props) => {
                 });
             return x;
         };
-        if (purchases.length) {
+        if ((purchases || []).length) {
             const newObject = itemsValue.length && {
                 date: "",
                 time: "",
@@ -147,7 +151,7 @@ const Product = (props) => {
     }, [purchases]);
 
     useEffect(() => {
-        if (purchases.length === 0) {
+        if ((purchases || []).length === 0) {
             setTableArray([]);
         }
     }, [purchases]);
@@ -315,7 +319,9 @@ const Product = (props) => {
                         isViewIcon={true}
                         onPdfClick={onPdfClick}
                         goToDetailScreen={goToDetailScreen}
-                        onShowPaymentClick={onShowPaymentClick}
+                                onShowPaymentClick={onShowPaymentClick}
+                                isCreatePurchaseReturn={true}
+                                onCreatePurchaseReturnClick={goToCreatePurchaseReturn}
                         // isPaymentShow={true}
                         title={getFormattedMessage("purchase.title")}
                     />
@@ -356,7 +362,6 @@ const Product = (props) => {
 
 const mapStateToProps = (state) => {
     const {
-        purchases,
         totalRecord,
         isLoading,
         warehouses,
@@ -366,7 +371,7 @@ const mapStateToProps = (state) => {
         allConfigData,
     } = state;
     return {
-        purchases,
+        purchases: (state.purchase && state.purchase.purchases) || [],
         totalRecord,
         isLoading,
         warehouses,

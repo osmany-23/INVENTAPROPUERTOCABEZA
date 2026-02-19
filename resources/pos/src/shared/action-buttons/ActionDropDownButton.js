@@ -84,6 +84,16 @@ const ActionDropDownButton = (props) => {
                         {/*{getFormattedMessage('globally.show.payment.label')}*/}
                     </Dropdown.Item> : null
                 }
+                {config && config.includes(Permissions.MANAGE_PURCHASE_RETURN) && props.isCreatePurchaseReturn ?
+                    <Dropdown.Item onClick={(e) => {
+                        e.stopPropagation();
+                        props.onCreatePurchaseReturnClick(item);
+                    }} eventKey='7' className='py-3 px-4 d-flex align-items-center fs-6'>
+                        <FontAwesomeIcon icon={faCartShopping}
+                                         className='me-2'/>
+                        {item.is_return === 1 ? getFormattedMessage("purchase.return.edit.title") : getFormattedMessage("purchase.return.create.title")}
+                    </Dropdown.Item> : null
+                }
                 {goToEditProduct && !item.is_sale_created && item.is_return !== 1 &&
                 <Dropdown.Item onClick={(e) => {
                     e.stopPropagation();

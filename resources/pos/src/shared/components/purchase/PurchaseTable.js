@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { InputGroup } from "react-bootstrap-v5";
-import { connect } from "react-redux";
+import { connect, useDispatch } from "react-redux";
 import ProductModal from "./ProductModal";
 import Form from "react-bootstrap/Form";
 import {
@@ -10,9 +10,11 @@ import {
     amountBeforeTax,
 } from "../../calculation/calculation";
 import { productUnitDropdown } from "../../../store/action/productUnitAction";
-import { currencySymbolHandling, decimalValidate } from "../../sharedMethod";
+import { currencySymbolHandling, decimalValidate, getFormattedMessage } from "../../sharedMethod";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPencil, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { addToast } from "../../../store/action/toastAction";
+import { toastType } from "../../../constants";
 
 const PurchaseTable = (props) => {
     const {
@@ -29,15 +31,43 @@ const PurchaseTable = (props) => {
         productUnits,
         updatePurchaseUnit,
         allConfigData,
+        allowQuickPriceUpdate = false,
     } = props;
+    const dispatch = useDispatch();
     const [updateData, setUpdateData] = useState([]);
     const [isOpen, setIsOpen] = useState(false);
     const [modalId, setModalId] = useState(null);
 
     useEffect(() => {
-        singleProduct.newItem !== "" &&
+        if (singleProduct.newItem !== "") {
             productUnitDropdown(singleProduct.product_unit);
-    }, [updateData, singleProduct.purchase_unit]);
+        }
+    }, [updateData, singleProduct.purchase_unit, singleProduct.newItem, singleProduct.product_unit, productUnitDropdown]);
+
+    const maxQty = Number(singleProduct.max_return_quantity);
+    const hasMaxLimit = Number.isFinite(maxQty) && maxQty > 0;
+    const qtyMessage = getFormattedMessage("globally.product-quantity.validate.message");
+    const qtyMessageText =
+        typeof qtyMessage === "string" ? qtyMessage : "No se puede devolver mas de lo comprado";
+
+    const clampQty = (qty) => {
+        if (!hasMaxLimit) {
+            return Math.max(0, qty);
+        }
+        return Math.max(0, Math.min(qty, maxQty));
+    };
+
+    const notifyQtyLimit = () => {
+        if (!hasMaxLimit) {
+            return;
+        }
+        dispatch(
+            addToast({
+                text: `${qtyMessageText} (max ${maxQty})`,
+                type: toastType.ERROR,
+            })
+        );
+    };
 
     const onDeleteCartItem = (id) => {
         const newProduct = updateProducts.filter((item) => item.id !== id);
@@ -54,51 +84,53 @@ const PurchaseTable = (props) => {
 
     const onProductUpdateInCart = (item) => {
         setUpdateData(item);
+        setUpdateProducts((prev) =>
+            prev.map((row) => (row.id === item.id ? { ...item } : row))
+        );
     };
 
     const handleIncrement = () => {
-        setUpdateProducts((updateProducts) =>
-            updateProducts.map((item) =>
+        const nextQty = Number(singleProduct.quantity || 0) + 1;
+        const normalized = clampQty(nextQty);
+        if (hasMaxLimit && nextQty > maxQty) {
+            notifyQtyLimit();
+        }
+        setUpdateProducts((prev) =>
+            prev.map((item) =>
                 item.id === singleProduct.id
-                    ? { ...item, quantity: item.quantity++ + 1 }
+                    ? { ...item, quantity: normalized }
                     : item
             )
         );
     };
 
     const handleDecrement = () => {
-        if (singleProduct.quantity - 1 > 0.0) {
-            setUpdateProducts((updateProducts) =>
-                updateProducts.map((item) =>
-                    item.id === singleProduct.id
-                        ? {
-                              ...item,
-                              quantity:
-                                  item.quantity > 0.0 && item.quantity-- - 1,
-                          }
-                        : item
-                )
-            );
-        }
+        setUpdateProducts((prev) =>
+            prev.map((item) =>
+                item.id === singleProduct.id
+                    ? { ...item, quantity: Math.max(0, Number(item.quantity || 0) - 1) }
+                    : item
+            )
+        );
     };
 
     const handleChange = (e) => {
         e.preventDefault();
         const { value } = e.target;
-        // check if value includes a decimal point
         if (value.match(/\./g)) {
             const [, decimal] = value.split(".");
-            // restrict value to only 2 decimal places
             if (decimal?.length > 2) {
-                // do nothing
                 return;
             }
         }
-        setUpdateProducts((updateProducts) =>
-            updateProducts.map((item) =>
-                item.id === singleProduct.id
-                    ? { ...item, quantity: Number(value) }
-                    : item
+        const nextQty = Number(value || 0);
+        const normalized = clampQty(nextQty);
+        if (hasMaxLimit && nextQty > maxQty) {
+            notifyQtyLimit();
+        }
+        setUpdateProducts((prev) =>
+            prev.map((item) =>
+                item.id === singleProduct.id ? { ...item, quantity: normalized } : item
             )
         );
     };
@@ -107,10 +139,9 @@ const PurchaseTable = (props) => {
         <>
             <tr key={index} className="align-middle text-nowrap">
                 <td className="ps-3">
-                    <h4 className="product-name">{singleProduct.code}</h4>
                     <div className="d-flex align-items-center">
                         <span className="badge bg-light-success">
-                            <span>{singleProduct.name}</span>
+                            <span>{singleProduct.code}</span>
                         </span>
                         <span className="badge bg-light-primary p-1 ms-1">
                             <FontAwesomeIcon
@@ -120,28 +151,26 @@ const PurchaseTable = (props) => {
                             />
                         </span>
                     </div>
+                    <div className="mt-2">{singleProduct.name}</div>
                 </td>
                 <td>
                     {currencySymbolHandling(
                         allConfigData,
-                        frontSetting.value &&
-                            frontSetting.value.currency_symbol,
+                        frontSetting.value && frontSetting.value.currency_symbol,
                         amountBeforeTax(singleProduct)
                     )}
                 </td>
                 <td>
                     {singleProduct.isEdit ? (
                         singleProduct.stocks.length >= 1 &&
-                        singleProduct.stocks.map((item) => {
-                            return (
-                                <span className="badge bg-light-warning">
-                                    <span>
-                                        {item.quantity}&nbsp;
-                                        {singleProduct.short_name}
-                                    </span>
+                        singleProduct.stocks.map((item) => (
+                            <span className="badge bg-light-warning" key={`${singleProduct.id}-${item.id ?? item.warehouse_id}`}>
+                                <span>
+                                    {item.quantity}&nbsp;
+                                    {singleProduct.short_name}
                                 </span>
-                            );
-                        })
+                            </span>
+                        ))
                     ) : singleProduct.stock > 0 ? (
                         <span className="badge bg-light-warning">
                             <span>
@@ -172,11 +201,12 @@ const PurchaseTable = (props) => {
                                 type="number"
                                 step={0.01}
                                 min={0.0}
+                                max={hasMaxLimit ? maxQty : undefined}
                                 onChange={(e) => handleChange(e)}
                             />
                             <InputGroup.Text
-                                className="btn btn-primary btn-sm px-4 px-4 pt-2"
-                                onClick={(e) => handleIncrement(e)}
+                                className="btn btn-primary btn-sm px-4 pt-2"
+                                onClick={() => handleIncrement()}
                             >
                                 +
                             </InputGroup.Text>
@@ -186,24 +216,21 @@ const PurchaseTable = (props) => {
                 <td>
                     {currencySymbolHandling(
                         allConfigData,
-                        frontSetting.value &&
-                            frontSetting.value.currency_symbol,
+                        frontSetting.value && frontSetting.value.currency_symbol,
                         discountAmountMultiply(singleProduct)
                     )}
                 </td>
                 <td>
                     {currencySymbolHandling(
                         allConfigData,
-                        frontSetting.value &&
-                            frontSetting.value.currency_symbol,
+                        frontSetting.value && frontSetting.value.currency_symbol,
                         taxAmountMultiply(singleProduct)
                     )}
                 </td>
                 <td>
                     {currencySymbolHandling(
                         allConfigData,
-                        frontSetting.value &&
-                            frontSetting.value.currency_symbol,
+                        frontSetting.value && frontSetting.value.currency_symbol,
                         subTotalCount(singleProduct)
                     )}
                 </td>
@@ -234,6 +261,7 @@ const PurchaseTable = (props) => {
                 updateCost={updateCost}
                 updateDiscount={updateDiscount}
                 updateTax={updateTax}
+                allowQuickPriceUpdate={allowQuickPriceUpdate}
             />
         </>
     );

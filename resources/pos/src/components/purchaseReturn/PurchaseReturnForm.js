@@ -20,7 +20,7 @@ import ReactSelect from '../../shared/select/reactSelect';
 
 const PurchaseReturnForm = ( props ) => {
     const { addPurchaseReturnData, id, editPurchaseReturn, customProducts, singlePurchase, warehouses, suppliers,
-        fetchProductsByWarehouse, products, frontSetting, allConfigData
+        fetchProductsByWarehouse, products, frontSetting, allConfigData, isEditMode = false
     } = props;
     const navigate = useNavigate();
     const dispatch = useDispatch();
@@ -33,13 +33,14 @@ const PurchaseReturnForm = ( props ) => {
     const [ quantity, setQuantity ] = useState( 0 );
 
     const [ purchaseValue, setPurchaseValue ] = useState( {
+        purchase_id: singlePurchase ? singlePurchase.purchase_id : null,
         date: singlePurchase ? moment( singlePurchase.date ).toDate() : new Date(),
         warehouse_id: singlePurchase ? singlePurchase.warehouse_id : '',
         supplier_id: singlePurchase ? singlePurchase.supplier_id : '',
-        tax_rate: singlePurchase ? singlePurchase.orderTax.toFixed( 2 ) : "0.00",
+        tax_rate: singlePurchase ? Number( singlePurchase.orderTax || 0 ).toFixed( 2 ) : "0.00",
         tax_amount: singlePurchase ? singlePurchase.tax_amount : '0.00',
-        discount: singlePurchase ? singlePurchase.discount.toFixed( 2 ) : "0.00",
-        shipping: singlePurchase ? singlePurchase.shipping.toFixed( 2 ) : "0.00",
+        discount: singlePurchase ? Number( singlePurchase.discount || 0 ).toFixed( 2 ) : "0.00",
+        shipping: singlePurchase ? Number( singlePurchase.shipping || 0 ).toFixed( 2 ) : "0.00",
         grand_total: singlePurchase ? singlePurchase.grand_total : '0.00',
         notes: singlePurchase ? singlePurchase.notes : '',
         status_id: singlePurchase ? singlePurchase.status_id : { label: getFormattedMessage( "status.filter.received.label" ), value: 1 },
@@ -66,9 +67,22 @@ const PurchaseReturnForm = ( props ) => {
 
     useEffect( () => {
         if ( singlePurchase ) {
-            setUpdateProducts( singlePurchase.purchase_return_items );
+            setPurchaseValue( {
+                purchase_id: singlePurchase.purchase_id || null,
+                date: singlePurchase.date ? moment( singlePurchase.date ).toDate() : new Date(),
+                warehouse_id: singlePurchase.warehouse_id || '',
+                supplier_id: singlePurchase.supplier_id || '',
+                tax_rate: Number( singlePurchase.orderTax || 0 ).toFixed( 2 ),
+                tax_amount: singlePurchase.tax_amount || '0.00',
+                discount: Number( singlePurchase.discount || 0 ).toFixed( 2 ),
+                shipping: Number( singlePurchase.shipping || 0 ).toFixed( 2 ),
+                grand_total: singlePurchase.grand_total || '0.00',
+                notes: singlePurchase.notes || '',
+                status_id: singlePurchase.status_id || { label: getFormattedMessage( "status.filter.received.label" ), value: 1 },
+            } );
+            setUpdateProducts( singlePurchase.purchase_return_items || [] );
         }
-    }, [] );
+    }, [ singlePurchase ] );
 
     useEffect( () => {
         purchaseValue.warehouse_id.value ? fetchProductsByWarehouse( purchaseValue?.warehouse_id?.value ) : null
@@ -78,15 +92,28 @@ const PurchaseReturnForm = ( props ) => {
         let errorss = {};
         let isValid = false;
         const qtyCart = updateProducts.filter( ( a ) => a.quantity === 0 );
+        const overReturnItems = updateProducts.filter((item) => {
+            const maxReturn = Number(item.max_return_quantity ?? item.purchased_quantity ?? 0);
+            return Number(item.quantity || 0) > maxReturn;
+        });
+        const qtyMessage = getFormattedMessage( 'globally.product-quantity.validate.message' );
+        const qtyMessageText = typeof qtyMessage === 'string' ? qtyMessage : 'No se puede devolver mas de lo comprado';
         if ( !purchaseValue.date ) {
-            error[ 'date' ] = getFormattedMessage( 'globally.date.validate.label' );
+            errorss[ 'date' ] = getFormattedMessage( 'globally.date.validate.label' );
         } else if ( !purchaseValue.warehouse_id ) {
             errorss[ 'warehouse_id' ] = getFormattedMessage( 'purchase.select.warehouse.validate.label' )
         } else if ( !purchaseValue.supplier_id ) {
             errorss[ 'supplier_id' ] = getFormattedMessage( 'purchase.select.supplier.validate.label' )
+        } else if (overReturnItems.length > 0) {
+            const firstItem = overReturnItems[0];
+            const maxReturn = Number(firstItem.max_return_quantity ?? firstItem.purchased_quantity ?? 0);
+            dispatch( addToast( {
+                text: `${qtyMessageText} (${firstItem.name}: max ${maxReturn})`,
+                type: toastType.ERROR
+            } ) )
         } else if ( qtyCart.length > 0 ) {
             dispatch( addToast( {
-                text: getFormattedMessage( 'globally.product-quantity.validate.message' ),
+                text: qtyMessageText,
                 type: toastType.ERROR
             } ) )
         } else if ( updateProducts.length < 1 ) {
@@ -177,16 +204,26 @@ const PurchaseReturnForm = ( props ) => {
     } )
 
     const prepareData = ( prepareData ) => {
+        const normalizedItems = updateProducts.map((item) => {
+            const maxReturn = Number(item.max_return_quantity ?? item.purchased_quantity ?? item.quantity ?? 0);
+            const normalizedQty = Math.min(Number(item.quantity || 0), maxReturn);
+            return {
+                ...item,
+                quantity: normalizedQty,
+            };
+        });
+
         const formValue = {
+            purchase_id: prepareData.purchase_id || null,
             date: moment( prepareData.date ).toDate(),
             warehouse_id: prepareData.warehouse_id.value ? prepareData.warehouse_id.value : prepareData.warehouse_id,
             supplier_id: prepareData.supplier_id.value ? prepareData.supplier_id.value : prepareData.supplier_id,
             discount: prepareData.discount,
             tax_rate: prepareData.tax_rate,
-            tax_amount: calculateCartTotalTaxAmount( updateProducts, purchaseValue ),
-            purchase_return_items: updateProducts,
+            tax_amount: calculateCartTotalTaxAmount( normalizedItems, purchaseValue ),
+            purchase_return_items: normalizedItems,
             shipping: prepareData.shipping,
-            grand_total: calculateCartTotalAmount( updateProducts, purchaseValue ),
+            grand_total: calculateCartTotalAmount( normalizedItems, purchaseValue ),
             received_amount: '',
             paid_amount: '',
             payment_type: 0,
@@ -202,7 +239,7 @@ const PurchaseReturnForm = ( props ) => {
         event.preventDefault();
         const valid = handleValidation();
         if ( valid ) {
-            if ( singlePurchase ) {
+            if ( isEditMode && id ) {
                 editPurchaseReturn( id, prepareData( purchaseValue ), navigate );
             } else {
                 addPurchaseReturnData( prepareData( purchaseValue ) );
@@ -281,13 +318,16 @@ const PurchaseReturnForm = ( props ) => {
                             </thead>
                             <tbody>
                                 {updateProducts && updateProducts.map( ( singleProduct, index ) => {
-                                    return <PurchaseReturnTable singleProduct={singleProduct} index={index}
+                                    return <PurchaseReturnTable
+                                        key={singleProduct.id || `${singleProduct.product_id}-${index}`}
+                                        singleProduct={singleProduct} index={index}
                                         updateQty={updatedQty} updateProducts={updateProducts}
                                         updateCost={updateCost} updateDiscount={updateDiscount}
                                         updateSubTotal={updateSubTotal}
                                         frontSetting={frontSetting} updateTax={updateTax}
                                         setUpdateProducts={setUpdateProducts}
                                         updatePurchaseUnit={updatePurchaseUnit}
+                                        allowQuickPriceUpdate={false}
                                         purchaseItem={singlePurchase && singlePurchase.purchase_return_items}
                                     />
                                 } )}
@@ -370,7 +410,7 @@ const PurchaseReturnForm = ( props ) => {
                         />
                         <span className='text-danger d-block fw-400 fs-small mt-2'>{errors[ 'notes' ] ? errors[ 'notes' ] : null}</span>
                     </div>
-                    <ModelFooter onEditRecord={singlePurchase} onSubmit={onSubmit} link='/app/purchase-return' />
+                    <ModelFooter onEditRecord={isEditMode} onSubmit={onSubmit} link='/app/purchase-return' />
                 </div>
                 {/*</Form>*/}
             </div>

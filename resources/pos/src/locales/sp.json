@@ -238,6 +238,7 @@
     "product.success.create.message": "Producto creado con \u00e9xito",
     "product.success.edit.message": "Producto actualizado con \u00e9xito",
     "product.success.delete.message": "Producto eliminado con \u00e9xito",
+    "product.update.success": "Producto actualizado con \u00e9xito",
     "product.image.success.upload.message": "Imagen cargada con \u00e9xito",
     "product.image.success.delete.message": "Imagen eliminada con \u00e9xito",
     "brands.title": "Marcas",

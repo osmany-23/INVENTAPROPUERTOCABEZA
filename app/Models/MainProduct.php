@@ -12,6 +12,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 class MainProduct extends Model implements HasMedia, JsonResourceful
 {
     use HasFactory, HasJsonResourcefulData, InteractsWithMedia;
+    protected static array $baseUnitCache = [];
 
     protected $fillable = [
         'name',
@@ -57,7 +58,7 @@ class MainProduct extends Model implements HasMedia, JsonResourceful
 
     public function prepareAttributes(): array
     {
-        $this->load('products');
+        $this->loadMissing('products');
         $prices = collect($this->products)->pluck('product_price')->toArray();
         $prices = !empty($prices) ? $prices : [0];
 
@@ -126,9 +127,15 @@ class MainProduct extends Model implements HasMedia, JsonResourceful
      */
     public function getProductUnitName()
     {
+        if (isset(self::$baseUnitCache[$this->product_unit])) {
+            return self::$baseUnitCache[$this->product_unit];
+        }
+
         $productUnit = BaseUnit::whereId($this->product_unit)->first();
         if ($productUnit) {
-            return $productUnit->toArray();
+            self::$baseUnitCache[$this->product_unit] = $productUnit->toArray();
+
+            return self::$baseUnitCache[$this->product_unit];
         }
 
         return '';

@@ -87,6 +87,8 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 class Product extends BaseModel implements HasMedia, JsonResourceful
 {
     use HasFactory, InteractsWithMedia, HasJsonResourcefulData;
+    protected static array $baseUnitCache = [];
+    protected static array $unitCache = [];
 
     protected $table = 'products';
 
@@ -200,7 +202,32 @@ class Product extends BaseModel implements HasMedia, JsonResourceful
 
     public function prepareAttributes(): array
     {
-        $this->load('variationProduct', 'mainProduct');
+        $this->loadMissing([
+            'variationProduct.variation',
+            'variationProduct.variationType',
+            'mainProduct',
+            'productCategory',
+            'brand',
+            'stock',
+        ]);
+
+        $warehouseData = $this->relationLoaded('stocks')
+            ? $this->stocks
+                ->filter(fn ($stock) => !empty($stock->warehouse))
+                ->map(fn ($stock) => [
+                    'total_quantity' => $stock->quantity,
+                    'name' => $stock->warehouse->name,
+                ])->values()
+            : $this->warehouse($this->id);
+
+        $inStockValue = null;
+        if ($this->relationLoaded('stock') && $this->stock) {
+            $inStockValue = (float) $this->stock->quantity;
+        } elseif ($this->relationLoaded('stocks')) {
+            $inStockValue = (float) $this->stocks->sum('quantity');
+        } else {
+            $inStockValue = $this->inStock($this->id);
+        }
 
         $fields = [
             'name' => $this->name,
@@ -219,9 +246,9 @@ class Product extends BaseModel implements HasMedia, JsonResourceful
             'order_tax' => $this->order_tax,
             'tax_type' => $this->tax_type,
             'notes' => $this->notes,
-            'images' => $this->mainProduct->image_url,
-            'product_category_name' => $this->productCategory->name,
-            'brand_name' => $this->brand->name,
+            'images' => optional($this->mainProduct)->image_url,
+            'product_category_name' => optional($this->productCategory)->name,
+            'brand_name' => optional($this->brand)->name,
             'barcode_image_url' => $this->barcode_image_url,
             'barcode_symbol' => $this->barcode_symbol,
             'created_at' => $this->created_at,
@@ -229,9 +256,9 @@ class Product extends BaseModel implements HasMedia, JsonResourceful
             'purchase_unit_name' => $this->getPurchaseUnitName(),
             'sale_unit_name' => $this->getSaleUnitName(),
             'stock' => $this->stock,
-            'warehouse' => $this->warehouse($this->id) ?? '',
+            'warehouse' => $warehouseData ?? '',
             'barcode_url' => Storage::url('product_barcode/barcode-PR_' . $this->id . '.png'),
-            'in_stock' => $this->inStock($this->id),
+            'in_stock' => $inStockValue,
         ];
 
         if ($this->variationProduct) {
@@ -258,9 +285,15 @@ class Product extends BaseModel implements HasMedia, JsonResourceful
      */
     public function getProductUnitName()
     {
+        if (isset(self::$baseUnitCache[$this->product_unit])) {
+            return self::$baseUnitCache[$this->product_unit];
+        }
+
         $productUnit = BaseUnit::whereId($this->product_unit)->first();
         if ($productUnit) {
-            return $productUnit->toArray();
+            self::$baseUnitCache[$this->product_unit] = $productUnit->toArray();
+
+            return self::$baseUnitCache[$this->product_unit];
         }
 
         return '';
@@ -271,9 +304,15 @@ class Product extends BaseModel implements HasMedia, JsonResourceful
      */
     public function getPurchaseUnitName()
     {
+        if (isset(self::$unitCache[$this->purchase_unit])) {
+            return self::$unitCache[$this->purchase_unit];
+        }
+
         $purchaseUnit = Unit::whereId($this->purchase_unit)->first();
         if ($purchaseUnit) {
-            return $purchaseUnit->toArray();
+            self::$unitCache[$this->purchase_unit] = $purchaseUnit->toArray();
+
+            return self::$unitCache[$this->purchase_unit];
         }
 
         return '';
@@ -284,9 +323,15 @@ class Product extends BaseModel implements HasMedia, JsonResourceful
      */
     public function getSaleUnitName()
     {
+        if (isset(self::$unitCache[$this->sale_unit])) {
+            return self::$unitCache[$this->sale_unit];
+        }
+
         $saleUnit = Unit::whereId($this->sale_unit)->first();
         if ($saleUnit) {
-            return $saleUnit->toArray();
+            self::$unitCache[$this->sale_unit] = $saleUnit->toArray();
+
+            return self::$unitCache[$this->sale_unit];
         }
 
         return '';

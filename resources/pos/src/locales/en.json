@@ -259,6 +259,7 @@
     "product.success.create.message": "Product created successfully",
     "product.success.edit.message": "Product updated successfully",
     "product.success.delete.message": "Product deleted successfully",
+    "product.update.success": "Product updated successfully",
     "product.image.success.upload.message": "Image uploaded successfully",
     "product.image.success.delete.message": "Image deleted successfully",
     "brands.title": "Brands",

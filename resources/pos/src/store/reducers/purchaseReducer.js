@@ -1,17 +1,46 @@
-import {purchaseActionType} from '../../constants';
+import { purchaseActionType } from '../../constants';
 
-export default (state = {}, action) => {
+const initialState = {
+    purchases: [],
+    purchase: null,
+};
+
+export default (state = initialState, action) => {
     switch (action.type) {
         case purchaseActionType.FETCH_PURCHASES:
-            return action.payload;
+            return {
+                ...state,
+                purchases: action.payload,
+            };
+
         case purchaseActionType.FETCH_PURCHASE:
-            return action.payload;
+            return {
+                ...state,
+                purchase: action.payload,
+            };
+
         case purchaseActionType.ADD_PURCHASE:
-            return action.payload;
+            return {
+                ...state,
+                purchases: [...state.purchases, action.payload],
+            };
+
         case purchaseActionType.EDIT_PURCHASE:
-            return state.map(item => item.id === +action.payload.id ? action.payload : item);
+            return {
+                ...state,
+                purchases: state.purchases.map((item) =>
+                    item.id === +action.payload.id ? action.payload : item
+                ),
+            };
+
         case purchaseActionType.DELETE_PURCHASE:
-            return state.filter(item => item.id !== action.payload);
+            return {
+                ...state,
+                purchases: state.purchases.filter(
+                    (item) => item.id !== action.payload
+                ),
+            };
+
         default:
             return state;
     }

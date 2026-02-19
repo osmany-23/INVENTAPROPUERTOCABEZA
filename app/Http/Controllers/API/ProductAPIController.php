@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Exports\ProductExcelExport;
 use App\Http\Controllers\AppBaseController;
 use App\Http\Requests\CreateProductRequest;
+use App\Http\Requests\QuickUpdateProductPriceRequest;
 use App\Http\Requests\UpdateProductRequest;
 use App\Http\Resources\ProductCollection;
 use App\Http\Resources\ProductResource;
@@ -130,6 +131,14 @@ class ProductAPIController extends AppBaseController
         $product = $this->productRepository->updateProduct($input, $id);
 
         return new ProductResource($product);
+    }
+
+    public function quickUpdatePrice(QuickUpdateProductPriceRequest $request, Product $product): ProductResource
+    {
+        $payload = $request->only(['product_cost', 'product_price', 'tax_type', 'order_tax']);
+        $product->update($payload);
+
+        return new ProductResource($product->fresh());
     }
 
     public function destroy($id): JsonResponse

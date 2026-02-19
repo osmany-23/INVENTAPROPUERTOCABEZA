@@ -64,23 +64,31 @@ export const fetchPurchase =
             dispatch(setLoading(true));
         }
         apiConfig
-            .get(
-                apiBaseURL.PURCHASES + "/" + purchaseId + "/edit",
-                singlePurchase
-            )
+            .get(apiBaseURL.PURCHASE_DETAILS + "/" + purchaseId)
             .then((response) => {
+                const payload =
+                    response?.data?.data ??
+                    response?.data ??
+                    null;
                 dispatch({
                     type: purchaseActionType.FETCH_PURCHASE,
-                    payload: response.data.data,
+                    payload,
                 });
                 if (isLoading) {
                     dispatch(setLoading(false));
                 }
             })
             .catch(({ response }) => {
+                dispatch({
+                    type: purchaseActionType.FETCH_PURCHASE,
+                    payload: null,
+                });
+                if (isLoading) {
+                    dispatch(setLoading(false));
+                }
                 dispatch(
                     addToast({
-                        text: response.data.message,
+                        text: response?.data?.message || "Failed to load purchase details.",
                         type: toastType.ERROR,
                     })
                 );

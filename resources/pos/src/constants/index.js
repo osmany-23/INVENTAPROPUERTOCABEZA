@@ -21,6 +21,7 @@ export const apiBaseURL = {
     EXPENSES: "/expenses",
     MAIN_PRODUCTS: "/main-products",
     PRODUCTS: "/products",
+    PRODUCT_QUICK_PRICE_UPDATE: "products",
     IMPORT_PRODUCT: "/import-products", 
     IMPORT_SUPPLIER: "/import-suppliers", 
     IMPORT_CUSTOMERS: "/import-customers", 

@@ -43,6 +43,7 @@ const EditPurchaseReturn = ( props ) => {
     } )
 
     const itemsValue = purchaseReturn && purchaseReturn.attributes && {
+        purchase_id: purchaseReturn.attributes.purchase_id || null,
         date: purchaseReturn.attributes.date,
         warehouse_id: {
             value: purchaseReturn.attributes.warehouse_id,
@@ -70,7 +71,7 @@ const EditPurchaseReturn = ( props ) => {
             <HeaderTitle title={getFormattedMessage( 'purchase.return.edit.title' )} to='/app/purchase-return' />
             {purchaseReturn && supplierName && warehouseName &&
                 <PurchaseReturnForm singlePurchase={itemsValue} id={id} warehouses={warehouses}
-                    suppliers={suppliers} />}
+                    suppliers={suppliers} isEditMode={true} />}
         </MasterLayout>
     )
 };
@@ -81,4 +82,3 @@ const mapStateToProps = ( state ) => {
 };
 
 export default connect( mapStateToProps, { fetchPurchaseReturn, fetchAllSuppliers, fetchAllWarehouses } )( EditPurchaseReturn );
-

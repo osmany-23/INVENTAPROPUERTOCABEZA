@@ -117,6 +117,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // products route
 
     Route::resource('products', ProductAPIController::class);
+    Route::post('products/{product}/quick-price-update', [ProductAPIController::class, 'quickUpdatePrice']);
     Route::resource('main-products', MainProductAPIController::class);
     Route::post(
         'products/{product}',

@@ -38,53 +38,12 @@ const ProductDetail = (props) => {
     const [deleteModel, setDeleteModel] = useState(false);
     const [isDelete, setIsDelete] = useState(null);
 
-    const [supplierName, setSupplierName] = useState("Cargando...");
    const sliderImage =
         product &&
         product.attributes &&
         product.attributes.images.imageUrls &&
         product.attributes.images.imageUrls.map((img) => img);
     const allProducts = product && product.attributes && product.attributes.products && product.attributes.products.map((item) => item);
-
-        useEffect(() => {
-            const fetchSupplierName = async () => {
-                try {
-                    const productId = allProducts?.[0]?.id;
-                    if (!productId) return;
-
-                    const resPurchases = await fetch("/api/purchases");
-                    const purchasesData = await resPurchases.json();
-
-                    const purchases = purchasesData?.data || purchasesData;
-
-                    const matchedPurchases = purchases
-                        .filter(p =>
-                            p.purchase_items?.some(item => item.product_id === productId)
-                        )
-                        .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-                    if (!matchedPurchases.length) {
-                        setSupplierName("No encontrado");
-                        return;
-                    }
-
-                    const supplierId = matchedPurchases[0].supplier_id;
-                    const resSupplier = await fetch(`/api/suppliers/${supplierId}`);
-                    if (!resSupplier.ok) throw new Error("Proveedor no encontrado");
-
-                    const supplierData = await resSupplier.json();
-                    const supplier = supplierData?.data || supplierData;
-                    setSupplierName(supplier.name || "Sin nombre");
-                } catch (err) {
-                    console.error("Error cargando proveedor:", err);
-                    setSupplierName("Error al cargar");
-                }
-            };
-
-            if (allProducts && allProducts.length > 0) {
-                fetchSupplierName();
-            }
-        }, [allProducts]);
 
     useEffect(() => {
         fetchMainProduct(id);

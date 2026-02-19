@@ -87,7 +87,7 @@ const PurchaseForm = ( props ) => {
         let isValid = false;
         const qtyCart = updateProducts.filter( ( a ) => a.quantity === 0 );
         if ( !purchaseValue.date ) {
-            error[ 'date' ] = getFormattedMessage( 'globally.date.validate.label' );
+            errorss[ 'date' ] = getFormattedMessage( 'globally.date.validate.label' );
         } else if ( !purchaseValue.warehouse_id ) {
             errorss[ 'warehouse_id' ] = getFormattedMessage( 'purchase.select.warehouse.validate.label' )
         } else if ( !purchaseValue.supplier_id ) {
@@ -265,6 +265,7 @@ const PurchaseForm = ( props ) => {
                             {getFormattedMessage( 'dashboard.stockAlert.product.label' )}:
                         </label>
                         <ProductSearch values={purchaseValue} products={products} isAllProducts={true}
+                            incrementOnDuplicate={true}
                             handleValidation={handleValidation} updateProducts={updateProducts}
                             setUpdateProducts={setUpdateProducts} customProducts={customProducts} />
                     </div>
@@ -289,13 +290,14 @@ const PurchaseForm = ( props ) => {
                             </thead>
                             <tbody>
                                 {updateProducts && updateProducts.map( ( singleProduct, index ) => {
-                                    return <PurchaseTable singleProduct={singleProduct} index={index}
+                                    return <PurchaseTable key={singleProduct.id || `${singleProduct.product_id}-${index}`} singleProduct={singleProduct} index={index}
                                         updateQty={updatedQty}
                                         updateCost={updateCost} updateDiscount={updateDiscount}
                                         updateProducts={updateProducts}
                                         updateSubTotal={updateSubTotal} frontSetting={frontSetting}
                                         setUpdateProducts={setUpdateProducts} updateTax={updateTax}
                                         updatePurchaseUnit={updatePurchaseUnit}
+                                        allowQuickPriceUpdate={true}
                                         purchaseItem={singlePurchase && singlePurchase.purchase_items}
                                     />
                                 } )}

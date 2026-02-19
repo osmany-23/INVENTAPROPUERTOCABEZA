@@ -39,7 +39,41 @@ class MainProductAPIController extends AppBaseController
     $perPage = getPageSize($request);
 
     // Inicia consulta
-    $query = MainProduct::with('products');
+    $query = MainProduct::query()->with([
+        'products' => function ($q) {
+            $q->select([
+                'id',
+                'name',
+                'code',
+                'product_code',
+                'main_product_id',
+                'product_category_id',
+                'brand_id',
+                'product_cost',
+                'product_price',
+                'product_unit',
+                'sale_unit',
+                'purchase_unit',
+                'stock_alert',
+                'quantity_limit',
+                'order_tax',
+                'tax_type',
+                'notes',
+                'barcode_symbol',
+                'created_at',
+            ])->with([
+                'brand:id,name',
+                'productCategory:id,name',
+                'stock:id,product_id,warehouse_id,quantity',
+                'stocks:id,product_id,warehouse_id,quantity',
+                'stocks.warehouse:id,name',
+                'variationProduct:id,product_id,variation_id,variation_type_id,main_product_id',
+                'variationProduct.variation:id,name',
+                'variationProduct.variationType:id,name',
+                'mainProduct:id,name,code,product_unit,product_type',
+            ]);
+        },
+    ]);
 
     // Filtro de texto
     if ($request->has('filter') && isset($request->filter['search'])) {

@@ -82,7 +82,9 @@ class PurchaseAPIController extends AppBaseController
 
     public function show($id): PurchaseResource
     {
-        $purchase = $this->purchaseRepository->find($id);
+        $purchase = $this->purchaseRepository
+            ->with(['purchaseItems.product.stocks', 'supplier', 'warehouse'])
+            ->find($id);
 
         return new PurchaseResource($purchase);
     }
@@ -106,7 +108,6 @@ class PurchaseAPIController extends AppBaseController
     {
         try {
             DB::beginTransaction();
-            //manage stock
             $purchase = $this->purchaseRepository->with('purchaseItems')->where('id', $id)->first();
             foreach ($purchase->purchaseItems as $purchaseItem) {
                 $product = ManageStock::whereWarehouseId($purchase->warehouse_id)
@@ -139,7 +140,7 @@ class PurchaseAPIController extends AppBaseController
      */
     public function pdfDownload(Purchase $purchase): JsonResponse
     {
-        ini_set('memory_limit','-1');
+        ini_set('memory_limit', '-1');
         $purchase = $purchase->load('purchaseItems.product', 'supplier');
 
         $data = [];
@@ -148,10 +149,9 @@ class PurchaseAPIController extends AppBaseController
         }
 
         $companyLogo = getLogoUrl();
-
         $companyLogo = (string) \Image::make($companyLogo)->encode('data-url');
 
-        $pdf = PDF::loadView('pdf.purchase-pdf', compact('purchase','companyLogo'));
+        $pdf = PDF::loadView('pdf.purchase-pdf', compact('purchase', 'companyLogo'));
         Storage::disk(config('app.media_disc'))->put('pdf/Purchase-'.$purchase->reference_code.'.pdf', $pdf->output());
         $data['purchase_pdf_url'] = Storage::url('pdf/Purchase-'.$purchase->reference_code.'.pdf');
 
@@ -160,7 +160,16 @@ class PurchaseAPIController extends AppBaseController
 
     public function purchaseInfo(Purchase $purchase): JsonResponse
     {
-        $purchase = $purchase->load(['purchaseItems.product', 'warehouse', 'supplier']);
+        $purchase = $purchase->load(['purchaseItems.product.stocks', 'warehouse', 'supplier']);
+
+        $purchase->purchaseItems->transform(function ($item) {
+            $purchasedQty = (float) $item->quantity;
+            $item->returned_quantity = 0;
+            $item->max_return_quantity = $purchasedQty;
+
+            return $item;
+        });
+
         $keyName = [
             'email', 'company_name', 'phone', 'address',
         ];
@@ -178,7 +187,6 @@ class PurchaseAPIController extends AppBaseController
         })->with(['purchaseItems.product', 'supplier']);
 
         $purchases = $purchases->paginate($perPage);
-
         PurchaseResource::usingWithCollection();
 
         return new PurchaseCollection($purchases);
