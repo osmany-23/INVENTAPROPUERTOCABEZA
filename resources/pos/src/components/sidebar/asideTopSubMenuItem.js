@@ -32,97 +32,83 @@ const AsideTopSubMenuItem = (props) => {
                     </Dropdown.Toggle>
                     <Dropdown.Menu className="shortcut-menu">
                         {config?.includes(Permissions.MANAGE_SALE) && (
-                            <Dropdown.Item className="py-0 fs-4">
-                                <Link
-                                    to={"/app/sales/create"}
-                                    className="nav-link px-4"
-                                >
-                                    <span className="dropdown-icon me-4 text-green-600">
-                                        <FontAwesomeIcon icon={faPlusSquare} />
-                                    </span>
-                                    <span>
-                                        {getFormattedMessage("sales.title")}
-                                    </span>
-                                </Link>
+                            <Dropdown.Item
+                                as={Link}
+                                to={"/app/sales/create"}
+                                className="py-0 fs-4 nav-link px-4"
+                            >
+                                <span className="dropdown-icon me-4 text-green-600">
+                                    <FontAwesomeIcon icon={faPlusSquare} />
+                                </span>
+                                <span>{getFormattedMessage("sales.title")}</span>
                             </Dropdown.Item>
                         )}
                         {config?.includes(Permissions.MANAGE_PURCHASE) && (
-                            <Dropdown.Item className="py-0 fs-6">
-                                <Link
-                                    to={"/app/purchases/create"}
-                                    className="nav-link px-4"
-                                >
-                                    <span className="dropdown-icon me-4 text-green-600">
-                                        <FontAwesomeIcon icon={faPlusSquare} />
-                                    </span>
-                                    <span>
-                                        {getFormattedMessage("purchase.title")}
-                                    </span>
-                                </Link>
+                            <Dropdown.Item
+                                as={Link}
+                                to={"/app/purchases/create"}
+                                className="py-0 fs-6 nav-link px-4"
+                            >
+                                <span className="dropdown-icon me-4 text-green-600">
+                                    <FontAwesomeIcon icon={faPlusSquare} />
+                                </span>
+                                <span>{getFormattedMessage("purchase.title")}</span>
                             </Dropdown.Item>
                         )}
                         {config?.includes(Permissions.MANAGE_CUSTOMERS) && (
-                            <Dropdown.Item className="py-0 fs-6">
-                                <Link
-                                    to={"/app/customers/create"}
-                                    className="nav-link px-4"
-                                >
-                                    <span className="dropdown-icon me-4 text-green-600">
-                                        <FontAwesomeIcon icon={faPlusSquare} />
-                                    </span>
-                                    <span>
-                                        {getFormattedMessage(
-                                            "dashboard.recentSales.customer.label"
-                                        )}
-                                    </span>
-                                </Link>
+                            <Dropdown.Item
+                                as={Link}
+                                to={"/app/customers/create"}
+                                className="py-0 fs-6 nav-link px-4"
+                            >
+                                <span className="dropdown-icon me-4 text-green-600">
+                                    <FontAwesomeIcon icon={faPlusSquare} />
+                                </span>
+                                <span>
+                                    {getFormattedMessage(
+                                        "dashboard.recentSales.customer.label"
+                                    )}
+                                </span>
                             </Dropdown.Item>
                         )}
                         {config?.includes(Permissions.MANAGE_SUPPLIERS) && (
-                            <Dropdown.Item className="py-0 fs-6">
-                                <Link
-                                    to={"/app/suppliers/create"}
-                                    className="nav-link px-4"
-                                >
-                                    <span className="dropdown-icon me-4 text-green-600">
-                                        <FontAwesomeIcon icon={faPlusSquare} />
-                                    </span>
-                                    <span>
-                                        {getFormattedMessage("supplier.title")}
-                                    </span>
-                                </Link>
+                            <Dropdown.Item
+                                as={Link}
+                                to={"/app/suppliers/create"}
+                                className="py-0 fs-6 nav-link px-4"
+                            >
+                                <span className="dropdown-icon me-4 text-green-600">
+                                    <FontAwesomeIcon icon={faPlusSquare} />
+                                </span>
+                                <span>{getFormattedMessage("supplier.title")}</span>
                             </Dropdown.Item>
                         )}
                         {config?.includes(Permissions.MANAGE_PRODUCTS) && (
-                            <Dropdown.Item className="py-0 fs-6">
-                                <Link
-                                    to={"/app/products/create"}
-                                    className="nav-link px-4"
-                                >
-                                    <span className="dropdown-icon me-4 text-green-600">
-                                        <FontAwesomeIcon icon={faPlusSquare} />
-                                    </span>
-                                    <span>
-                                        {getFormattedMessage(
-                                            "dashboard.stockAlert.product.label"
-                                        )}
-                                    </span>
-                                </Link>
+                            <Dropdown.Item
+                                as={Link}
+                                to={"/app/products/create"}
+                                className="py-0 fs-6 nav-link px-4"
+                            >
+                                <span className="dropdown-icon me-4 text-green-600">
+                                    <FontAwesomeIcon icon={faPlusSquare} />
+                                </span>
+                                <span>
+                                    {getFormattedMessage(
+                                        "dashboard.stockAlert.product.label"
+                                    )}
+                                </span>
                             </Dropdown.Item>
                         )}
                         {config?.includes(Permissions.MANAGE_EXPENSES) && (
-                            <Dropdown.Item className="py-0 fs-6">
-                                <Link
-                                    to={"/app/expenses/create"}
-                                    className="nav-link px-4"
-                                >
-                                    <span className="dropdown-icon me-4 text-green-600">
-                                        <FontAwesomeIcon icon={faPlusSquare} />
-                                    </span>
-                                    <span>
-                                        {getFormattedMessage("expense.title")}
-                                    </span>
-                                </Link>
+                            <Dropdown.Item
+                                as={Link}
+                                to={"/app/expenses/create"}
+                                className="py-0 fs-6 nav-link px-4"
+                            >
+                                <span className="dropdown-icon me-4 text-green-600">
+                                    <FontAwesomeIcon icon={faPlusSquare} />
+                                </span>
+                                <span>{getFormattedMessage("expense.title")}</span>
                             </Dropdown.Item>
                         )}
                     </Dropdown.Menu>
@@ -385,6 +371,10 @@ const AsideTopSubMenuItem = (props) => {
                                                                         key={
                                                                             index
                                                                         }
+                                                                        as={Link}
+                                                                        to={
+                                                                            item.to
+                                                                        }
                                                                         className="px-0 py-0 fs-6"
                                                                         active={
                                                                             location.pathname ===
@@ -396,35 +386,26 @@ const AsideTopSubMenuItem = (props) => {
                                                                                 : false
                                                                         }
                                                                     >
-                                                                        <div className="position-relative mx-xl-3 mb-3 mb-xl-0 ">
-                                                                            <Link
-                                                                                to={
-                                                                                    item.to
-                                                                                }
-                                                                                className={`nav-link px-3 py-2 ${
-                                                                                    location.pathname ===
-                                                                                        item.to ||
-                                                                                    (mainItems.isSamePrefix
-                                                                                        ? null
-                                                                                        : location.pathname.includes(
-                                                                                              mainItems.to
-                                                                                          )) ||
-                                                                                    location.pathname ===
-                                                                                        item.detail +
-                                                                                            "/" +
-                                                                                            id.id ||
-                                                                                    location.pathname ===
-                                                                                        "/app/profile/edit"
-                                                                                        ? "text-white"
-                                                                                        : ""
-                                                                                }`}
-                                                                            >
-                                                                                <span>
-                                                                                    {
-                                                                                        item.title
-                                                                                    }
-                                                                                </span>
-                                                                            </Link>
+                                                                        <div
+                                                                            className={`position-relative mx-xl-3 mb-3 mb-xl-0 nav-link px-3 py-2 ${
+                                                                                location.pathname ===
+                                                                                    item.to ||
+                                                                                (mainItems.isSamePrefix
+                                                                                    ? null
+                                                                                    : location.pathname.includes(
+                                                                                          mainItems.to
+                                                                                      )) ||
+                                                                                location.pathname ===
+                                                                                    item.detail +
+                                                                                        "/" +
+                                                                                        id.id ||
+                                                                                location.pathname ===
+                                                                                    "/app/profile/edit"
+                                                                                    ? "text-white"
+                                                                                    : ""
+                                                                            }`}
+                                                                        >
+                                                                            <span>{item.title}</span>
                                                                         </div>
                                                                     </Dropdown.Item>
                                                                 );

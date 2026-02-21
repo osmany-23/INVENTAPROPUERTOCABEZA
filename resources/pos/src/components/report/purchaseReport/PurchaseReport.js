@@ -49,28 +49,32 @@ const PurchaseReport = (props) => {
         fetchFrontSetting();
     }, []);
 
+    const purchaseRows = Array.isArray(purchases) ? purchases : [];
+    const supplierRows = Array.isArray(suppliers) ? suppliers : [];
+
     const itemsValue =
         currencySymbol &&
-        purchases.length >= 0 &&
-        purchases.map((purchase) => {
-            const supplier = suppliers.filter(
-                (supplier) => supplier.id === purchase.attributes.supplier_id
+        purchaseRows.length >= 0 &&
+        purchaseRows.map((purchase) => {
+            const purchaseData = purchase?.attributes || purchase || {};
+            const supplier = supplierRows.filter(
+                (supplier) => supplier.id === purchaseData.supplier_id
             );
             const supplierName =
                 supplier[0] &&
                 supplier[0].attributes &&
                 supplier[0].attributes.name;
             return {
-                reference_code: purchase.attributes.reference_code,
+                reference_code: purchaseData.reference_code,
                 supplier: supplierName,
-                warehouse: purchase.attributes.warehouse_name,
-                status: purchase.attributes.status,
+                warehouse: purchaseData.warehouse_name,
+                status: purchaseData.status,
                 paid: 0,
                 due: 0,
-                payment: purchase.attributes.payment_type,
-                date: moment(purchase.attributes.date).format("YYYY-MM-DD"),
-                time: moment(purchase.attributes.created_at).format("LT"),
-                grand_total: purchase.attributes.grand_total,
+                payment: purchaseData.payment_type,
+                date: moment(purchaseData.date).format("YYYY-MM-DD"),
+                time: moment(purchaseData.created_at).format("LT"),
+                grand_total: purchaseData.grand_total,
                 id: purchase.id,
                 currency: currencySymbol,
             };
@@ -220,25 +224,20 @@ const PurchaseReport = (props) => {
 };
 const mapStateToProps = (state) => {
     const {
-        purchases,
         dates,
         totalRecord,
         isLoading,
-        warehouses,
         suppliers,
         frontSetting,
-        fetchFrontSetting,
         allConfigData,
     } = state;
     return {
-        purchases,
+        purchases: state.purchase?.purchases || [],
         dates,
         totalRecord,
         isLoading,
-        warehouses,
-        suppliers,
+        suppliers: suppliers || [],
         frontSetting,
-        fetchFrontSetting,
         allConfigData,
     };
 };
