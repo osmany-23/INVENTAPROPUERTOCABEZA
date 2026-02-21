@@ -441,7 +441,9 @@ class ReportAPIController extends AppBaseController
         $suppliers = $this->supplierRepository->withCount('purchases')->with('purchases')->paginate($perPage);
 
         foreach ($suppliers as $key => $supplier) {
-            $suppliers[$key]['total_grand_amount'] = $supplier->purchases->sum('grand_total');
+            $purchaseTotal = $supplier->purchases->sum('grand_total');
+            $purchaseReturnTotal = PurchaseReturn::where('supplier_id', $supplier->id)->sum('grand_total');
+            $suppliers[$key]['total_grand_amount'] = $purchaseTotal - $purchaseReturnTotal;
         }
 
         return $this->sendResponse($suppliers, 'Suppliers  retrieved successfully');

@@ -91,7 +91,7 @@ const PurchaseReturnForm = ( props ) => {
     const handleValidation = () => {
         let errorss = {};
         let isValid = false;
-        const qtyCart = updateProducts.filter( ( a ) => a.quantity === 0 );
+        const selectedReturnItems = updateProducts.filter((item) => Number(item.quantity || 0) > 0);
         const overReturnItems = updateProducts.filter((item) => {
             const maxReturn = Number(item.max_return_quantity ?? item.purchased_quantity ?? 0);
             return Number(item.quantity || 0) > maxReturn;
@@ -111,7 +111,7 @@ const PurchaseReturnForm = ( props ) => {
                 text: `${qtyMessageText} (${firstItem.name}: max ${maxReturn})`,
                 type: toastType.ERROR
             } ) )
-        } else if ( qtyCart.length > 0 ) {
+        } else if ( selectedReturnItems.length < 1 ) {
             dispatch( addToast( {
                 text: qtyMessageText,
                 type: toastType.ERROR
@@ -204,7 +204,9 @@ const PurchaseReturnForm = ( props ) => {
     } )
 
     const prepareData = ( prepareData ) => {
-        const normalizedItems = updateProducts.map((item) => {
+        const normalizedItems = updateProducts
+            .filter((item) => Number(item.quantity || 0) > 0)
+            .map((item) => {
             const maxReturn = Number(item.max_return_quantity ?? item.purchased_quantity ?? item.quantity ?? 0);
             const normalizedQty = Math.min(Number(item.quantity || 0), maxReturn);
             return {

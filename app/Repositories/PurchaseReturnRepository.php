@@ -75,6 +75,13 @@ class PurchaseReturnRepository extends BaseRepository
     {
         try {
             DB::beginTransaction();
+            $input['purchase_return_items'] = array_values(array_filter(
+                $input['purchase_return_items'] ?? [],
+                fn ($item) => (float) ($item['quantity'] ?? 0) > 0
+            ));
+            if (empty($input['purchase_return_items'])) {
+                throw new UnprocessableEntityHttpException('Please Enter Attlist One Quantity.');
+            }
             foreach ($input['purchase_return_items'] as $purchase_return_items) {
                 if ($purchase_return_items['quantity'] == 0) {
                     throw new UnprocessableEntityHttpException('Please Enter Attlist One Quantity.');
@@ -233,6 +240,13 @@ class PurchaseReturnRepository extends BaseRepository
     {
         try {
             DB::beginTransaction();
+            $input['purchase_return_items'] = array_values(array_filter(
+                $input['purchase_return_items'] ?? [],
+                fn ($item) => (float) ($item['quantity'] ?? 0) > 0
+            ));
+            if (empty($input['purchase_return_items'])) {
+                throw new UnprocessableEntityHttpException('Please Enter Attlist One Quantity.');
+            }
             foreach ($input['purchase_return_items'] as $purchase_return_items) {
                 if ($purchase_return_items['quantity'] == 0) {
                     throw new UnprocessableEntityHttpException('Please Enter Attlist One Quantity.');
