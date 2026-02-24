@@ -1,12 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Col } from "react-bootstrap-v5";
 import { ReactSearchAutocomplete } from "react-search-autocomplete";
 import { connect, useDispatch } from "react-redux";
-import {
-    posSearchCodeProduct,
-    posSearchNameProduct,
-} from "../../../store/action/pos/posfetchProductAction";
-import useSound from "use-sound";
 import {
     getFormattedMessage,
     placeholderText,
@@ -19,19 +14,14 @@ const ProductSearchbar = (props) => {
         posAllProducts,
         customCart,
         setUpdateProducts,
-        updateProducts,
-        posSearchCodeProduct,
-        posSearchNameProduct,
         selectedOption,
+        onSearchTermChange,
     } = props;
     const [searchString, setSearchString] = useState("");
-    const [keyDown, setKeyDown] = useState(false);
     const dispatch = useDispatch();
-    const [play] = useSound(
-        "https://s3.amazonaws.com/freecodecamp/drums/Heater-4_1.mp3"
-    );
+    const lastAutoAddedCodeRef = useRef("");
     const filterProduct = posAllProducts
-        .filter((qty) => qty.attributes.stock.quantity > 0)
+        .filter((qty) => Number(qty?.attributes?.stock?.quantity || 0) > 0)
         .map((item) => ({
             name: item.attributes.name,
             code: item.attributes.code,
@@ -48,150 +38,117 @@ const ProductSearchbar = (props) => {
     };
 
     const removeSearchClass = () => {
-        const html =
-            document.getElementsByClassName(`search-bar`)[0].firstChild
-                .firstChild.lastChild;
-        html.style.display = "none";
+        const container = document.getElementsByClassName("search-bar")[0];
+        if (!container?.firstChild?.firstChild?.lastChild) {
+            return;
+        }
+        container.firstChild.firstChild.lastChild.style.display = "none";
     };
 
-    const onProductSearch = (code) => {
-        const codeSearch = posAllProducts
-            .filter(
-                (item) =>
-                    item.attributes.code === code ||
-                    item.attributes.code === code.code
-            )
-            .map((item) => item.attributes.code);
-        const nameSearch = posAllProducts
-            .filter(
-                (item) =>
-                    item.attributes.name === code ||
-                    item.attributes.name === code.name
-            )
-            .map((item) => item.attributes.name);
-        const finalArrays = customCart.map((customId) =>
-            code === customId.code ? customId.code : customId.name
-        );
-        const finalSearch = finalArrays.filter((finalArray) =>
-            finalArray === codeSearch[0] ? codeSearch[0] : nameSearch[0]
-        );
-        const singleProduct = posAllProducts
-            .filter(
-                (product) =>
-                    product.attributes.code === code ||
-                    product.attributes.name === code ||
-                    product.attributes.code === code.code ||
-                    product.attributes.name === code.name
-            )
-            .map((product) => product.attributes.stock.quantity);
-        const filterQty = updateProducts
-            .filter(
-                (item) =>
-                    item.code === code ||
-                    item.name === code ||
-                    item.code === code.code ||
-                    item.name === code.name
-            )
-            .map((qty) => qty.quantity)[0];
-        if (finalSearch[0]) {
-            if (codeSearch[0] === code) {
-                posSearchCodeProduct(codeSearch[0]);
-            } else {
-                posSearchNameProduct(nameSearch[0]);
-            }
-            removeSearchClass();
-            setSearchString("");
-            play();
-            let pushArray = [...customCart];
-            let newProduct = pushArray.find(
-                (element) => element.code === codeSearch[0]
-                // || element.name === nameSearch[0]
+    const normalize = (value) => (value || "").toString().trim().toUpperCase();
+
+    const onProductSearch = (searchValue) => {
+        const query = normalize(searchValue?.code || searchValue?.name || searchValue);
+        if (!query) {
+            return;
+        }
+
+        const productEntity = posAllProducts.find((product) => {
+            const code = normalize(product.attributes?.code);
+            const productCode = normalize(product.attributes?.product_code);
+            const name = normalize(product.attributes?.name);
+            return code === query || productCode === query || name === query;
+        });
+
+        if (!productEntity) {
+            return;
+        }
+
+        const availableStock = Number(productEntity.attributes?.stock?.quantity || 0);
+        if (availableStock <= 0) {
+            dispatch(
+                addToast({
+                    text: getFormattedMessage("pos.this.product.out.of.stock.message"),
+                    type: toastType.ERROR,
+                })
             );
-            if (
-                updateProducts.filter(
-                    (item) =>
-                        item.code === code ||
-                        item.name === code ||
-                        item.code === code.code
-                    // || item.name === code.name
-                ).length > 0
-            ) {
-                if (filterQty >= singleProduct[0]) {
-                    dispatch(
-                        addToast({
-                            text: getFormattedMessage(
-                                "pos.quantity.exceeds.quantity.available.in.stock.message"
-                            ),
-                            type: toastType.ERROR,
-                        })
-                    );
-                } else {
-                    setUpdateProducts((updateProducts) =>
-                        updateProducts.map((item) =>
-                            (item.code === code ||
-                                item.name === code ||
-                                item.code === code.code) &&
-                            // || item.name === code.name
-                            singleProduct[0] > item.quantity
-                                ? { ...item, quantity: item.quantity + 1 }
-                                : item
-                        )
-                    );
-                    setKeyDown(false);
-                }
-            } else {
-                setUpdateProducts([
-                    ...updateProducts,
-                    { ...newProduct, warehouse_id: selectedOption?.value },
-                ]);
-                setKeyDown(false);
-                removeSearchClass(true);
-            }
+            return;
         }
+
+        if (!selectedOption?.value) {
+            dispatch(
+                addToast({
+                    text: getFormattedMessage("purchase.select.warehouse.validate.label"),
+                    type: toastType.ERROR,
+                })
+            );
+            return;
+        }
+
+        const cartTemplate = customCart.find((item) => Number(item.id) === Number(productEntity.id));
+        if (!cartTemplate) {
+            return;
+        }
+
+        setUpdateProducts((prevProducts) => {
+            const existingProduct = prevProducts.find((item) => Number(item.id) === Number(productEntity.id));
+            if (!existingProduct) {
+                return [...prevProducts, { ...cartTemplate, warehouse_id: selectedOption.value }];
+            }
+
+            if (Number(existingProduct.quantity) >= availableStock) {
+                dispatch(
+                    addToast({
+                        text: getFormattedMessage("pos.quantity.exceeds.quantity.available.in.stock.message"),
+                        type: toastType.ERROR,
+                    })
+                );
+                return prevProducts;
+            }
+
+            return prevProducts.map((item) =>
+                Number(item.id) === Number(productEntity.id)
+                    ? { ...item, quantity: Number(item.quantity) + 1 }
+                    : item
+            );
+        });
+
+        removeSearchClass();
+        setSearchString("");
+        onSearchTermChange?.("");
     };
 
-    let scanProductBarCode = false;
     const handleOnSelect = (result) => {
-        if (keyDown === false && scanProductBarCode === true) {
-            onProductSearch(result);
-            scanProductBarCode = false;
-        }
-
-        if (searchString.trim()?.length !== 0) {
-            onProductSearch(result);
-        }
+        onProductSearch(result);
     };
 
     const handleOnSearch = (string) => {
-        if (string.trim() !== "") {
-            setSearchString(string);
-            const codeSearch = posAllProducts.filter(
-                (item) => item.attributes.code === string
-            );
-            if (codeSearch.length > 0) {
-                if (codeSearch[0].attributes?.stock?.quantity > 0) {
-                    if (codeSearch?.length === 1) {
-                        scanProductBarCode = true;
-                        const data = {
-                            name: codeSearch[0]?.attributes?.name,
-                            code: codeSearch[0]?.attributes?.code,
-                            id: codeSearch[0]?.id,
-                        };
-                        handleOnSelect(data);
-                        setSearchString("");
-                    }
-                } else {
-                    dispatch(
-                        addToast({
-                            text: getFormattedMessage(
-                                "pos.this.product.out.of.stock.message"
-                            ),
-                            type: toastType.ERROR,
-                        })
-                    );
-                    setSearchString("");
-                }
-            }
+        const normalizedInput = normalize(string);
+        setSearchString(string);
+        onSearchTermChange?.(string);
+
+        if (!normalizedInput) {
+            lastAutoAddedCodeRef.current = "";
+            return;
+        }
+
+        if (lastAutoAddedCodeRef.current === normalizedInput) {
+            return;
+        }
+
+        const exactMatch = posAllProducts.find((item) => {
+            const code = normalize(item.attributes?.code);
+            const productCode = normalize(item.attributes?.product_code);
+            return code === normalizedInput || productCode === normalizedInput;
+        });
+
+        if (exactMatch) {
+            lastAutoAddedCodeRef.current = normalizedInput;
+            onProductSearch({
+                name: exactMatch?.attributes?.name,
+                code: exactMatch?.attributes?.code,
+                id: exactMatch?.id,
+            });
         }
     };
 
@@ -199,7 +156,9 @@ const ProductSearchbar = (props) => {
         let searchInput = document.querySelector(
             'input[data-test="search-input"]'
         );
-        searchInput.focus();
+        if (searchInput) {
+            searchInput.focus();
+        }
     };
 
     useEffect(() => {
@@ -244,7 +203,4 @@ const mapStateToProps = (state) => {
     return { posAllProducts };
 };
 
-export default connect(mapStateToProps, {
-    posSearchCodeProduct,
-    posSearchNameProduct,
-})(ProductSearchbar);
+export default connect(mapStateToProps)(ProductSearchbar);

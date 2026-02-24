@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Card, Badge } from "react-bootstrap-v5";
 import { connect, useDispatch } from "react-redux";
-import useSound from "use-sound";
-import { posFetchProduct } from "../../../store/action/pos/posfetchProductAction";
 import { posAllProduct } from "../../../store/action/pos/posAllProductAction";
 import productImage from "../../../assets/images/brand_logo.png";
 import { addToast } from "../../../store/action/toastAction";
@@ -16,7 +14,6 @@ import Skelten from "../../../shared/components/loaders/Skelten";
 const Product = (props) => {
     const {
         posAllProducts,
-        posFetchProduct,
         cartProducts,
         updateCart,
         customCart,
@@ -26,13 +23,11 @@ const Product = (props) => {
         productMsg,
         newCost,
         selectedOption,
+        searchTerm,
         allConfigData,
         isLoading,
     } = props;
     const [updateProducts, setUpdateProducts] = useState([]);
-    const [play] = useSound(
-        "https://s3.amazonaws.com/freecodecamp/drums/Heater-4_1.mp3"
-    );
     const dispatch = useDispatch();
 
     useEffect(() => {
@@ -45,7 +40,6 @@ const Product = (props) => {
     }, [updateProducts, cartProducts]);
 
     const addToCart = (product) => {
-        play();
         // posFetchProduct(product.id);
         addProductToCart(product);
     };
@@ -104,31 +98,37 @@ const Product = (props) => {
         return cartProductIds.includes(productId);
     };
 
+    const normalize = (value) => (value || "").toString().trim().toUpperCase();
+    const normalizedSearchTerm = normalize(searchTerm);
+
     const posFilterProduct =
         posAllProducts &&
-        posAllProducts.filter(
-            (product) => product.attributes.stock.quantity > 0.0
-        );
+        posAllProducts.filter((product) => {
+            const stockQty = Number(product?.attributes?.stock?.quantity || 0);
+            if (stockQty <= 0) {
+                return false;
+            }
+
+            if (!normalizedSearchTerm) {
+                return true;
+            }
+
+            const productName = normalize(product?.attributes?.name);
+            const productCode = normalize(product?.attributes?.code);
+            const internalCode = normalize(product?.attributes?.product_code);
+
+            return (
+                productName.includes(normalizedSearchTerm) ||
+                productCode.includes(normalizedSearchTerm) ||
+                internalCode.includes(normalizedSearchTerm)
+            );
+        });
     //Cart Item Array
-    const loadAllProduct = (product, index) => {
-        const findDifferentWords = (str1, str2) => {
-            const words1 = str1.split("_");
-            const words2 = str2.split("_");
-
-            const uniqueWords1 = words1.filter(
-                (word) => word !== "" && !words2.includes(word)
-            );
-            const uniqueWords2 = words2.filter(
-                (word) => word !== "" && !words1.includes(word)
-            );
-
-            return [...uniqueWords1, ...uniqueWords2];
-        };
-
-        return product.attributes.stock.quantity >= !0.0 ? (
+    const loadAllProduct = (product) => {
+        return product.attributes.stock.quantity > 0 ? (
             <div
                 className="product-custom-card"
-                key={index}
+                key={product.id}
                 onClick={() => addToCart(product)}
             >
                 <Card
@@ -218,8 +218,8 @@ const Product = (props) => {
                     </h4>
                 ) : (
                     posFilterProduct &&
-                    posFilterProduct.map((product, index) => {
-                        return loadAllProduct(product, index);
+                    posFilterProduct.map((product) => {
+                        return loadAllProduct(product);
                     })
                 )}
             </div>
@@ -232,6 +232,6 @@ const mapStateToProps = (state) => {
     return { posAllProducts, allConfigData, isLoading };
 };
 
-export default connect(mapStateToProps, { posAllProduct, posFetchProduct })(
+export default connect(mapStateToProps, { posAllProduct })(
     Product
 );

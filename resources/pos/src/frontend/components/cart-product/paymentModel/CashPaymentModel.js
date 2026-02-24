@@ -125,7 +125,6 @@ const CashPaymentModel = (props) => {
                                     autoComplete="off"
                                     readOnly={true}
                                     className="form-control-solid"
-                                    defaultValue={0.0}
                                     value={Number(summation).toFixed(2)}
                                 />
                             </Form.Group>

@@ -7,10 +7,6 @@ import Category from "./Category";
 import Brands from "./Brand";
 import Product from "./product/Product";
 import ProductCartList from "./cart-product/ProductCartList";
-import {
-    posSearchNameProduct,
-    posSearchCodeProduct,
-} from "../../store/action/pos/posfetchProductAction";
 import ProductSearchbar from "./product/ProductSearchbar";
 import { prepareCartArray } from "../shared/PrepareCartArray";
 import ProductDetailsModel from "../shared/ProductDetailsModel";
@@ -84,6 +80,7 @@ const PosMainPage = (props) => {
     const [modalShowPaymentSlip, setModalShowPaymentSlip] = useState(false);
     const [modalShowCustomer, setModalShowCustomer] = useState(false);
     const [productMsg, setProductMsg] = useState(0);
+    const [searchTerm, setSearchTerm] = useState("");
     const [brandId, setBrandId] = useState();
     const [categoryId, setCategoryId] = useState();
     const [selectedCustomerOption, setSelectedCustomerOption] = useState(null);
@@ -724,6 +721,7 @@ const PosMainPage = (props) => {
                                 setUpdateProducts={setUpdateProducts}
                                 updateProducts={updateProducts}
                                 selectedOption={selectedOption}
+                                onSearchTermChange={setSearchTerm}
                             // handleOnSelect={handleOnSelect} handleOnSearch={handleOnSearch}
                             // searchString={searchString}
                             />
@@ -761,6 +759,7 @@ const PosMainPage = (props) => {
                                 settings={settings}
                                 productMsg={productMsg}
                                 selectedOption={selectedOption}
+                                searchTerm={searchTerm}
                             />
                         </div>
                     </div>
@@ -867,9 +866,7 @@ const mapStateToProps = (state) => {
 export default connect(mapStateToProps, {
     fetchSetting,
     fetchFrontSetting,
-    posSearchNameProduct,
     posCashPaymentAction,
-    posSearchCodeProduct,
     posAllProduct,
     fetchBrandClickable,
     fetchHoldLists,
