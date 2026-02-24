@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Models\ManageStock;
+use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use Exception;
@@ -156,6 +157,7 @@ class PurchaseRepository extends BaseRepository
             $items = $this->calculationPurchaseItems($purchaseItem);
             $purchaseItem = new PurchaseItem($items);
             $purchase->purchaseItems()->save($purchaseItem);
+            $this->syncProductPricing($items);
         }
 
         $subTotalAmount = $purchase->purchaseItems()->sum('sub_total');
@@ -197,17 +199,10 @@ class PurchaseRepository extends BaseRepository
             $purchase = Purchase::findOrFail($id);
             $purchaseItemIds = PurchaseItem::wherePurchaseId($id)->pluck('id')->toArray();
             $purchaseItmOldIds = [];
-            foreach ($input['purchase_items'] as $key => $purchaseItem) {
-                //get different ids & update
-                $purchaseItmOldIds[$key] = $purchaseItem['purchase_item_id'];
-                $purchaseItemArr = Arr::only($purchaseItem, [
-                    'purchase_item_id', 'product_id', 'product_cost', 'net_unit_cost', 'tax_type', 'tax_value',
-                    'tax_amount', 'discount_type', 'discount_value', 'discount_amount', 'purchase_unit', 'quantity',
-                    'sub_total',
-                ]);
-                $this->updateItem($purchaseItemArr, $input['warehouse_id']);
+            foreach ($input['purchase_items'] as $purchaseItem) {
+                $purchaseItemId = $purchaseItem['purchase_item_id'] ?? null;
                 //create new product items
-                if (is_null($purchaseItem['purchase_item_id'])) {
+                if (empty($purchaseItemId)) {
                     $purchaseItem = $this->calculationPurchaseItems($purchaseItem);
                     $purchaseItemArr = Arr::only($purchaseItem, [
                         'purchase_item_id', 'product_id', 'product_cost', 'net_unit_cost', 'tax_type', 'tax_value',
@@ -217,7 +212,18 @@ class PurchaseRepository extends BaseRepository
                     $purchase->purchaseItems()->create($purchaseItemArr);
                     // manage new product
                     manageStock($input['warehouse_id'], $purchaseItem['product_id'], $purchaseItem['quantity']);
+                    $this->syncProductPricing($purchaseItem);
+                    continue;
                 }
+
+                //get different ids & update
+                $purchaseItmOldIds[] = $purchaseItemId;
+                $purchaseItemArr = Arr::only($purchaseItem, [
+                    'purchase_item_id', 'product_id', 'product_cost', 'net_unit_cost', 'tax_type', 'tax_value',
+                    'tax_amount', 'discount_type', 'discount_value', 'discount_amount', 'purchase_unit', 'quantity',
+                    'sub_total', 'product_price',
+                ]);
+                $this->updateItem($purchaseItemArr, $input['warehouse_id']);
             }
             $removeItemIds = array_diff($purchaseItemIds, $purchaseItmOldIds);
             //delete remove product
@@ -302,12 +308,52 @@ class PurchaseRepository extends BaseRepository
                 ]);
             }
 
+            $this->syncProductPricing($purchaseItem);
             unset($purchaseItem['purchase_item_id']);
+            unset($purchaseItem['product_price']);
             $item->update($purchaseItem);
 
             return true;
         } catch (Exception $e) {
             throw new UnprocessableEntityHttpException($e->getMessage());
+        }
+    }
+
+    private function syncProductPricing(array $purchaseItem): void
+    {
+        $productId = $purchaseItem['product_id'] ?? null;
+        if (empty($productId)) {
+            return;
+        }
+
+        $product = Product::find($productId);
+        if (! $product) {
+            return;
+        }
+
+        $payload = [];
+        $productCost = $purchaseItem['product_cost'] ?? null;
+        if (is_numeric($productCost) && $productCost >= 0) {
+            $payload['product_cost'] = (float) $productCost;
+        }
+
+        $productPrice = $purchaseItem['product_price'] ?? null;
+        if (is_numeric($productPrice) && isset($payload['product_cost']) && (float) $productPrice > (float) $payload['product_cost']) {
+            $payload['product_price'] = (float) $productPrice;
+        }
+
+        $taxType = $purchaseItem['tax_type'] ?? null;
+        if ($taxType !== null && in_array((string) $taxType, [(string) Purchase::EXCLUSIVE, (string) Purchase::INCLUSIVE], true)) {
+            $payload['tax_type'] = (string) $taxType;
+        }
+
+        $taxValue = $purchaseItem['tax_value'] ?? null;
+        if (is_numeric($taxValue) && $taxValue >= 0 && $taxValue <= 100) {
+            $payload['order_tax'] = (float) $taxValue;
+        }
+
+        if (! empty($payload)) {
+            $product->update($payload);
         }
     }
 }

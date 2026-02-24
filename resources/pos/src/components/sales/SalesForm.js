@@ -54,7 +54,7 @@ const SalesForm = ( props ) => {
         discount: "0.00",
         shipping: "0.00",
         grand_total: 0.00,
-        notes: singleSale ? singleSale.notes : '',
+        notes: singleSale ? ( singleSale.notes ?? '' ) : '',
         received_amount: 0,
         paid_amount: 0,
         status_id: { label: getFormattedMessage( "status.filter.complated.label" ), value: 1 },
@@ -94,6 +94,7 @@ const SalesForm = ( props ) => {
                 discount: singleSale ? singleSale.discount.toFixed( 2 ) : '0.00',
                 shipping: singleSale ? singleSale.shipping.toFixed( 2 ) : '0.00',
                 grand_total: singleSale ? singleSale.grand_total : '0.00',
+                notes: singleSale ? ( singleSale.notes ?? '' ) : '',
                 status_id: singleSale ? singleSale.status_id : '',
                 payment_status: singleSale.is_Partial === 3 ? { "label": getFormattedMessage( 'payment-status.filter.partial.label' ), "value": 3 } : singleSale ? singleSale.payment_status : '',
                 payment_type: singleSale ? singleSale.payment_type : ''
@@ -110,6 +111,7 @@ const SalesForm = ( props ) => {
                 discount: singleSale ? singleSale.discount.toFixed( 2 ) : '0.00',
                 shipping: singleSale ? singleSale.shipping.toFixed( 2 ) : '0.00',
                 grand_total: singleSale ? singleSale.grand_total : '0.00',
+                notes: singleSale ? ( singleSale.notes ?? '' ) : '',
                 status_id: singleSale ? singleSale.status_id : '',
                 payment_status: saleValue.payment_status ? saleValue.payment_status : '',
                 payment_type: { label: getFormattedMessage( "payment-type.filter.cash.label" ), value: 1 }
@@ -441,7 +443,7 @@ const SalesForm = ( props ) => {
                     <div className='mb-3'>
                         <label className='form-label'>
                             {getFormattedMessage( 'globally.input.notes.label' )}: </label>
-                        <textarea name='notes' className='form-control' value={saleValue.notes}
+                        <textarea name='notes' className='form-control' value={saleValue.notes ?? ''}
                             placeholder={placeholderText( 'globally.input.notes.placeholder.label' )}
                             onChange={( e ) => onNotesChangeInput( e )}
                         />
@@ -460,4 +462,3 @@ const mapStateToProps = ( state ) => {
 }
 
 export default connect( mapStateToProps, { editSale, fetchProductsByWarehouse, fetchFrontSetting } )( SalesForm )
-

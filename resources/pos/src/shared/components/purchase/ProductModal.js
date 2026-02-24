@@ -14,8 +14,6 @@ import {
 } from "../../sharedMethod";
 import ReactSelect from "../../select/reactSelect";
 import { taxMethodOptions, discountMethodOptions } from "../../../constants";
-import apiConfig from "../../../config/apiConfig";
-import { apiBaseURL, toastType } from "../../../constants";
 import { useDispatch } from "react-redux";
 import { addToast } from "../../../store/action/toastAction";
 
@@ -103,9 +101,7 @@ const ProductModal = (props) => {
             allowQuickPriceUpdate &&
             (!Number.isFinite(numericSalePrice) || numericSalePrice <= numericCost)
         ) {
-            errorss.salePrice =
-                getFormattedMessage("product.validation.sale-price.gt-cost") ||
-                "El precio de venta debe ser mayor al costo de compra";
+            errorss.salePrice = "El precio de venta debe ser mayor al costo de compra";
         } else if (numericTax > 100 || numericTax < 0) {
             errorss.taxValue = getFormattedMessage("globally.tax-length.validate.label");
         } else if (discountType.value === 1 && (numericDiscount > 100 || numericDiscount < 0)) {
@@ -165,41 +161,12 @@ const ProductModal = (props) => {
         updatePurchaseUnit(updatedProduct.purchase_unit);
         updateSubTotal(updatedProduct.sub_total);
 
-        if (!allowQuickPriceUpdate) {
-            handleClose(e);
-            return;
-        }
-
-        const payload = {
-            product_cost: Number(netUnitCost),
-            product_price: Number(salePrice),
-            tax_type: taxType.value.toString(),
-            order_tax: Number(taxValue),
-        };
-
-        apiConfig
-            .post(`${apiBaseURL.PRODUCTS}/${product.id}/quick-price-update`, payload)
-            .then(() => {
-                dispatch(
-                    addToast({
-                        text: getFormattedMessage("product.update.success") || "Producto actualizado",
-                    })
-                );
-                handleClose(e);
+        dispatch(
+            addToast({
+                text: "Cambios guardados temporalmente. Se aplicaran al confirmar la compra.",
             })
-            .catch((error) => {
-                const validationErrors = error?.response?.data?.errors || {};
-                const firstValidationError = Object.values(validationErrors)?.[0]?.[0];
-                dispatch(
-                    addToast({
-                        text:
-                            firstValidationError ||
-                            error?.response?.data?.message ||
-                            "Error al actualizar producto",
-                        type: toastType.ERROR,
-                    })
-                );
-            });
+        );
+        handleClose(e);
     };
 
     const clearField = () => {

@@ -9,6 +9,7 @@ export const editPrepareArray = (products, warehouse_id) => {
             short_name: product.purchase_unit.short_name,
             stock_alert: product.product.stock_alert,
             product_cost: product.product_cost,
+            product_price: product.product?.product_price,
             fix_net_unit : product.product_cost,
             net_unit_cost: product.product_cost,
             tax_type: product.tax_type,

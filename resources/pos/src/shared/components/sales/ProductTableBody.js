@@ -206,7 +206,10 @@ const ProductTableBody = (props) => {
                         singleProduct.stock.length >= 1 ? (
                             singleProduct.stock.map((item) => {
                                 return (
-                                    <span className="badge bg-light-warning">
+                                    <span
+                                        key={`${singleProduct.id}-${item.id ?? item.warehouse_id ?? item.quantity}`}
+                                        className="badge bg-light-warning"
+                                    >
                                         <span>
                                             {item.quantity}&nbsp;
                                             {singleProduct?.short_name}
