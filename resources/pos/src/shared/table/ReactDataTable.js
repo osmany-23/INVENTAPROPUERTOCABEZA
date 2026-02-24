@@ -281,7 +281,7 @@ const ReactDataTable = (props) => {
                 </Col>
             </>
         );
-    }, [items]);
+    }, [items, AddButton]);
 
     const onChangeDidMount = () => {
         const filters = {

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import MasterLayout from "../../MasterLayout";
 import TabTitle from "../../../shared/tab-title/TabTitle";
+import { constants } from "../../../constants";
 import {
     currencySymbolHandling,
     getAvatarName,
@@ -14,6 +15,7 @@ import { getAllRegisterReportDetailsAction } from "../../../store/action/pos/pos
 import moment from "moment";
 import ReactSelect from "../../../shared/select/reactSelect";
 import { fetchUsers } from "../../../store/action/userAction";
+import { Button, Form } from "react-bootstrap-v5";
 
 const RegisterReport = () => {
     const dispatch = useDispatch();
@@ -32,10 +34,12 @@ const RegisterReport = () => {
         usersDataOptions: [],
         userDataOptiosType: [],
     });
-    const [tableFilter, setTableFilter] = useState({});
+    const [commissionPercent, setCommissionPercent] = useState("");
+    const [commissionResult, setCommissionResult] = useState(null);
 
     useEffect(() => {
         dispatch(fetchUsers({}, true, "?page[size]=0&returnAll=true"));
+        dispatch({ type: constants.DATE_ACTION, payload: "" });
     }, []);
 
     useEffect(() => {
@@ -58,47 +62,56 @@ const RegisterReport = () => {
 
     useEffect(() => {
         if (usersData?.usersDataOptions?.length > 0) {
+            const allUsersOption = {
+                value: 0,
+                label: getFormattedMessage("unit.filter.all.label"),
+            };
             setUsersData((data) => ({
                 ...data,
-                userDataOptiosType: usersData?.usersDataOptions?.map(
-                    (user) => ({
+                userDataOptiosType: [
+                    allUsersOption,
+                    ...usersData?.usersDataOptions?.map((user) => ({
                         value: user.id,
                         label: user?.name,
-                    })
-                ),
+                    })),
+                ],
             }));
         }
     }, [usersData?.usersDataOptions]);
 
     useEffect(() => {
-        if (dates?.end_date === undefined && dates?.start_date === undefined) {
-            if (userData?.value !== undefined) {
-                dispatch(
-                    getAllRegisterReportDetailsAction({
-                        query: `?user_id=${userData?.value}`,
-                    })
-                );
-            }
-        } else {
-            if (userData?.value !== undefined) {
-                dispatch(
-                    getAllRegisterReportDetailsAction({
-                        query: `?user_id=${userData?.value}&start_date=${dates?.start_date}&end_date=${dates?.end_date}`,
-                    })
-                );
-            } else {
-                dispatch(
-                    getAllRegisterReportDetailsAction({
-                        query: `?start_date=${dates?.start_date}&end_date=${dates?.end_date}`,
-                    })
-                );
-            }
+        if (!userData?.value && usersData?.userDataOptiosType?.length > 0) {
+            setUserData({
+                value: 0,
+                label: getFormattedMessage("unit.filter.all.label"),
+            });
         }
+    }, [usersData?.userDataOptiosType]);
+
+    const buildReportQuery = () => {
+        const params = [];
+        if (userData?.value !== undefined && Number(userData?.value) > 0) {
+            params.push(`user_id=${userData.value}`);
+        }
+        if (dates?.start_date && dates?.end_date) {
+            params.push(`start_date=${dates.start_date}`);
+            params.push(`end_date=${dates.end_date}`);
+        }
+
+        return params.length ? `?${params.join("&")}` : "";
+    };
+
+    useEffect(() => {
+        dispatch(
+            getAllRegisterReportDetailsAction({
+                query: buildReportQuery(),
+            })
+        );
     }, [dates, userData]);
 
     const itemsValue =
-        registerReportDetails?.length > 0 &&
-        registerReportDetails?.map((registerReport) => ({
+        registerReportDetails?.length > 0
+            ? registerReportDetails?.map((registerReport) => ({
             open_date: moment(registerReport?.attributes?.created_at).format(
                 "DD-MM-YYYY"
             ),
@@ -112,61 +125,26 @@ const RegisterReport = () => {
                 "LT"
             ),
             user_first_name: registerReport?.attributes?.user?.first_name,
-            user_last_name: registerReport?.attributes?.user?.last_namez,
+            user_last_name: registerReport?.attributes?.user?.last_name,
             user_email: registerReport?.attributes?.user?.email,
             user_image: registerReport?.attributes?.user?.image_url,
             cash_in_hand: registerReport?.attributes?.cash_in_hand,
             cash_in_hand_while_closing:
                 registerReport?.attributes?.cash_in_hand_while_closing,
+            total_sale: registerReport?.attributes?.total_sale,
+            total_amount: registerReport?.attributes?.total_amount,
             currency: frontSetting?.value?.currency_symbol,
             notes: registerReport?.attributes?.notes,
-        }));
-
-    const checkForDifferences = (filter) => {
-        for (const key in filter) {
-            if (filter[key] !== tableFilter[key]) {
-                return true;
-            }
-        }
-        return false;
-    };
+        }))
+            : [];
 
     const onChange = (filter) => {
-        setTableFilter(filter);
-        const hasDifferences = checkForDifferences(filter);
-        if (userData?.value === undefined) {
-            dispatch(getAllRegisterReportDetailsAction({ filter }));
-        } else if (hasDifferences) {
-            if (
-                dates?.end_date === undefined &&
-                dates?.start_date === undefined
-            ) {
-                if (userData?.value !== undefined) {
-                    dispatch(
-                        getAllRegisterReportDetailsAction({
-                            query: `?user_id=${userData?.value}`,
-                            filter,
-                        })
-                    );
-                }
-            } else {
-                if (userData?.value !== undefined) {
-                    dispatch(
-                        getAllRegisterReportDetailsAction({
-                            query: `?user_id=${userData?.value}&start_date=${dates?.start_date}&end_date=${dates?.end_date}`,
-                            filter,
-                        })
-                    );
-                } else {
-                    dispatch(
-                        getAllRegisterReportDetailsAction({
-                            query: `?start_date=${dates?.start_date}&end_date=${dates?.end_date}`,
-                            filter,
-                        })
-                    );
-                }
-            }
-        }
+        dispatch(
+            getAllRegisterReportDetailsAction({
+                query: buildReportQuery(),
+                filter,
+            })
+        );
     };
 
     const columns = [
@@ -283,23 +261,117 @@ const RegisterReport = () => {
 
     const onUserChange = (data) => {
         setUserData(data);
+        setCommissionResult(null);
+    };
+
+    const onCommissionPercentChange = (event) => {
+        const { value } = event.target;
+        if (value === "") {
+            setCommissionPercent("");
+            return;
+        }
+        const numericValue = Number(value);
+        if (Number.isNaN(numericValue)) {
+            return;
+        }
+        if (numericValue < 0) {
+            setCommissionPercent("0");
+            return;
+        }
+        if (numericValue > 100) {
+            setCommissionPercent("100");
+            return;
+        }
+        setCommissionPercent(value);
+    };
+
+    const getCurrentPeriodLabel = () => {
+        if (!dates?.start_date || !dates?.end_date) {
+            return "Sin filtro";
+        }
+
+        const startDate = dates.start_date;
+        const endDate = dates.end_date;
+        const today = moment().format("YYYY-MM-DD");
+        const thisWeekStart = moment().startOf("week").format("YYYY-MM-DD");
+        const lastWeekStart = moment()
+            .subtract(1, "week")
+            .startOf("isoWeek")
+            .format("YYYY-MM-DD");
+        const thisMonthStart = moment().startOf("month").format("YYYY-MM-DD");
+        const thisMonthEnd = moment().endOf("month").format("YYYY-MM-DD");
+        const lastMonthStart = moment()
+            .subtract(1, "months")
+            .startOf("month")
+            .format("YYYY-MM-DD");
+        const lastMonthEnd = moment()
+            .subtract(1, "months")
+            .endOf("month")
+            .format("YYYY-MM-DD");
+
+        if (startDate === today && endDate === today) {
+            return "Hoy";
+        }
+        if (startDate === thisWeekStart && endDate === today) {
+            return "Esta semana";
+        }
+        if (startDate === lastWeekStart && endDate === thisWeekStart) {
+            return "Semana pasada";
+        }
+        if (startDate === thisMonthStart && endDate === thisMonthEnd) {
+            return "Este mes";
+        }
+        if (startDate === lastMonthStart && endDate === lastMonthEnd) {
+            return "Mes pasado";
+        }
+
+        return "Rango personalizado";
+    };
+
+    const getCurrentPeriodRange = () => {
+        if (dates?.start_date && dates?.end_date) {
+            return `${dates.start_date} - ${dates.end_date}`;
+        }
+        return "Todos los registros";
+    };
+
+    const getCurrentUserLabel = () => {
+        if (Number(userData?.value) === 0) {
+            return getFormattedMessage("unit.filter.all.label");
+        }
+        if (userData?.label) {
+            return userData.label;
+        }
+        return getFormattedMessage("unit.filter.all.label");
+    };
+
+    const onCalculateCommission = () => {
+        const percent = Number(commissionPercent || 0);
+        const totalSales = itemsValue.reduce((sum, row) => {
+            const rowSaleTotal = Number(
+                row?.total_sale ??
+                    row?.total_amount ??
+                    row?.cash_in_hand_while_closing ??
+                    0
+            );
+            return sum + (Number.isNaN(rowSaleTotal) ? 0 : rowSaleTotal);
+        }, 0);
+
+        const commission = (totalSales * percent) / 100;
+        setCommissionResult({
+            userLabel: getCurrentUserLabel(),
+            periodLabel: getCurrentPeriodLabel(),
+            periodRange: getCurrentPeriodRange(),
+            totalSales,
+            percent,
+            commission,
+        });
     };
 
     return (
         <MasterLayout>
             <TopProgressBar />
             <TabTitle title={placeholderText("register.report.title")} />
-            <div className="mx-auto col-12 col-md-4">
-                <ReactSelect
-                    multiLanguageOption={usersData?.usersDataOptions}
-                    onChange={onUserChange}
-                    defaultValue={usersData?.userDataOptiosType[0]}
-                    title={getFormattedMessage("users.title")}
-                    errors={""}
-                    placeholder={placeholderText("select.report.label")}
-                    isRequired
-                />
-            </div>
             <div>
                 <ReactDataTable
                     columns={columns}
@@ -309,6 +381,90 @@ const RegisterReport = () => {
                     isLoading={isLoading}
                     totalRows={totalRecord}
                     isShowDateRangeField
+                    AddButton={
+                        <div className="w-100 me-3 mb-2">
+                            <div className="d-flex flex-wrap align-items-end">
+                                <div
+                                    className="me-3 mb-2"
+                                    style={{ minWidth: "260px" }}
+                                >
+                                    <ReactSelect
+                                        multiLanguageOption={
+                                            usersData?.usersDataOptions
+                                        }
+                                        onChange={onUserChange}
+                                        value={userData}
+                                        title={getFormattedMessage("users.title")}
+                                        errors={""}
+                                        placeholder={placeholderText("select.report.label")}
+                                        isRequired
+                                    />
+                                </div>
+                                <div className="me-3 mb-2" style={{ minWidth: "140px" }}>
+                                    <Form.Label className="mb-1">
+                                        % Comision
+                                    </Form.Label>
+                                    <Form.Control
+                                        type="number"
+                                        min={0}
+                                        max={100}
+                                        step="0.01"
+                                        value={commissionPercent}
+                                        onChange={onCommissionPercentChange}
+                                    />
+                                </div>
+                                <div className="mb-2">
+                                    <Button
+                                        variant="primary"
+                                        className="mt-4"
+                                        onClick={onCalculateCommission}
+                                    >
+                                        Calcular comision
+                                    </Button>
+                                </div>
+                            </div>
+                            {commissionResult && (
+                                <div className="card mt-3">
+                                    <div className="card-body">
+                                        <h5 className="mb-3">Resumen de comision</h5>
+                                        <div className="mb-2">
+                                            <strong>Usuario:</strong> {commissionResult.userLabel}
+                                        </div>
+                                        <div className="mb-2">
+                                            <strong>Periodo:</strong> {commissionResult.periodLabel}
+                                        </div>
+                                        <div className="mb-2">
+                                            <strong>Rango de fechas:</strong> {commissionResult.periodRange}
+                                        </div>
+                                        <div className="d-flex justify-content-between mb-2">
+                                            <strong>Total ventas:</strong>
+                                            <span>
+                                                {currencySymbolHandling(
+                                                    allConfigData,
+                                                    frontSetting?.value?.currency_symbol,
+                                                    commissionResult.totalSales
+                                                )}
+                                            </span>
+                                        </div>
+                                        <div className="d-flex justify-content-between mb-2">
+                                            <strong>% comision:</strong>
+                                            <span>{commissionResult.percent}%</span>
+                                        </div>
+                                        <div className="d-flex justify-content-between">
+                                            <strong>TOTAL COMISION:</strong>
+                                            <strong className="text-success">
+                                                {currencySymbolHandling(
+                                                    allConfigData,
+                                                    frontSetting?.value?.currency_symbol,
+                                                    commissionResult.commission
+                                                )}
+                                            </strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    }
                 />
             </div>
         </MasterLayout>
