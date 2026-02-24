@@ -2,7 +2,7 @@ import React from 'react';
 import {Dropdown} from 'react-bootstrap';
 import {getFormattedMessage} from '../sharedMethod';
 import {
-    faEye, faFilePdf, faDollarSign, faTrash, faAngleDown, faCartShopping, faPenToSquare, faEllipsisVertical
+    faEye, faFilePdf, faDollarSign, faTrash, faAngleDown, faCartShopping, faPenToSquare, faEllipsisVertical, faPrint
 } from '@fortawesome/free-solid-svg-icons';
 import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
 import { Permissions } from '../../constants';
@@ -11,7 +11,8 @@ import { useSelector } from 'react-redux';
 const ActionDropDownButton = (props) => {
     const {
         goToEditProduct, item, onClickDeleteModel = true, goToDetailScreen, isViewIcon = false, isPdfIcon = false,isCreateSaleReturn,onCreateSaleReturnClick,
-        isCreatePayment = false, onPdfClick, title, isPaymentShow = false, onShowPaymentClick, onCreatePaymentClick, onCreateSaleClick, isCreatesSales
+        isCreatePayment = false, onPdfClick, title, isPaymentShow = false, onShowPaymentClick, onCreatePaymentClick, onCreateSaleClick, isCreatesSales,
+        isPrintReceipt = false, onPrintReceiptClick
     } = props;
 
     const {config} = useSelector(state => state)
@@ -41,6 +42,15 @@ const ActionDropDownButton = (props) => {
                     }} eventKey='2' className='py-3 px-4 d-flex align-items-center fs-6'>
                         <FontAwesomeIcon icon={faFilePdf}
                                          className='me-2'/> {getFormattedMessage('globally.pdf.download.label')}
+                    </Dropdown.Item> : null
+                }
+                {isPrintReceipt ?
+                    <Dropdown.Item onClick={(e) => {
+                        e.stopPropagation();
+                        onPrintReceiptClick(item);
+                    }} eventKey='2-print' className='py-3 px-4 d-flex align-items-center fs-6'>
+                        <FontAwesomeIcon icon={faPrint}
+                                         className='me-2'/> Imprimir Recibo
                     </Dropdown.Item> : null
                 }
                 {item.payment_status !== 2 && isPaymentShow  ?

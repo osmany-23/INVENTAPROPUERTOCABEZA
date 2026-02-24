@@ -270,9 +270,12 @@ class Sale extends BaseModel implements HasMedia, JsonResourceful
     public function dueAmount($id)
     {
         $grandTotal = Sale::whereId($id)->value('grand_total');
+        $returnedAmount = SaleReturn::where('sale_id', $id)->sum('grand_total');
         $paidAmount = SalesPayment::whereSaleId($id)->sum('amount');
+        $netGrandTotal = max((float) $grandTotal - (float) $returnedAmount, 0);
+        $retainedAmount = min((float) $paidAmount, $netGrandTotal);
 
-        $dueAmount = $grandTotal - $paidAmount;
+        $dueAmount = $netGrandTotal - $retainedAmount;
 
         if ($dueAmount < 0) {
             $dueAmount = 0;

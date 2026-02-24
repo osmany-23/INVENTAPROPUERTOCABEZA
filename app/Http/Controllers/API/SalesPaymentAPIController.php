@@ -8,6 +8,7 @@ use App\Http\Resources\SalesPaymentResource;
 use App\Models\Sale;
 use App\Models\SalesPayment;
 use App\Repositories\SalesPaymentRepository;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
@@ -64,22 +65,8 @@ class SalesPaymentAPIController extends AppBaseController
             $salePayment = SalesPayment::whereId($id)->firstOrFail();
             $saleID = $salePayment->sale_id;
 
-            $existAmount = SalesPayment::whereSaleId($saleID)->sum('amount') - $salePayment->amount;
-
-            $status = $existAmount <= 0 ? Sale::UNPAID : Sale::PARTIAL_PAID;
-
-            Sale::whereId($saleID)->update([
-                'payment_status' => $status,
-                'paid_amount' => $existAmount,
-            ]);
-
             SalesPayment::findOrFail($id)->delete();
-
-            $latestPayment = SalesPayment::whereSaleId($saleID)->latest()->first();
-
-            Sale::whereId($saleID)->update([
-                'payment_type' => ! empty($latestPayment) ? $latestPayment->payment_type : null,
-            ]);
+            $this->salesPaymentRepository->recalculateSalePaymentSummary((int) $saleID);
 
             DB::commit();
 

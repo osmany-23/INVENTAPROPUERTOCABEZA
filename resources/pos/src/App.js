@@ -159,10 +159,12 @@ function App() {
             require("./assets/css/custom.rtl.css");
             require("./assets/css/style.rtl.css");
             require("./assets/css/frontend.rtl.css");
+            require("./assets/css/responsive.css");
         } else {
             require("./assets/css/custom.css");
             require("./assets/css/style.css");
             require("./assets/css/frontend.css");
+            require("./assets/css/responsive.css");
         }
     };
 

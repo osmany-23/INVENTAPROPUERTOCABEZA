@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import moment from "moment";
 import { connect, useDispatch, useSelector } from "react-redux";
+import { useReactToPrint } from "react-to-print";
 import MasterLayout from "../MasterLayout";
 import TabTitle from "../../shared/tab-title/TabTitle";
 import ReactDataTable from "../../shared/table/ReactDataTable";
@@ -15,10 +16,15 @@ import {
 import { salePdfAction } from "../../store/action/salePdfAction";
 import ActionDropDownButton from "../../shared/action-buttons/ActionDropDownButton";
 import { fetchFrontSetting } from "../../store/action/frontSettingAction";
+import { fetchSetting } from "../../store/action/settingAction";
 import ShowPayment from "../../shared/showPayment/ShowPayment";
 import CreatePaymentModal from "./CreatePaymentModal";
 import { fetchSalePayments } from "../../store/action/salePaymentAction";
 import TopProgressBar from "../../shared/components/loaders/TopProgressBar";
+import PrintData from "../../frontend/components/printModal/PrintData";
+import apiConfig from "../../config/apiConfig";
+import { apiBaseURL, toastType } from "../../constants";
+import { addToast } from "../../store/action/toastAction";
 
 const Sales = (props) => {
     const {
@@ -28,7 +34,9 @@ const Sales = (props) => {
         isLoading,
         salePdfAction,
         fetchFrontSetting,
+        fetchSetting,
         frontSetting,
+        settings,
         isCallSaleApi,
         allConfigData,
     } = props;
@@ -38,9 +46,13 @@ const Sales = (props) => {
     const [isDelete, setIsDelete] = useState(null);
     const [createPaymentItem, setCreatePaymentItem] = useState({});
     const { allSalePayments } = useSelector((state) => state);
+    const receiptRef = useRef();
+    const [saleReceiptData, setSaleReceiptData] = useState(null);
+    const [saleReceiptPaymentType, setSaleReceiptPaymentType] = useState("");
     const [tableArray, setTableArray] = useState([]);
     useEffect(() => {
         fetchFrontSetting();
+        fetchSetting({}, false);
     }, []);
 
     const currencySymbol =
@@ -97,6 +109,114 @@ const Sales = (props) => {
             item.is_return === 1
                 ? "#/app/sales/return/edit/" + id
                 : "#/app/sales/return/" + id;
+    };
+
+    const handleSaleReceiptPrint = useReactToPrint({
+        content: () => receiptRef.current,
+    });
+
+    const getPaymentTypeLabel = (paymentType) => {
+        if (paymentType === 1) {
+            return getFormattedMessage("payment-type.filter.cash.label");
+        }
+        if (paymentType === 2) {
+            return getFormattedMessage("payment-type.filter.cheque.label");
+        }
+        if (paymentType === 3) {
+            return getFormattedMessage("payment-type.filter.bank-transfer.label");
+        }
+        if (paymentType === 4) {
+            return getFormattedMessage("payment-type.filter.other.label");
+        }
+
+        return getFormattedMessage("payment-type.filter.cash.label");
+    };
+
+    const prepareSaleReceiptData = (saleInfo, currentSettings) => {
+        const referenceCode = saleInfo?.reference_code || "";
+        const barcodeUrl =
+            saleInfo?.barcode_url ||
+            (referenceCode
+                ? `${window.location.origin}/storage/sales/barcode-${referenceCode}.png`
+                : "");
+
+        const receivedAmount = Number(saleInfo?.received_amount || 0);
+        const grandTotalAmount = Number(saleInfo?.grand_total || 0);
+        const changeReturn =
+            receivedAmount > grandTotalAmount
+                ? receivedAmount - grandTotalAmount
+                : 0;
+
+        const products =
+            saleInfo?.sale_items?.map((saleItem) => ({
+                name: saleItem?.product?.name || "",
+                code: saleItem?.product?.code || "",
+                quantity: Number(saleItem?.quantity || 0),
+                product_unit:
+                    saleItem?.product?.product_unit || saleItem?.sale_unit || "",
+                net_unit_cost:
+                    Number(saleItem?.quantity || 0) > 0
+                        ? Number(saleItem?.sub_total || 0) / Number(saleItem?.quantity || 1)
+                        : Number(saleItem?.sub_total || 0),
+                discount_type: 2,
+                discount_value: 0,
+                tax_type: 2,
+                tax_value: 0,
+            })) || [];
+
+        const subTotal = products.reduce(
+            (sum, product) =>
+                sum +
+                product.quantity *
+                    Number(product.net_unit_cost || 0),
+            0
+        );
+
+        return {
+            products,
+            discount: Number(saleInfo?.discount || 0),
+            tax: Number(saleInfo?.tax_rate || 0),
+            taxTotal: Number(saleInfo?.tax_amount || 0),
+            shipping: Number(saleInfo?.shipping || 0),
+            subTotal,
+            grandTotal: grandTotalAmount,
+            frontSetting,
+            settings: currentSettings,
+            customer_name: { label: saleInfo?.customer?.name || "" },
+            note: saleInfo?.note || "",
+            changeReturn,
+            barcode_url: barcodeUrl,
+            reference_code: referenceCode,
+            date: saleInfo?.date || saleInfo?.created_at || new Date(),
+        };
+    };
+
+    const onPrintReceiptClick = async (item) => {
+        try {
+            const [saleResponse, settingResponse] = await Promise.all([
+                apiConfig.get(`${apiBaseURL.SALE_DETAILS}/${item.id}`),
+                apiConfig.get(apiBaseURL.SETTINGS),
+            ]);
+            const saleInfo = saleResponse?.data?.data;
+            const latestSettings = settingResponse?.data?.data || settings;
+            const receiptData = prepareSaleReceiptData(saleInfo, latestSettings);
+            setSaleReceiptData(receiptData);
+            setSaleReceiptPaymentType(getPaymentTypeLabel(saleInfo?.payment_type));
+
+            setTimeout(() => {
+                const printButton = document.getElementById("printSaleReceipt");
+                if (printButton) {
+                    printButton.click();
+                }
+            }, 0);
+        } catch (error) {
+            dispatch(
+                addToast({
+                    text: error?.response?.data?.message || "Error al imprimir recibo",
+                    type: toastType.ERROR,
+                })
+            );
+        }
     };
 
     const itemsValue =
@@ -402,6 +522,8 @@ const Sales = (props) => {
                         isCreateSaleReturn={true}
                         onCreatePaymentClick={onCreatePaymentClick}
                         onCreateSaleReturnClick={onCreateSaleReturnClick}
+                        isPrintReceipt={true}
+                        onPrintReceiptClick={onPrintReceiptClick}
                     />
                 ),
         },
@@ -410,6 +532,19 @@ const Sales = (props) => {
     return (
         <MasterLayout>
             <TopProgressBar />
+            {saleReceiptData && (
+                <div className="d-none">
+                    <button id="printSaleReceipt" onClick={handleSaleReceiptPrint}>
+                        Print this out!
+                    </button>
+                    <PrintData
+                        ref={receiptRef}
+                        paymentType={saleReceiptPaymentType}
+                        allConfigData={allConfigData}
+                        updateProducts={saleReceiptData}
+                    />
+                </div>
+            )}
             <TabTitle title={placeholderText("sales.title")} />
             <div className="sale_table">
                 <ReactDataTable
@@ -468,6 +603,7 @@ const mapStateToProps = (state) => {
         totalRecord,
         isLoading,
         frontSetting,
+        settings,
         isCallSaleApi,
         allConfigData,
     } = state;
@@ -476,6 +612,7 @@ const mapStateToProps = (state) => {
         totalRecord,
         isLoading,
         frontSetting,
+        settings,
         isCallSaleApi,
         allConfigData,
     };
@@ -485,4 +622,5 @@ export default connect(mapStateToProps, {
     fetchSales,
     salePdfAction,
     fetchFrontSetting,
+    fetchSetting,
 })(Sales);

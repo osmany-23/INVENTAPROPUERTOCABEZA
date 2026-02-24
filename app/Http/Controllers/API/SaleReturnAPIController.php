@@ -8,8 +8,6 @@ use App\Http\Requests\UpdateSaleReturnRequest;
 use App\Http\Resources\SaleReturnCollection;
 use App\Http\Resources\SaleReturnResource;
 use App\Models\Customer;
-use App\Models\ManageStock;
-use App\Models\Sale;
 use App\Models\SaleReturn;
 use App\Models\Setting;
 use App\Models\Warehouse;
@@ -133,22 +131,14 @@ class SaleReturnAPIController extends AppBaseController
         try {
             DB::beginTransaction();
             $saleReturn = $this->saleReturnRepository->with('saleReturnItems')->where('id', $id)->first();
-            $sale = Sale::whereId($saleReturn->sale_id)->first();
-            if ($sale) {
-                $sale->update(['is_return' => 0]);
+            if (! $saleReturn) {
+                throw new UnprocessableEntityHttpException('Sale return not found.');
             }
-            foreach ($saleReturn->saleReturnItems as $saleReturnItem) {
-                $product = ManageStock::whereWarehouseId($saleReturn->warehouse_id)->whereProductId($saleReturnItem['product_id'])->first();
-                if ($product) {
-                    if ($product->quantity >= $saleReturnItem['quantity']) {
-                        $totalQuantity = $product->quantity - $saleReturnItem['quantity'];
-                        $product->update([
-                            'quantity' => $totalQuantity,
-                        ]);
-                    }
-                }
-            }
+            $saleId = (int) $saleReturn->sale_id;
+
+            $this->saleReturnRepository->revertSaleReturnStock($saleReturn);
             $this->saleReturnRepository->delete($id);
+            $this->saleReturnRepository->reconcileSaleFinancialSummary($saleId);
             DB::commit();
 
             return $this->sendSuccess('Sale Return Deleted successfully');

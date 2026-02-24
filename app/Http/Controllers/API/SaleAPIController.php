@@ -174,6 +174,7 @@ class SaleAPIController extends AppBaseController
             'email', 'company_name', 'phone', 'address',
         ];
         $sale['company_info'] = Setting::whereIn('key', $keyName)->pluck('value', 'key')->toArray();
+        $sale['barcode_url'] = Storage::url('sales/barcode-'.$sale->reference_code.'.png');
 
         return $this->sendResponse($sale, 'Sale information retrieved successfully');
     }

@@ -1,0 +1,116 @@
+/* Global responsive baseline for admin + POS views */
+html,
+body {
+  overflow-x: hidden;
+}
+
+img,
+svg,
+canvas,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+.btn {
+  white-space: normal;
+}
+
+/* Better readability on small screens */
+@media (max-width: 991.98px) {
+  .container-fluid {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .card-body {
+    padding: 0.875rem;
+  }
+
+  .table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .btn-group {
+    gap: 0.4rem;
+  }
+
+  .form-control,
+  .form-select,
+  .react-select__control {
+    min-height: 42px;
+  }
+
+  .rdt_TableWrapper,
+  .rdt_Table {
+    overflow-x: auto;
+  }
+}
+
+/* Phone layout defaults */
+@media (max-width: 767.98px) {
+  .header .container-fluid {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+
+  .content {
+    padding-top: 0.75rem !important;
+  }
+
+  .modal {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .modal-dialog {
+    margin: 0.75rem auto;
+    max-width: calc(100% - 1.5rem);
+  }
+
+  .btn,
+  .btn-sm,
+  .btn-lg {
+    width: 100%;
+  }
+}
+
+/* POS specific mobile polish */
+@media (max-width: 991.98px) {
+  .pos-screen .left-content,
+  .pos-screen .right-content {
+    height: auto !important;
+    min-height: auto !important;
+  }
+
+  .pos-screen .main-table {
+    max-height: 45vh;
+  }
+
+  .pos-screen .product-list-block__product-block {
+    justify-content: center;
+  }
+}
+
+/* Dedicated POS register-open confirmation modal */
+.pos-register-open-dialog {
+  max-width: 420px;
+}
+
+.pos-register-open-dialog .modal-content {
+  border-radius: 12px;
+}
+
+.pos-register-open-dialog .modal-footer {
+  gap: 0.75rem;
+}
+
+@media (max-width: 575.98px) {
+  .pos-register-open-dialog .modal-footer .btn {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+}

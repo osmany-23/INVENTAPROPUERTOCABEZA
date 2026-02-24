@@ -14,6 +14,7 @@ const PosRegisterOpenAlertModel = ( { showROAlertModel, setShowROAlertModel,redi
                 size="md"
                 aria-labelledby="contained-modal-title-vcenter"
                 centered
+                dialogClassName="pos-register-open-dialog"
                 show={showROAlertModel}
                 onHide={() => setShowROAlertModel( false )}
             >
@@ -26,7 +27,7 @@ const PosRegisterOpenAlertModel = ( { showROAlertModel, setShowROAlertModel,redi
                         {getFormattedMessage( "Are.you.sure.you.want.to.go.to.dashboard.message" )}
                     </h3>
                 </Modal.Body>
-                <Modal.Footer className='py-4 pb-5 justify-content-center'>
+                <Modal.Footer className='py-4 pb-5 justify-content-center flex-wrap'>
                     <Button
                         className='px-11 py-3'
                         onClick={() => {

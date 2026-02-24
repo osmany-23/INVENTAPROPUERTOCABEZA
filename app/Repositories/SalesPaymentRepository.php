@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Models\Sale;
+use App\Models\SaleReturn;
 use App\Models\SalesPayment;
 use Exception;
 use Illuminate\Support\Facades\DB;
@@ -56,32 +57,9 @@ class SalesPaymentRepository extends BaseRepository
         try {
             DB::beginTransaction();
 
-            $existAnySalePayment = SalesPayment::whereSaleId($sale->id)->exists();
-
-            $existAmount = 0;
-
-            if ($existAnySalePayment) {
-                $existAmount = SalesPayment::whereSaleId($sale->id)->sum('amount');
-            }
-
-            $saleAmount = $sale->grand_total;
-            $payAmount = $input['amount'];
-            $paidAmount = $existAmount + $payAmount;
-
-            $paymentStatus = Sale::PARTIAL_PAID;
-
-            if (($payAmount > 0) && ($paidAmount >= $saleAmount)) {
-                $paymentStatus = Sale::PAID;
-            }
-
-            $sale->update([
-                'payment_status' => $paymentStatus,
-                'paid_amount' => $paidAmount,
-                'payment_type' => $input['payment_type'],
-            ]);
-
             $input['sale_id'] = $sale->id;
             $salePayment = SalesPayment::create($input);
+            $this->recalculateSalePaymentSummary((int) $sale->id);
 
             DB::commit();
 
@@ -100,24 +78,8 @@ class SalesPaymentRepository extends BaseRepository
         try {
             DB::beginTransaction();
 
-            $existAmount = SalesPayment::whereSaleId($salesPayment->sale_id)->sum('amount');
-            $sale = Sale::whereId($salesPayment->sale_id)->firstOrFail();
-            $saleAmount = $sale->grand_total;
-            $payAmount = $input['amount'];
-            $paidAmount = ($existAmount - $salesPayment->amount) + $payAmount;
-
-            $paymentStatus = Sale::PARTIAL_PAID;
-
-            if (($payAmount > 0) && ($paidAmount >= $saleAmount)) {
-                $paymentStatus = Sale::PAID;
-            }
-
-            $sale->update([
-                'payment_status' => $paymentStatus,
-                'paid_amount' => $paidAmount,
-            ]);
-
             $salesPayment->update($input);
+            $this->recalculateSalePaymentSummary((int) $salesPayment->sale_id);
 
             DB::commit();
 
@@ -126,5 +88,36 @@ class SalesPaymentRepository extends BaseRepository
             DB::rollBack();
             throw new UnprocessableEntityHttpException($e->getMessage());
         }
+    }
+
+    public function recalculateSalePaymentSummary(int $saleId): void
+    {
+        $sale = Sale::whereId($saleId)->first();
+        if (! $sale) {
+            return;
+        }
+
+        $totalReturned = (float) SaleReturn::where('sale_id', $saleId)->sum('grand_total');
+        $paymentsTotal = (float) SalesPayment::whereSaleId($saleId)->sum('amount');
+        $netSaleAmount = max((float) $sale->grand_total - $totalReturned, 0);
+        $retainedAmount = min($paymentsTotal, $netSaleAmount);
+
+        if ($netSaleAmount == 0) {
+            $paymentStatus = Sale::PAID;
+        } elseif ($retainedAmount <= 0) {
+            $paymentStatus = Sale::UNPAID;
+        } elseif ($retainedAmount < $netSaleAmount) {
+            $paymentStatus = Sale::PARTIAL_PAID;
+        } else {
+            $paymentStatus = Sale::PAID;
+        }
+
+        $latestPayment = SalesPayment::whereSaleId($saleId)->latest()->first();
+
+        $sale->update([
+            'payment_status' => $paymentStatus,
+            'paid_amount' => $retainedAmount,
+            'payment_type' => $latestPayment ? $latestPayment->payment_type : null,
+        ]);
     }
 }

@@ -10,6 +10,7 @@ use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\SaleReturn;
 use App\Models\SaleReturnItem;
+use App\Models\SalesPayment;
 use App\Models\SmsSetting;
 use App\Models\SmsTemplate;
 use Exception;
@@ -92,36 +93,20 @@ class SaleReturnRepository extends BaseRepository
 
             /** @var Sale $sale */
             $saleReturn = SaleReturn::create($saleReturnInputArray);
-            $saleUpdate = $sale->update(['is_return' => 1]);
             $saleReturn = $this->storeSaleReturnItems($saleReturn, $input);
 
-            foreach ($input['sale_return_items'] as $purchaseItem) {
-                $product = ManageStock::whereWarehouseId($input['warehouse_id'])
-                    ->whereProductId($purchaseItem['product_id'])
-                    ->first();
-                $saleExist = SaleItem::where('product_id', $purchaseItem['product_id'])->whereHas('sale',
-                    function (Builder $q) use ($input) {
-                        $q->where('customer_id', $input['customer_id'])->where('warehouse_id',
-                            $input['warehouse_id'])->where('id', $input['sale_id']);
-                    })->exists();
-                if ($saleExist) {
-                    if ($product) {
-                        if ($product->quantity >= $purchaseItem['quantity']) {
-                            $product->update([
-                                'quantity' => $product->quantity + $purchaseItem['quantity'],
-                            ]);
-                        }
-                    } else {
-                        ManageStock::create([
-                            'warehouse_id' => $input['warehouse_id'],
-                            'product_id' => $purchaseItem['product_id'],
-                            'quantity' => $purchaseItem['quantity'],
-                        ]);
-                    }
-                } else {
-                    throw new UnprocessableEntityHttpException('Sale Does Not exist');
+            foreach ($input['sale_return_items'] as $saleReturnItem) {
+                $qty = (float) ($saleReturnItem['quantity'] ?? 0);
+                if ($qty <= 0) {
+                    continue;
                 }
+                $this->increaseWarehouseStock(
+                    (int) $input['warehouse_id'],
+                    (int) $saleReturnItem['product_id'],
+                    $qty
+                );
             }
+            $this->reconcileSaleFinancialSummary((int) $input['sale_id']);
 
             $mailTemplate = MailTemplate::where('type', MailTemplate::MAIL_TYPE_SALE_RETURN)->first();
             $smsTemplate = SmsTemplate::where('type', SmsTemplate::SMS_TYPE_SALE_RETURN)->first();
@@ -192,59 +177,27 @@ class SaleReturnRepository extends BaseRepository
      */
     public function storeSaleReturnItems($saleReturn, $input)
     {
+        $saleId = (int) $input['sale_id'];
+        $requestedQtyByProduct = $this->buildRequestedReturnMap($input['sale_return_items']);
+        if (empty($requestedQtyByProduct)) {
+            throw new UnprocessableEntityHttpException('Please Enter Atleast One Quantity.');
+        }
+        $this->assertRequestedQtyWithinLimit($saleId, $requestedQtyByProduct);
+
+        $createdItems = 0;
         foreach ($input['sale_return_items'] as $saleReturnItem) {
-            $saleID = $input['sale_id'];
-
-            $salesExists = SaleItem::where('product_id', $saleReturnItem['product_id'])
-                ->whereHas('sale', function (Builder $query) use ($input) {
-                    $query->where('warehouse_id', $input['warehouse_id'])
-                        ->where('id', $input['sale_id']);
-                })
-                ->exists();
-
-            if (! $salesExists) {
-                throw new UnprocessableEntityHttpException('You can not return given product as there is no sales for it.');
+            if ((float) ($saleReturnItem['quantity'] ?? 0) <= 0) {
+                continue;
             }
-
-            $saleOfProduct = SaleItem::where('product_id', $saleReturnItem['product_id'])
-                ->whereHas('sale', function (Builder $query) use ($input) {
-                    $query->where('warehouse_id', $input['warehouse_id'])
-                        ->where('id', $input['sale_id']);
-                })
-                ->sum('quantity');
-
-            //            if ($saleOfProduct <= 0) {
-            //                throw new UnprocessableEntityHttpException('There is no quantity remains to return.');
-            //            }
-
-            if ($saleReturnItem['quantity'] > $saleOfProduct) {
-                throw new UnprocessableEntityHttpException('Sales quantity is '.$saleOfProduct.' and you are trying to return '.$saleReturnItem['quantity']);
-            }
-
-            //            $existingReturnProducts = SaleReturnItem::where('product_id',  $saleReturnItem['product_id'])
-            //                ->whereHas('saleReturn', function (Builder $query) use($input) {
-            //                    $query->where('warehouse_id', $input['warehouse_id']);
-            //                })
-            //                ->exists();
-            //
-            //            if ($existingReturnProducts) {
-            //                $sumOfReturnedProducts = SaleReturnItem::where('product_id',  $saleReturnItem['product_id'])
-            //                    ->whereHas('saleReturn', function (Builder $query) use($input) {
-            //                        $query->where('warehouse_id', $input['warehouse_id']);
-            //                    })
-            //                    ->sum('quantity');
-            //
-            //                $remainingQtyToReturn = $saleOfProduct - $sumOfReturnedProducts;
-            //
-            //                if ($saleReturnItem['quantity'] != $remainingQtyToReturn && $saleReturnItem['quantity'] > $remainingQtyToReturn ) {
-            //                    $remainingQtyToReturn = ($remainingQtyToReturn <= 0) ? 0 : $remainingQtyToReturn;
-            //                        throw new UnprocessableEntityHttpException('Remaining sales to return is '.$remainingQtyToReturn.' and you are returning '.$saleReturnItem['quantity']);
-            //                }
-            //            }
 
             $item = $this->calculationSaleReturnItems($saleReturnItem);
             $saleReturnItem = new SaleReturnItem($item);
             $saleReturn->saleReturnItems()->save($saleReturnItem);
+            $createdItems++;
+        }
+
+        if ($createdItems === 0) {
+            throw new UnprocessableEntityHttpException('Please Enter Atleast One Quantity.');
         }
 
         $subTotalAmount = $saleReturn->saleReturnItems()->sum('sub_total');
@@ -347,101 +300,42 @@ class SaleReturnRepository extends BaseRepository
         try {
             DB::beginTransaction();
             $saleReturn = SaleReturn::findOrFail($id);
+            $saleId = (int) $input['sale_id'];
             $saleReturnItemIds = SaleReturnItem::whereSaleReturnId($id)->pluck('id')->toArray();
             $saleReturnItemOldIds = [];
-            foreach ($input['sale_return_items'] as $key => $saleReturnItem) {
-                //get different ids & update
-                $saleReturnItemOldIds[$key] = $saleReturnItem['sale_return_item_id'];
+
+            $requestedQtyByProduct = $this->buildRequestedReturnMap($input['sale_return_items']);
+            if (empty($requestedQtyByProduct)) {
+                throw new UnprocessableEntityHttpException('Please Enter Atleast One Quantity.');
+            }
+            $this->assertRequestedQtyWithinLimit($saleId, $requestedQtyByProduct, (int) $saleReturn->id);
+
+            foreach ($input['sale_return_items'] as $saleReturnItem) {
+                $qty = (float) ($saleReturnItem['quantity'] ?? 0);
+                $saleReturnItemId = $saleReturnItem['sale_return_item_id'] ?? null;
+                if ($qty <= 0) {
+                    continue;
+                }
+
                 $saleReturnItemArray = Arr::only($saleReturnItem, [
                     'sale_return_item_id', 'product_id', 'product_price', 'net_unit_price', 'tax_type', 'tax_value',
                     'tax_amount', 'discount_type', 'discount_value', 'discount_amount', 'sale_unit', 'quantity',
                     'sub_total',
                 ]);
 
-                $salesExists = SaleItem::where('product_id', $saleReturnItemArray['product_id'])
-                    ->whereHas('sale', function (Builder $query) use ($input) {
-                        $query->where('warehouse_id', $input['warehouse_id'])
-                            ->where('id', $input['sale_id']);
-                    })
-                    ->exists();
-
-                if (! $salesExists) {
-                    throw new UnprocessableEntityHttpException('You can not return given product as there is no sales for it.');
+                if (empty($saleReturnItemId)) {
+                    $calculated = $this->calculationSaleReturnItems($saleReturnItemArray);
+                    $createPayload = Arr::only($calculated, [
+                        'product_id', 'product_price', 'net_unit_price', 'tax_type', 'tax_value', 'tax_amount',
+                        'discount_type', 'discount_value', 'discount_amount', 'sale_unit', 'quantity', 'sub_total',
+                    ]);
+                    $saleReturn->saleReturnItems()->create($createPayload);
+                    $this->increaseWarehouseStock((int) $input['warehouse_id'], (int) $saleReturnItemArray['product_id'], (float) $saleReturnItemArray['quantity']);
+                    continue;
                 }
 
-                $saleOfProduct = SaleItem::where('product_id', $saleReturnItemArray['product_id'])
-                    ->whereHas('sale', function (Builder $query) use ($input) {
-                        $query->where('warehouse_id', $input['warehouse_id'])
-                            ->where('id', $input['sale_id']);
-                    })
-                    ->sum('quantity');
-
-                //            if ($saleOfProduct <= 0) {
-                //                throw new UnprocessableEntityHttpException('There is no quantity remains to return.');
-                //            }
-
-                if ($saleReturnItemArray['quantity'] > $saleOfProduct) {
-                    throw new UnprocessableEntityHttpException('Sales quantity is '.$saleOfProduct.' and you are trying to return '.$saleReturnItemArray['quantity']);
-                }
-
-                $existingReturnProducts = SaleReturnItem::where('product_id', $saleReturnItemArray['product_id'])
-                    ->whereHas('saleReturn', function (Builder $query) use ($input) {
-                        $query->where('warehouse_id', $input['warehouse_id'])
-                            ->where('id', $input['sale_id']);
-                    })
-                    ->exists();
-
-                //                if ($existingReturnProducts) {
-                //                    $sumOfReturnedProducts = SaleReturnItem::where('product_id',  $saleReturnItemArray['product_id'])
-                //                        ->whereHas('saleReturn', function (Builder $query) use($input) {
-                //                            $query->where('warehouse_id', $input['warehouse_id'])
-                //                                ->where('id', $input['sale_id']);
-                //                        })
-                //                        ->sum('quantity');
-                //
-                //                    $remainingQtyToReturn = $saleOfProduct - $sumOfReturnedProducts;
-                //
-                //                    if ($saleReturnItem['quantity'] != $remainingQtyToReturn && $saleReturnItem['quantity'] > $remainingQtyToReturn ) {
-                //                        $remainingQtyToReturn = ($remainingQtyToReturn <= 0) ? 0 : $remainingQtyToReturn;
-                //                        throw new UnprocessableEntityHttpException('Remaining sales to return is '.$remainingQtyToReturn.' and you are returning '.$saleReturnItemArray['quantity']);
-                //                    }
-                //                }
-
+                $saleReturnItemOldIds[] = $saleReturnItemId;
                 $this->updateItem($saleReturnItemArray, $input['warehouse_id']);
-                //create new product items
-                //                if (is_null($saleReturnItem['sale_return_item_id'])) {
-                //                    $saleReturnItem = $this->calculationSaleReturnItems($saleReturnItem);
-                //                    $saleReturnItemArray = Arr::only($saleReturnItem, [
-                //                        'product_id', 'product_price', 'net_unit_price', 'tax_type', 'tax_value', 'tax_amount',
-                //                        'discount_type', 'discount_value', 'discount_amount', 'sale_unit', 'quantity', 'sub_total',
-                //                    ]);
-                //                    $saleReturn->saleReturnItems()->create($saleReturnItemArray);
-                //
-                //                    // manage new product
-                //                    $product = ManageStock::whereWarehouseId($input['warehouse_id'])->whereProductId($saleReturnItem['product_id'])->first();
-                //                    $saleExist = SaleItem::where('product_id', $saleReturnItem['product_id'])->whereHas('sale',
-                //                        function (Builder $q) use ($input) {
-                //                            $q->where('customer_id', $input['customer_id'])->where('warehouse_id',
-                //                                $input['warehouse_id']);
-                //                        })->exists();
-                //                    if ($saleExist) {
-                //                        if ($product) {
-                //                            if ($product->quantity >= $saleReturnItem['quantity']) {
-                //                                $product->update([
-                //                                    'quantity' => $product->quantity + $saleReturnItem['quantity'],
-                //                                ]);
-                //                            }
-                //                        } else {
-                //                            ManageStock::create([
-                //                                'warehouse_id' => $input['warehouse_id'],
-                //                                'product_id'   => $saleReturnItem['product_id'],
-                //                                'quantity'     => $saleReturnItem['quantity'],
-                //                            ]);
-                //                        }
-                //                    } else {
-                //                        throw new UnprocessableEntityHttpException("Sale Does Not exist");
-                //                    }
-                //                }
             }
             $removeItemIds = array_diff($saleReturnItemIds, $saleReturnItemOldIds);
             //delete remove product
@@ -452,13 +346,7 @@ class SaleReturnRepository extends BaseRepository
                     $productQuantity = ManageStock::whereWarehouseId($input['warehouse_id'])->whereProductId($oldProduct->product_id)->first();
                     if ($productQuantity && $oldProduct) {
                         if ($oldProduct->quantity <= $productQuantity->quantity) {
-                            $stockQuantity = $productQuantity->quantity - $oldProduct->quantity;
-                            if ($stockQuantity < 0) {
-                                $stockQuantity = 0;
-                            }
-                            $productQuantity->update([
-                                'quantity' => $stockQuantity,
-                            ]);
+                            $this->decreaseWarehouseStock((int) $input['warehouse_id'], (int) $oldProduct->product_id, (float) $oldProduct->quantity);
                         }
                     } else {
                         throw new UnprocessableEntityHttpException('Quantity must be less than Available quantity.');
@@ -468,6 +356,7 @@ class SaleReturnRepository extends BaseRepository
             }
 
             $saleReturn = $this->updateSaleReturnCalculation($input, $id);
+            $this->reconcileSaleFinancialSummary($saleId);
             DB::commit();
 
             return $saleReturn;
@@ -481,29 +370,30 @@ class SaleReturnRepository extends BaseRepository
     {
         try {
             $saleReturnItem = $this->calculationSaleReturnItems($saleReturnItem);
-            $item = SaleReturnItem::whereId($saleReturnItem['sale_return_item_id']);
-
-            $product = ManageStock::whereWarehouseId($warehouseId)->whereProductId($saleReturnItem['product_id'])->first();
             $oldItem = SaleReturnItem::whereId($saleReturnItem['sale_return_item_id'])->first();
-            $totalQuantity = 0;
-            if ($product && $oldItem && $oldItem->quantity != $saleReturnItem['quantity']) {
-                if ($oldItem->quantity > $saleReturnItem['quantity']) {
-                    $totalQuantity = $product->quantity - ($oldItem->quantity - $saleReturnItem['quantity']);
-                    if ($totalQuantity < 0) {
-                        $totalQuantity = 0;
-                    }
-                } elseif ($oldItem->quantity < $saleReturnItem['quantity']) {
-                    $totalQuantity = $product->quantity + ($saleReturnItem['quantity'] - $oldItem->quantity);
-                    if ($totalQuantity < 0) {
-                        $totalQuantity = 0;
-                    }
-                }
-                $product->update([
-                    'quantity' => $totalQuantity,
-                ]);
+            if (! $oldItem) {
+                throw new UnprocessableEntityHttpException('Sale return item not found.');
             }
+
+            $newProductId = (int) $saleReturnItem['product_id'];
+            $oldProductId = (int) $oldItem->product_id;
+            $newQty = (float) $saleReturnItem['quantity'];
+            $oldQty = (float) $oldItem->quantity;
+
+            if ($newProductId !== $oldProductId) {
+                $this->decreaseWarehouseStock((int) $warehouseId, $oldProductId, $oldQty);
+                $this->increaseWarehouseStock((int) $warehouseId, $newProductId, $newQty);
+            } elseif ($oldQty != $newQty) {
+                $qtyDelta = $newQty - $oldQty;
+                if ($qtyDelta > 0) {
+                    $this->increaseWarehouseStock((int) $warehouseId, $newProductId, $qtyDelta);
+                } else {
+                    $this->decreaseWarehouseStock((int) $warehouseId, $newProductId, abs($qtyDelta));
+                }
+            }
+
             unset($saleReturnItem['sale_return_item_id']);
-            $item->update($saleReturnItem);
+            $oldItem->update($saleReturnItem);
 
             return true;
         } catch (Exception $e) {
@@ -543,5 +433,122 @@ class SaleReturnRepository extends BaseRepository
         $saleReturn->update($saleReturnInputArray);
 
         return $saleReturn;
+    }
+
+    private function buildRequestedReturnMap(array $returnItems): array
+    {
+        $requestedQtyByProduct = [];
+        foreach ($returnItems as $item) {
+            $productId = (int) ($item['product_id'] ?? 0);
+            $qty = (float) ($item['quantity'] ?? 0);
+            if ($productId <= 0 || $qty <= 0) {
+                continue;
+            }
+            $requestedQtyByProduct[$productId] = ($requestedQtyByProduct[$productId] ?? 0) + $qty;
+        }
+
+        return $requestedQtyByProduct;
+    }
+
+    private function assertRequestedQtyWithinLimit(int $saleId, array $requestedQtyByProduct, ?int $excludeSaleReturnId = null): void
+    {
+        foreach ($requestedQtyByProduct as $productId => $requestedQty) {
+            $soldQty = (float) SaleItem::where('sale_id', $saleId)->where('product_id', $productId)->sum('quantity');
+            if ($soldQty <= 0) {
+                throw new UnprocessableEntityHttpException('You can not return given product as there is no sales for it.');
+            }
+
+            $returnedQtyQuery = SaleReturnItem::where('product_id', $productId)
+                ->whereHas('saleReturn', function (Builder $query) use ($saleId, $excludeSaleReturnId) {
+                    $query->where('sale_id', $saleId);
+                    if (! empty($excludeSaleReturnId)) {
+                        $query->where('id', '!=', $excludeSaleReturnId);
+                    }
+                });
+            $returnedQty = (float) $returnedQtyQuery->sum('quantity');
+            $remainingQty = $soldQty - $returnedQty;
+
+            if ($remainingQty <= 0 || $requestedQty > $remainingQty) {
+                throw new UnprocessableEntityHttpException('Remaining sales to return is '.$remainingQty.' and you are returning '.$requestedQty);
+            }
+        }
+    }
+
+    public function increaseWarehouseStock(int $warehouseId, int $productId, float $qty): void
+    {
+        if ($qty <= 0) {
+            return;
+        }
+
+        $stock = ManageStock::whereWarehouseId($warehouseId)->whereProductId($productId)->first();
+        if ($stock) {
+            $stock->update(['quantity' => (float) $stock->quantity + $qty]);
+
+            return;
+        }
+
+        ManageStock::create([
+            'warehouse_id' => $warehouseId,
+            'product_id' => $productId,
+            'quantity' => $qty,
+        ]);
+    }
+
+    public function decreaseWarehouseStock(int $warehouseId, int $productId, float $qty): void
+    {
+        if ($qty <= 0) {
+            return;
+        }
+
+        $stock = ManageStock::whereWarehouseId($warehouseId)->whereProductId($productId)->first();
+        if (! $stock || (float) $stock->quantity < $qty) {
+            throw new UnprocessableEntityHttpException('Quantity must be less than Available quantity.');
+        }
+
+        $stock->update(['quantity' => (float) $stock->quantity - $qty]);
+    }
+
+    public function revertSaleReturnStock(SaleReturn $saleReturn): void
+    {
+        foreach ($saleReturn->saleReturnItems as $saleReturnItem) {
+            $qty = (float) $saleReturnItem->quantity;
+            if ($qty <= 0) {
+                continue;
+            }
+            $this->decreaseWarehouseStock(
+                (int) $saleReturn->warehouse_id,
+                (int) $saleReturnItem->product_id,
+                $qty
+            );
+        }
+    }
+
+    public function reconcileSaleFinancialSummary(int $saleId): void
+    {
+        $sale = Sale::whereId($saleId)->first();
+        if (! $sale) {
+            return;
+        }
+
+        $totalReturned = (float) SaleReturn::where('sale_id', $saleId)->sum('grand_total');
+        $collectedPayments = (float) SalesPayment::whereSaleId($saleId)->sum('amount');
+        $netSaleAmount = max((float) $sale->grand_total - $totalReturned, 0);
+        $retainedAmount = min($collectedPayments, $netSaleAmount);
+
+        if ($netSaleAmount == 0) {
+            $paymentStatus = Sale::PAID;
+        } elseif ($retainedAmount <= 0) {
+            $paymentStatus = Sale::UNPAID;
+        } elseif ($retainedAmount < $netSaleAmount) {
+            $paymentStatus = Sale::PARTIAL_PAID;
+        } else {
+            $paymentStatus = Sale::PAID;
+        }
+
+        $sale->update([
+            'is_return' => SaleReturn::where('sale_id', $saleId)->exists() ? 1 : 0,
+            'paid_amount' => $retainedAmount,
+            'payment_status' => $paymentStatus,
+        ]);
     }
 }

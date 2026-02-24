@@ -623,15 +623,31 @@ class ReportAPIController extends AppBaseController
     {
         $perPage = getPageSize($request);
         $customers = $this->customerRepository->withCount('sales')->with('sales.payments')->paginate($perPage);
+        $saleIds = $customers->pluck('sales')->flatten()->pluck('id')->filter()->unique()->values()->toArray();
+        $saleReturnTotals = [];
+        if (! empty($saleIds)) {
+            $saleReturnTotals = SaleReturn::whereIn('sale_id', $saleIds)
+                ->select('sale_id', DB::raw('SUM(grand_total) as total_return'))
+                ->groupBy('sale_id')
+                ->pluck('total_return', 'sale_id')
+                ->toArray();
+        }
 
         foreach ($customers as $key => $customer) {
             $totalPaidAmount = 0;
-            $grandTotalAmount = $customer->sales->sum('grand_total');
-            $customers[$key]['total_grand_amount'] = $grandTotalAmount;
+            $netGrandTotalAmount = 0;
             foreach ($customer->sales as $sale) {
-                $totalPaidAmount = $totalPaidAmount + $sale->payments->sum('amount');
+                $saleReturnAmount = (float) ($saleReturnTotals[$sale->id] ?? 0);
+                $netSaleAmount = max((float) $sale->grand_total - $saleReturnAmount, 0);
+                $salePaid = (float) $sale->payments->sum('amount');
+                $retainedSalePaid = min($salePaid, $netSaleAmount);
+
+                $netGrandTotalAmount += $netSaleAmount;
+                $totalPaidAmount += $retainedSalePaid;
             }
-            $totalDueAmount = $grandTotalAmount - $totalPaidAmount;
+
+            $totalDueAmount = max($netGrandTotalAmount - $totalPaidAmount, 0);
+            $customers[$key]['total_grand_amount'] = $netGrandTotalAmount;
             $customers[$key]['total_paid_amount'] = $totalPaidAmount;
             $customers[$key]['total_due_amount'] = $totalDueAmount;
         }
@@ -664,16 +680,30 @@ class ReportAPIController extends AppBaseController
         $salesData = [];
 
         $salesData['totalSale'] = $customer->sales->count();
+        $saleIds = $customer->sales->pluck('id')->filter()->unique()->values()->toArray();
+        $saleReturnTotals = [];
+        if (! empty($saleIds)) {
+            $saleReturnTotals = SaleReturn::whereIn('sale_id', $saleIds)
+                ->select('sale_id', DB::raw('SUM(grand_total) as total_return'))
+                ->groupBy('sale_id')
+                ->pluck('total_return', 'sale_id')
+                ->toArray();
+        }
 
-        $salesData['totalAmount'] = $customer->sales->sum('grand_total');
-
+        $salesData['totalAmount'] = 0;
         $salesData['totalPaid'] = 0;
 
         foreach ($customer->sales as $sale) {
-            $salesData['totalPaid'] = $salesData['totalPaid'] + $sale->payments->sum('amount');
+            $saleReturnAmount = (float) ($saleReturnTotals[$sale->id] ?? 0);
+            $netSaleAmount = max((float) $sale->grand_total - $saleReturnAmount, 0);
+            $salePaid = (float) $sale->payments->sum('amount');
+            $retainedSalePaid = min($salePaid, $netSaleAmount);
+
+            $salesData['totalAmount'] += $netSaleAmount;
+            $salesData['totalPaid'] += $retainedSalePaid;
         }
 
-        $salesData['totalSalesDue'] = $salesData['totalAmount'] - $salesData['totalPaid'];
+        $salesData['totalSalesDue'] = max($salesData['totalAmount'] - $salesData['totalPaid'], 0);
 
         return $this->sendResponse($salesData, 'Customer info retrieved successfully');
     }
