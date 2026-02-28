@@ -3,13 +3,23 @@ import { Card, Row, Table } from 'react-bootstrap';
 import { connect } from 'react-redux';
 import { getFormattedMessage } from '../../shared/sharedMethod';
 import { fetchStockAlert } from "../../store/action/stockAlertAction";
+import { can } from "../../shared/can";
 
 const StockAlert = ( props ) => {
     const { fetchStockAlert, stockAlertDetails } = props
+    const canViewStockAlerts = can("view_stock_alerts", { strict: true });
 
     useEffect( () => {
+        if (!canViewStockAlerts) {
+            return;
+        }
+
         fetchStockAlert();
-    }, [] );
+    }, [canViewStockAlerts, fetchStockAlert] );
+
+    if (!canViewStockAlerts) {
+        return null;
+    }
 
     return (
         <div className='pt-6'>

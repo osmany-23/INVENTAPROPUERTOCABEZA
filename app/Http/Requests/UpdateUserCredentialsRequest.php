@@ -2,46 +2,29 @@
 
 namespace App\Http\Requests;
 
-use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-/**
- * Class UpdateUserRequest
- */
-class UpdateUserRequest extends FormRequest
+class UpdateUserCredentialsRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     */
     public function rules(): array
     {
         $userId = $this->resolveRouteUserId();
 
-        $rules = User::$rules;
-        $rules['email'] = [
-            'required',
-            'email',
-            Rule::unique('users', 'email')->ignore($userId),
+        return [
+            'email' => [
+                'required',
+                'email',
+                Rule::unique('users', 'email')->ignore($userId),
+            ],
+            'password' => 'required|min:6|confirmed',
+            'password_confirmation' => 'required|min:6',
         ];
-        $rules['phone'] = [
-            'required',
-            'numeric',
-            Rule::unique('users', 'phone')->ignore($userId),
-        ];
-        $rules['role_id'] = 'integer|exists:roles,id';
-        $rules['password'] = 'nullable';
-        $rules['confirm_password'] = 'nullable|same:password';
-
-        return $rules;
     }
 
     private function resolveRouteUserId(): ?int

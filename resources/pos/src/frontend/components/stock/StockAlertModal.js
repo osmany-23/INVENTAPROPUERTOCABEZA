@@ -5,6 +5,7 @@ import {fetchStockAlert} from '../../../store/action/stockAlertAction';
 import apiConfig from '../../../config/apiConfig';
 import {getFormattedMessage} from '../../../shared/sharedMethod';
 import { apiBaseURL, Tokens } from '../../../constants';
+import { can } from "../../../shared/can";
 
 const StockAlertModal = (props) => {
     const {show, onHide, stockAlertDetails, warehouse} = props;
@@ -13,10 +14,18 @@ const StockAlertModal = (props) => {
     const [error, setError] = useState('');
     const [loadingExport, setLoadingExport] = useState(false);
     const dispatch = useDispatch();
+    const canViewStockAlerts = can("view_stock_alerts", { strict: true });
 
     useEffect(() => {
+        if (!show || !canViewStockAlerts) {
+            return;
+        }
         dispatch(fetchStockAlert());
-    }, []);
+    }, [dispatch, show, canViewStockAlerts]);
+
+    if (!canViewStockAlerts) {
+        return null;
+    }
 
     useEffect(() => {
         setFiltered(stockAlertDetails || []);

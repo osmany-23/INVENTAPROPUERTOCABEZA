@@ -20,6 +20,7 @@ const ProductCartList = (props) => {
         setUpdateProducts,
         posAllProducts,
         allConfigData,
+        canEditPosSalePrice,
     } = props;
     const dispatch = useDispatch();
     const totalQty = posAllProducts
@@ -112,10 +113,12 @@ const ProductCartList = (props) => {
                     <span className="badge bg-light-info sku-badge">
                         {singleProduct.code}
                     </span>
-                    <i
-                        className="bi bi-pencil-fill text-gray-600 ms-2 cursor-pointer fs-small"
-                        onClick={() => onClickUpdateItemInCart(singleProduct)}
-                    />
+                    {canEditPosSalePrice && (
+                        <i
+                            className="bi bi-pencil-fill text-gray-600 ms-2 cursor-pointer fs-small"
+                            onClick={() => onClickUpdateItemInCart(singleProduct)}
+                        />
+                    )}
                 </span>
             </td>
             <td>

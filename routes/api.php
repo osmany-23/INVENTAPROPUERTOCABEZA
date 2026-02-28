@@ -71,9 +71,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('week-selling-purchases', [DashboardAPIController::class, 'getWeekSalePurchases']);
         Route::get('yearly-top-selling', [DashboardAPIController::class, 'getYearlyTopSelling']);
         Route::get('top-customers', [DashboardAPIController::class, 'getTopCustomer']);
-            Route::get('stock-alerts', [DashboardAPIController::class, 'stockAlerts']);
-            Route::get('stock-alerts/export', [ReportAPIController::class, 'getStockAlertsExport']);
-            Route::get('stock-alerts/export-download', [ReportAPIController::class, 'downloadStockAlerts']);
+    });
+
+    Route::middleware('permission:view_stock_alerts|manage_dashboard')->group(function () {
+        Route::get('stock-alerts', [DashboardAPIController::class, 'stockAlerts']);
+        Route::get('stock-alerts/export', [ReportAPIController::class, 'getStockAlertsExport']);
+        Route::get('stock-alerts/export-download', [ReportAPIController::class, 'downloadStockAlerts']);
     });
     // get all permission
     Route::get('/permissions', [PermissionController::class, 'getPermissions'])->name('get-permissions');
@@ -159,10 +162,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
     //Users route
-    Route::middleware('permission:manage_users')->group(function () {
-        Route::resource('users', UserAPIController::class);
-        Route::post('users/{user}', [UserAPIController::class, 'update']);
-    });
+    Route::resource('users', UserAPIController::class);
+    Route::post('users/{user}', [UserAPIController::class, 'update']);
+    Route::post('users/{user}/credentials', [UserAPIController::class, 'updateCredentials']);
     // update user profile
     Route::get('edit-profile', [UserAPIController::class, 'editProfile'])->name('edit-profile');
     Route::post('update-profile', [UserAPIController::class, 'updateProfile'])->name('update-profile');
@@ -360,7 +362,8 @@ Route::middleware('auth:sanctum')->group(function () {
     );
 
     //Warehouse Products alert Quantity Report
-    Route::get('product-stock-alerts/{warehouse_id?}', [ReportAPIController::class, 'stockAlerts']);
+    Route::middleware('permission:view_stock_alerts|manage_dashboard')
+        ->get('product-stock-alerts/{warehouse_id?}', [ReportAPIController::class, 'stockAlerts']);
 
     //stock report
     Route::get('stock-report', [ManageStockAPIController::class, 'stockReport'])->name('report-stockReport');

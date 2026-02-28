@@ -12,15 +12,25 @@ import {getFormattedMessage} from '../../shared/sharedMethod';
 import {placeholderText} from '../../shared/sharedMethod';
 import ActionButton from '../../shared/action-buttons/ActionButton';
 import TopProgressBar from "../../shared/components/loaders/TopProgressBar";
+import { can } from "../../shared/can";
+import ChangeUserCredentialsModal from "./ChangeUserCredentialsModal";
 
 const User = (props) => {
     const {users, fetchUsers, totalRecord, isLoading, allConfigData} = props;
     const [deleteModel, setDeleteModel] = useState(false);
     const [isDelete, setIsDelete] = useState(null);
+    const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+    const [selectedUserForCredentials, setSelectedUserForCredentials] = useState(null);
+    const canEditUserCredentials = can("user.update_credentials", { strict: true });
 
     const onClickDeleteModel = (isDelete = null) => {
         setDeleteModel(!deleteModel);
         setIsDelete(isDelete);
+    };
+
+    const onClickCredentialsModal = (userItem = null) => {
+        setSelectedUserForCredentials(userItem);
+        setShowCredentialsModal(Boolean(userItem));
     };
 
     const itemsValue = users.length >= 0 && users.map(user => ({
@@ -114,7 +124,9 @@ const User = (props) => {
             allowOverflow: true,
             button: true,
             cell: row => <ActionButton item={row} goToEditProduct={goToEdit} isEditMode={true}
-                                       onClickDeleteModel={onClickDeleteModel}/>
+                                       onClickDeleteModel={onClickDeleteModel}
+                                       isCredentialMode={canEditUserCredentials}
+                                       onClickCredentialModel={onClickCredentialsModal}/>
         }
     ];
 
@@ -126,6 +138,14 @@ const User = (props) => {
                             ButtonValue={getFormattedMessage('user.create.title')}
                             to='#/app/users/create' totalRows={totalRecord} isLoading={isLoading}/>
             <DeleteUser onClickDeleteModel={onClickDeleteModel} deleteModel={deleteModel} onDelete={isDelete}/>
+            <ChangeUserCredentialsModal
+                show={showCredentialsModal}
+                selectedUser={selectedUserForCredentials}
+                onClose={() => {
+                    setShowCredentialsModal(false);
+                    setSelectedUserForCredentials(null);
+                }}
+            />
         </MasterLayout>
     )
 };

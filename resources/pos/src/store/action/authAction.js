@@ -7,45 +7,7 @@ import { setLanguage } from "./changeLanguageAction";
 import { getFormattedMessage } from "../../shared/sharedMethod";
 import { fetchConfig } from "./configAction";
 import Cookies from 'js-cookie';
-
-const permissionMappings = {
-    manage_dashboard: "/app/dashboard",
-    manage_roles: "/app/roles",
-    manage_brands: "/app/brands",
-    manage_warehouses: "/app/warehouses",
-    manage_units: "/app/units",
-    manage_product_categories: "/app/product-categories",
-    manage_products: "/app/products",
-    manage_suppliers: "/app/suppliers",
-    manage_customers: "/app/customers",
-    manage_users: "/app/users",
-    manage_purchase: "/app/purchases",
-    manage_pos_screen: "/app/pos",
-    manage_sale: "/app/sales",
-    manage_print_barcode: "/app/print/barcode",
-    manage_adjustments: "/app/adjustments",
-    manage_quotations: "/app/quotations",
-    manage_transfers: "/app/transfers",
-    manage_expenses: "/app/expenses",
-    manage_currency: "/app/currencies",
-    manage_variations: "/app/variations",
-    manage_expense_categories: "/app/expense-categories",
-    manage_setting: "/app/settings",
-    manage_purchase_return: "/app/purchase-return",
-    manage_sale_return: "/app/sale-return",
-    manage_report: "/app/report/report-warehouse",
-    manage_language: "/app/languages",
-};
-
-const mapPermissionToRoute = (permission) => {
-    const permissionKey = permission.toLowerCase();
-    if (permissionMappings.hasOwnProperty(permissionKey)) {
-        return permissionMappings[permissionKey];
-    } else {
-        const entity = permissionKey.split("_").slice(1).join("-");
-        return `/app/${entity}`;
-    }
-};
+import { getDefaultRedirectRoute } from "../../shared/permissionRoute";
 
 export const loginAction = (user, navigate, setLoading) => async (dispatch) => {
     await apiConfig
@@ -77,11 +39,17 @@ export const loginAction = (user, navigate, setLoading) => async (dispatch) => {
                 "loginUserArray",
                 JSON.stringify(response.data.data.user)
             );
+            const expiresAt = Number(response.data?.data?.expires_at);
+            const expiresAtInMinutes =
+                Number.isFinite(expiresAt) && expiresAt > 0 ? expiresAt : 120;
+
             localStorage.setItem(
                 "user_time",
-                Date.now() + response.data.data.expires_at * 60 * 1000
+                String(Date.now() + expiresAtInMinutes * 60 * 1000)
             );
-            Cookies.set('authToken', response.data.data.token, { expires: new Date(new Date().getTime() + response.data.data.expires_at * 60 * 1000) });
+            Cookies.set("authToken", response.data.data.token, {
+                expires: new Date(Date.now() + expiresAtInMinutes * 60 * 1000),
+            });
             dispatch({
                 type: authActionType.LOGIN_USER,
                 payload: response.data.data,
@@ -92,23 +60,8 @@ export const loginAction = (user, navigate, setLoading) => async (dispatch) => {
                 response.data.data.user.language
             );
 
-            const userPermissions = response.data.data.permissions;
-            const mappedRoutes = userPermissions.map(mapPermissionToRoute);
-            if (mappedRoutes && mappedRoutes.length > 0) {
-                if (userPermissions.includes("manage_dashboard")) {
-                    // If 'manage_dashboard' permission is present, redirect to the first permission
-                    navigate("/app/dashboard");
-                }
-                 else if(mappedRoutes.length === 1 && userPermissions.includes("manage_pos_screen")){
-                    navigate("/app/pos");
-                } 
-                else {
-                    // If 'manage_dashboard' is not present, redirect to the first permission route
-                    navigate(mappedRoutes[0]);
-                }
-            } else {
-                navigate("/app/dashboard");
-            }
+            const userPermissions = response.data.data.permissions || [];
+            navigate(getDefaultRedirectRoute(userPermissions, ""));
 
             dispatch(fetchPermissions());
             dispatch(fetchFrontSetting());

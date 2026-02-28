@@ -21,10 +21,14 @@ import { faEdit, faEye, faTrash } from "@fortawesome/free-solid-svg-icons";
 import EditSubProductModal from "./EditSubProductModal";
 import DeleteProduct from "./DeleteProduct";
 import CreateSubProductModal from "./CreateSubProductModal";
+import { can } from "../../shared/can";
 
 const ProductDetail = (props) => {
     const { products, fetchMainProduct, isLoading, frontSetting, allConfigData } =
         props;
+    const canCreateProduct = can("products.create", { strict: true });
+    const canUpdateProduct = can("products.update", { strict: true });
+    const canDeleteProduct = can("products.delete", { strict: true });
     const { id } = useParams();
     const result =
         products &&
@@ -224,7 +228,7 @@ const ProductDetail = (props) => {
                 </div>
             </div>
             {allProducts && allProducts.length !== 0 && <div className="card card-body mt-2">
-                {product.attributes.product_type == 2 && commonDataForNewProduct.variationTypes.length !== 0 &&
+                {canCreateProduct && product.attributes.product_type == 2 && commonDataForNewProduct.variationTypes.length !== 0 &&
                     <div className="text-end mb-2 ">
                         <Button
                             type="button"
@@ -322,15 +326,17 @@ const ProductDetail = (props) => {
                                                 }}>
                                                 <FontAwesomeIcon icon={faEye} />
                                             </button>
-                                            <button title={placeholderText('globally.view.tooltip.label')}
-                                                className='btn text-primary px-2 fs-3 ps-0 border-0'
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    openEditSubProductModal(data)
-                                                }}>
-                                                <FontAwesomeIcon icon={faEdit} />
-                                            </button>
-                                            {product.attributes.product_type == 2 && allProducts.length > 1 &&
+                                            {canUpdateProduct && (
+                                                <button title={placeholderText('globally.view.tooltip.label')}
+                                                    className='btn text-primary px-2 fs-3 ps-0 border-0'
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        openEditSubProductModal(data)
+                                                    }}>
+                                                    <FontAwesomeIcon icon={faEdit} />
+                                                </button>
+                                            )}
+                                            {canDeleteProduct && product.attributes.product_type == 2 && allProducts.length > 1 &&
                                                 <button title={placeholderText('globally.delete.tooltip.label')}
                                                     className='btn text-danger px-2 fs-3 ps-0 border-0'
                                                     onClick={(e) => {

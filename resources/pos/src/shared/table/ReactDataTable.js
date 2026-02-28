@@ -60,7 +60,7 @@ const ReactDataTable = (props) => {
     } = props;
     const [perPage, setPerPages] = useState(defaultLimit);
     const [pageSize, setPageSize] = useState(Filters.OBJ.pageSize);
-    const [adminName, setAdminName] = useState(Filters.OBJ.adminName);
+    const [adminName] = useState(Filters.OBJ.adminName);
     const [created_at] = useState(Filters.OBJ.created_at);
     const [order_By, setOrderBy] = useState(Filters.OBJ.order_By);
     const [direction, setDirection] = useState(Filters.OBJ.direction);
@@ -79,11 +79,10 @@ const ReactDataTable = (props) => {
     const [show, setShow] = useState(false);
     const dispatch = useDispatch();
 
-    const tableColumns = useMemo(() => columns, []);
+    const tableColumns = useMemo(() => columns, [columns]);
 
     useEffect(() => {
-        onChangeDidMount(currentPage);
-        setAdminName(adminName);
+        onChangeDidMount();
     }, [
         currentPage,
         status,
@@ -100,16 +99,14 @@ const ReactDataTable = (props) => {
         direction,
         searchText,
         pageSize,
-        adminName,
-        totalRows,
         selectDate,
         brand,
         productCategory,
     ]);
 
-    const handleSearch = (searchText) => {
-        handlePageChange(1);
-        setSearchText(searchText);
+    const handleSearch = (value) => {
+        setCurrentPage(1);
+        setSearchText(value);
     };
 
     const onDateSelector = (date) => {
@@ -281,7 +278,48 @@ const ReactDataTable = (props) => {
                 </Col>
             </>
         );
-    }, [items, AddButton]);
+    }, [
+        AddButton,
+        ButtonValue,
+        brandFilterTitle,
+        buttonImport,
+        goToImport,
+        importBtnTitle,
+        isBrandFilter,
+        isEXCEL,
+        isExport,
+        isExportDropdown,
+        isImportDropdown,
+        isPaymentStatus,
+        isPaymentType,
+        isPdf,
+        isProductCategoryFilter,
+        isReportPdf,
+        isShowDateRangeField,
+        isShowFilterField,
+        isShowSearch,
+        isStatus,
+        isTransferStatus,
+        isUnitFilter,
+        isWarehouseType,
+        onExcelClick,
+        onResetClick,
+        onReportPdfClick,
+        onWarehouseChange,
+        paymentStatus,
+        paymentType,
+        productCategory,
+        productCategoryFilterTitle,
+        productUnit,
+        selectDate,
+        show,
+        status,
+        tableWarehouseValue,
+        title,
+        to,
+        transferStatus,
+        warehouseOptions,
+    ]);
 
     const onChangeDidMount = () => {
         const filters = {
@@ -292,13 +330,7 @@ const ReactDataTable = (props) => {
             adminName: adminName,
             created_at: created_at,
             search:
-                searchText === ""
-                    ? searchText === 1 || searchText === undefined
-                        ? ""
-                        : searchText.toLowerCase()
-                    : "" || searchText !== ""
-                    ? searchText.toLowerCase()
-                    : "",
+                typeof searchText === "string" ? searchText.toLowerCase() : "",
             start_date: selectDate ? selectDate.start_date : null,
             end_date: selectDate ? selectDate.end_date : null,
             payment_status: paymentStatus ? paymentStatus.value : null,
@@ -328,11 +360,6 @@ const ReactDataTable = (props) => {
     const handlePageChange = (page) => {
         if (currentPage !== page) {
             setCurrentPage(page);
-        }
-
-        const pagination = document.getElementById("pagination-first-page");
-        if (page === 1 && pagination !== null) {
-            pagination.click();
         }
     };
 

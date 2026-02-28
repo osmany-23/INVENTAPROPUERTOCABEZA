@@ -289,6 +289,7 @@ const UserForm = (props) => {
                                 type="text"
                                 name="email"
                                 className="form-control"
+                                autoComplete="email"
                                 placeholder={placeholderText(
                                     "user.input.email.placeholder.label"
                                 )}
@@ -343,6 +344,7 @@ const UserForm = (props) => {
                                                 : "password"
                                         }
                                         name="password"
+                                        autoComplete="new-password"
                                         placeholder={placeholderText(
                                             "user.input.password.placeholder.label"
                                         )}
@@ -392,6 +394,7 @@ const UserForm = (props) => {
                                                 : "password"
                                         }
                                         name="confirm_password"
+                                        autoComplete="new-password"
                                         className="form-control"
                                         placeholder={placeholderText(
                                             "user.input.confirm-password.placeholder.label"

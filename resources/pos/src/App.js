@@ -14,13 +14,14 @@ import ForgotPassword from "./components/auth/ForgotPassword";
 import AdminApp from "./AdminApp";
 import { getFiles } from "./locales/index";
 import Cookies from "js-cookie";
+import { getDefaultRedirectRoute } from "./shared/permissionRoute";
 
 function App() {
     //do not remove updateLanguag
     const dispatch = useDispatch();
     const { updateLanguage } = useSelector((state) => state);
     const location = useLocation();
-    const token = Cookies.get("authToken");
+    const token = Cookies.get("authToken") || localStorage.getItem(Tokens.ADMIN);
     const navigate = useNavigate()
     const updatedLanguage = localStorage.getItem(Tokens.UPDATED_LANGUAGE);
     const { selectedLanguage, config, language } = useSelector(
@@ -32,74 +33,7 @@ function App() {
     const updateLanguag =
         allLocales[updatedLanguage ? updatedLanguage : selectedLanguage];
     const [languageData, setLanguageData] = useState([]);
-
-    const permissionMappings = {
-        manage_dashboard: "/app/dashboard",
-        manage_roles: "/app/roles",
-        manage_brands: "/app/brands",
-        manage_warehouses: "/app/warehouses",
-        manage_units: "/app/units",
-        manage_product_categories: "/app/product-categories",
-        manage_products: "/app/products",
-        manage_suppliers: "/app/suppliers",
-        manage_customers: "/app/customers",
-        manage_users: "/app/users",
-        manage_purchase: "/app/purchases",
-        manage_pos_screen: "/app/pos",
-        manage_sale: "/app/sales",
-        manage_print_barcode: "/app/print/barcode",
-        manage_adjustments: "/app/adjustments",
-        manage_quotations: "/app/quotations",
-        manage_transfers: "/app/transfers",
-        manage_expenses: "/app/expenses",
-        manage_currency: "/app/currencies",
-        manage_variations: "/app/variations",
-        manage_expense_categories: "/app/expense-categories",
-        manage_setting: "/app/settings",
-        manage_purchase_return: "/app/purchase-return",
-        manage_sale_return: "/app/sale-return",
-        manage_report: "/app/report/report-warehouse",
-        manage_language: "/app/languages",
-    };
-
-    const mapPermissionToRoute = (permission) => {
-        const permissionKey = permission.toLowerCase();
-        if (permissionMappings.hasOwnProperty(permissionKey)) {
-            return permissionMappings[permissionKey];
-        } else {
-            const entity = permissionKey.split("_").slice(1).join("-");
-            return `/app/${entity}`;
-        }
-    };
-
-    const [mappedRoutes, setMappedRoutes] = useState([]);
-    const [redirectTo, setRedirectTo] = useState("");
-    useEffect(() => {
-        setMappedRoutes(config.map(mapPermissionToRoute));
-    }, [config]);
-    useEffect(() => {
-        if (mappedRoutes && mappedRoutes.length > 0) {
-            if (config.includes("manage_dashboard")) {
-                setRedirectTo("/app/dashboard");
-            } else if (config.includes("manage_sale")) {
-                setRedirectTo("/app/sales");
-            }
-             else if(mappedRoutes.length === 1 && config.includes("manage_pos_screen")){
-                setRedirectTo("/app/pos");
-            }
-             else {
-                const currentPath = window.location.hash;
-                const targetPath = mappedRoutes[0];
-                if (currentPath === `#${targetPath}`) {
-                    setRedirectTo(mappedRoutes[1]);
-                } else {
-                    setRedirectTo(mappedRoutes[0]);
-                }
-            }
-        } else {
-            setRedirectTo("/app/dashboard");
-        }
-    }, [mappedRoutes]);
+    const redirectTo = getDefaultRedirectRoute(config);
 
     useEffect(() => {
         const getData = getFiles();
@@ -197,7 +131,7 @@ function App() {
                         element={
                             <Navigate
                                 replace
-                                to={token ? redirectTo : "/login"}
+                                to={token ? redirectTo || "/app/dashboard" : "/login"}
                             />
                         }
                     />

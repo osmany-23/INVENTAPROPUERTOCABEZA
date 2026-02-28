@@ -7,15 +7,18 @@ import {
 import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
 import { Permissions } from '../../constants';
 import { useSelector } from 'react-redux';
+import { canCrud } from "../can";
 
 const ActionDropDownButton = (props) => {
     const {
         goToEditProduct, item, onClickDeleteModel = true, goToDetailScreen, isViewIcon = false, isPdfIcon = false,isCreateSaleReturn,onCreateSaleReturnClick,
         isCreatePayment = false, onPdfClick, title, isPaymentShow = false, onShowPaymentClick, onCreatePaymentClick, onCreateSaleClick, isCreatesSales,
-        isPrintReceipt = false, onPrintReceiptClick
+        isPrintReceipt = false, onPrintReceiptClick, showEdit = true, showDelete = true
     } = props;
 
     const {config} = useSelector(state => state)
+    const allowEdit = showEdit && canCrud("update");
+    const allowDelete = showDelete && canCrud("delete");
 
     return (
         <Dropdown className='table-dropdown'>
@@ -104,7 +107,7 @@ const ActionDropDownButton = (props) => {
                         {item.is_return === 1 ? getFormattedMessage("purchase.return.edit.title") : getFormattedMessage("purchase.return.create.title")}
                     </Dropdown.Item> : null
                 }
-                {goToEditProduct && !item.is_sale_created && item.is_return !== 1 &&
+                {allowEdit && goToEditProduct && !item.is_sale_created && item.is_return !== 1 &&
                 <Dropdown.Item onClick={(e) => {
                     e.stopPropagation();
                     goToEditProduct(item);
@@ -112,13 +115,15 @@ const ActionDropDownButton = (props) => {
                     <FontAwesomeIcon icon={faPenToSquare}
                                      className='me-2'/>{getFormattedMessage('globally.edit.tooltip.label')} {title}
                 </Dropdown.Item>}
-                <Dropdown.Item onClick={(e) => {
-                    e.stopPropagation();
-                    onClickDeleteModel(item);
-                }} eventKey='4' className='py-3 px-4 d-flex align-items-center fs-6'>
-                    <FontAwesomeIcon icon={faTrash}
-                                     className='me-2'/> {getFormattedMessage('globally.delete.tooltip.label')} {title}
-                </Dropdown.Item>
+                {allowDelete && typeof onClickDeleteModel === "function" && (
+                    <Dropdown.Item onClick={(e) => {
+                        e.stopPropagation();
+                        onClickDeleteModel(item);
+                    }} eventKey='4' className='py-3 px-4 d-flex align-items-center fs-6'>
+                        <FontAwesomeIcon icon={faTrash}
+                                         className='me-2'/> {getFormattedMessage('globally.delete.tooltip.label')} {title}
+                    </Dropdown.Item>
+                )}
             </Dropdown.Menu>
         </Dropdown>
     )

@@ -3,10 +3,23 @@ import { apiBaseURL, productQuantityReportActionType } from "../../constants";
 import apiConfig from "../../config/apiConfig";
 import { setTotalRecord } from "./totalRecordAction";
 import requestParam from "../../shared/requestParam";
+import { can } from "../../shared/can";
 
 export const productQuantityReportAction =
     (id, filter = {}, isLoading = true, setTotalRecords) =>
     async (dispatch) => {
+        if (!can("view_stock_alerts", { strict: true })) {
+            dispatch({
+                type: productQuantityReportActionType.QUANTITY_REPORT,
+                payload: [],
+            });
+            dispatch(setTotalRecord(0));
+            if (typeof setTotalRecords === "function") {
+                setTotalRecords(0);
+            }
+            return;
+        }
+
         if (isLoading) {
             dispatch(setLoading(true));
         }

@@ -140,6 +140,33 @@ export const editUser = (userId, users, navigate) => async (dispatch) => {
         });
 };
 
+export const editUserCredentials = (userId, credentials, onSuccess = null) => async (dispatch) => {
+    dispatch(setSavingButton(true));
+    apiConfig
+        .post(`${apiBaseURL.USERS}/${userId}/credentials`, credentials)
+        .then((response) => {
+            dispatch({
+                type: userActionType.EDIT_USER,
+                payload: response.data.data,
+            });
+            dispatch(
+                addToast({
+                    text: "Credenciales del usuario actualizadas correctamente.",
+                })
+            );
+            if (typeof onSuccess === "function") {
+                onSuccess(response.data.data);
+            }
+            dispatch(setSavingButton(false));
+        })
+        .catch(({ response }) => {
+            dispatch(setSavingButton(false));
+            dispatch(
+                addToast({ text: response?.data?.message || "No se pudieron actualizar las credenciales.", type: toastType.ERROR })
+            );
+        });
+};
+
 export const deleteUser = (userId) => async (dispatch) => {
     apiConfig
         .delete(apiBaseURL.USERS + "/" + userId)

@@ -33,6 +33,7 @@ import { productQuantityReportAction } from '../../store/action/paymentQuantityR
 import { Filters } from '../../constants';
 import LanguageModel from "../user-profile/LanguageModel";
 import PosRegisterModel from '../posRegister/PosRegisterModel.js';
+import { can } from "../../shared/can";
 
 const Header = (props) => {
     const { logoutAction, newRoutes, updateLanguage, selectedLanguage, productQuantityReportAction, productQuantityReport, stockAlertDetails } = props;
@@ -55,11 +56,16 @@ const Header = (props) => {
     const [showPosRegisterModel, setShowPosRegisterModel] = useState(false)
     const [showStockAlertModal, setShowStockAlertModal] = useState(false)
     const { allConfigData } = useSelector(state => state)
+    const canViewStockAlerts = can("view_stock_alerts", { strict: true });
 
     useEffect(() => {
+        if (!canViewStockAlerts) {
+            return;
+        }
+
         let isLoading
         productQuantityReportAction(warehouseValue.value, Filters.OBJ, isLoading = false, setTotalRecords)
-    }, [])
+    }, [canViewStockAlerts])
     const onClickDeleteModel = () => {
         setDeleteModel(!deleteModel);
     };
@@ -162,12 +168,14 @@ const Header = (props) => {
                                 <FontAwesomeIcon icon={faMaximize} className='text-primary fs-2' />
                             </li>
                         }
-                        <li className="px-sm-3 px-2 alert-badge-icon" onClick={() => setShowStockAlertModal(true)} style={{cursor: 'pointer', position: 'relative'}}>
-                            <FontAwesomeIcon icon={faBell} className='text-primary fs-2' />
-                            {stockAlertDetails && stockAlertDetails.length > 0 ?
-                                <span className='product-alert-badge'>{stockAlertDetails.length > 99 ? '99+' : stockAlertDetails.length}</span>
-                                : null}
-                        </li>
+                        {canViewStockAlerts && (
+                            <li className="px-sm-3 px-2 alert-badge-icon" onClick={() => setShowStockAlertModal(true)} style={{cursor: 'pointer', position: 'relative'}}>
+                                <FontAwesomeIcon icon={faBell} className='text-primary fs-2' />
+                                {stockAlertDetails && stockAlertDetails.length > 0 ?
+                                    <span className='product-alert-badge'>{stockAlertDetails.length > 99 ? '99+' : stockAlertDetails.length}</span>
+                                    : null}
+                            </li>
+                        )}
                     </ul>
                     {/*<Dropdown className='d-flex align-items-stretch me-3'>*/}
                     {/*    <Dropdown.Toggle className='hide-arrow bg-transparent border-0 p-0 d-flex align-items-center'*/}
@@ -344,7 +352,9 @@ const Header = (props) => {
             {languageModel === true &&
                 <LanguageModel languageModel={languageModel} onClickLanguageModel={onClickLanguageModel} />}
 
-            <StockAlertModal show={showStockAlertModal} onHide={() => setShowStockAlertModal(false)} warehouse={warehouseValue.value} />
+            {canViewStockAlerts && (
+                <StockAlertModal show={showStockAlertModal} onHide={() => setShowStockAlertModal(false)} warehouse={warehouseValue.value} />
+            )}
 
             <PosRegisterModel showPosRegisterModel={showPosRegisterModel} onClickshowPosRegisterModel={onClickshowPosRegisterModel} />
         </Navbar>

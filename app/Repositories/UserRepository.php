@@ -2,7 +2,6 @@
 
 namespace App\Repositories;
 
-use App\Models\Role;
 use App\Models\User;
 use Exception;
 use Illuminate\Support\Facades\Auth;
@@ -75,6 +74,15 @@ class UserRepository extends BaseRepository
     {
         try {
             DB::beginTransaction();
+
+            if (empty($input['password'])) {
+                unset($input['password']);
+            } else {
+                $input['password'] = Hash::make($input['password']);
+            }
+
+            unset($input['confirm_password']);
+
             $user = $this->update($input, $id);
 
             if (isset($input['role_id'])) {
@@ -127,25 +135,14 @@ class UserRepository extends BaseRepository
     public function getUsers($perPage)
     {
         $loginUserId = Auth::id();
-        if (Auth::user()->hasRole(Role::ADMIN)) {
-            if (request()->get('returnAll') == 'true') {
-                $users = $this->paginate($perPage);
-            } else {
-                $users = $this->where('id', '!=', $loginUserId)->paginate($perPage);
-            }
-        } else {
-            $users = $this->whereHas('roles', function ($q) {
-                $q->where('name', '!=', Role::ADMIN);
-            });
 
-            if (request()->get('returnAll') == 'true') {
-                $users = $users->paginate($perPage);
-            } else {
-                $users = $users->where('id', '!=', $loginUserId)->paginate($perPage);
-            }
+        if (request()->get('returnAll') == 'true') {
+            return $this->paginate($perPage);
         }
 
-        return $users;
+        return $this->scopeQuery(function ($query) use ($loginUserId) {
+            return $query->where('id', '!=', $loginUserId);
+        })->paginate($perPage);
     }
 
     public function updatePassword(array $input): User
@@ -159,5 +156,26 @@ class UserRepository extends BaseRepository
         $user->update($input);
 
         return $user;
+    }
+
+    public function updateUserCredentials(array $input, int $id): User
+    {
+        try {
+            DB::beginTransaction();
+
+            /** @var User $targetUser */
+            $targetUser = User::findOrFail($id);
+
+            $targetUser->email = $input['email'];
+            $targetUser->password = Hash::make($input['password']);
+            $targetUser->save();
+
+            DB::commit();
+
+            return $targetUser;
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw new UnprocessableEntityHttpException($e->getMessage());
+        }
     }
 }

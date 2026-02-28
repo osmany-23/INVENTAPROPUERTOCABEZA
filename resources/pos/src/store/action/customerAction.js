@@ -12,6 +12,7 @@ import { getFormattedMessage } from "../../shared/sharedMethod";
 import { setSavingButton } from "./saveButtonAction";
 import { callImportProductApi } from "./importProductApiAction";
 import moment from "moment";
+import { can } from "../../shared/can";
 
 export const fetchCustomers =
     (filter = {}, isLoading = true) =>
@@ -188,6 +189,14 @@ export const deleteCustomer = (customerId) => async (dispatch) => {
 };
 
 export const fetchAllCustomer = () => async (dispatch) => {
+    if (!can("customer.view", { strict: true })) {
+        dispatch({
+            type: customerActionType.FETCH_ALL_CUSTOMER,
+            payload: [],
+        });
+        return;
+    }
+
     apiConfig
         .get(`customers?page[size]=0`)
         .then((response) => {

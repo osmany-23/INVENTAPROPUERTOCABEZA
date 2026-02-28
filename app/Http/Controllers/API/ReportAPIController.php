@@ -252,6 +252,8 @@ class ReportAPIController extends AppBaseController
 
     public function getStockAlertsExport(Request $request): JsonResponse
     {
+        abort_unless(hasPermissionStrict('view_stock_alerts'), 403);
+
         $warehouse = $request->get('warehouse_id');
         $quantity = $request->get('quantity');
 
@@ -271,6 +273,8 @@ class ReportAPIController extends AppBaseController
      */
     public function downloadStockAlerts(Request $request)
     {
+        abort_unless(hasPermissionStrict('view_stock_alerts'), 403);
+
         if (!Auth::check()) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
@@ -318,6 +322,8 @@ class ReportAPIController extends AppBaseController
      */
     public function stockAlerts(Request $request, $warehouseId = null): JsonResponse
     {
+        abort_unless(hasPermissionStrict('view_stock_alerts'), 403);
+
         $perPage = getPageSize($request);
         $manageStocks = $this->manageStockRepository->with('warehouse')->where('alert', true)->latest();
         if ($warehouseId != null) {

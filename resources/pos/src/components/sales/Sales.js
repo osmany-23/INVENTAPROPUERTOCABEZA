@@ -25,6 +25,7 @@ import PrintData from "../../frontend/components/printModal/PrintData";
 import apiConfig from "../../config/apiConfig";
 import { apiBaseURL, toastType } from "../../constants";
 import { addToast } from "../../store/action/toastAction";
+import { can } from "../../shared/can";
 
 const Sales = (props) => {
     const {
@@ -50,6 +51,8 @@ const Sales = (props) => {
     const [saleReceiptData, setSaleReceiptData] = useState(null);
     const [saleReceiptPaymentType, setSaleReceiptPaymentType] = useState("");
     const [tableArray, setTableArray] = useState([]);
+    const canEditSale = can("pos.edit_sale", { strict: true });
+    const canDeleteSale = can("pos.delete_sale", { strict: true });
     useEffect(() => {
         fetchFrontSetting();
         fetchSetting({}, false);
@@ -524,6 +527,8 @@ const Sales = (props) => {
                         onCreateSaleReturnClick={onCreateSaleReturnClick}
                         isPrintReceipt={true}
                         onPrintReceiptClick={onPrintReceiptClick}
+                        showEdit={canEditSale}
+                        showDelete={canDeleteSale}
                     />
                 ),
         },

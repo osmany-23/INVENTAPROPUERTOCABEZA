@@ -36,6 +36,8 @@ class CustomerAPIController extends AppBaseController
 
     public function index(Request $request): CustomerCollection
     {
+        abort_unless(hasPermissionStrict('customer.view'), 403);
+
         $perPage = getPageSize($request);
         $customers = $this->customerRepository->paginate($perPage);
         CustomerResource::usingWithCollection();
@@ -48,6 +50,8 @@ class CustomerAPIController extends AppBaseController
      */
     public function store(CreateCustomerRequest $request): CustomerResource
     {
+        abort_unless(hasPermissionStrict('customer.create'), 403);
+
         $input = $request->all();
         if (! empty($input['dob'])) {
             $input['dob'] = $input['dob'] ?? date('Y/m/d');
@@ -59,6 +63,8 @@ class CustomerAPIController extends AppBaseController
 
     public function show($id): CustomerResource
     {
+        abort_unless(hasPermissionStrict('customer.view'), 403);
+
         $customer = $this->customerRepository->find($id);
 
         return new CustomerResource($customer);
@@ -69,6 +75,8 @@ class CustomerAPIController extends AppBaseController
      */
     public function update(UpdateCustomerRequest $request, $id): CustomerResource
     {
+        abort_unless(hasPermissionStrict('customer.update'), 403);
+
         $input = $request->all();
         if (! empty($input['dob'])) {
             $input['dob'] = $input['dob'] ?? date('Y/m/d');
@@ -80,6 +88,8 @@ class CustomerAPIController extends AppBaseController
 
     public function destroy($id): JsonResponse
     {
+        abort_unless(hasPermissionStrict('customer.delete'), 403);
+
         if (getSettingValue('default_customer') == $id) {
             return $this->SendError('Default customer can\'t be deleted');
         }
@@ -90,6 +100,8 @@ class CustomerAPIController extends AppBaseController
 
     public function bestCustomersPdfDownload(): JsonResponse
     {
+        abort_unless(hasPermissionStrict('customer.view'), 403);
+
         ini_set('memory_limit','-1');
         $month = Carbon::now()->month;
         $topCustomers = Customer::leftJoin('sales', 'customers.id', '=', 'sales.customer_id')
@@ -121,6 +133,8 @@ class CustomerAPIController extends AppBaseController
 
     public function pdfDownload(Customer $customer): JsonResponse
     {
+        abort_unless(hasPermissionStrict('customer.view'), 403);
+
         ini_set('memory_limit','-1');
         $customer = $customer->load('sales.payments');
 
@@ -157,6 +171,8 @@ class CustomerAPIController extends AppBaseController
 
     public function customerSalesPdfDownload(Customer $customer): JsonResponse
     {
+        abort_unless(hasPermissionStrict('customer.view'), 403);
+
         ini_set('memory_limit','-1');
         $customer = $customer->load('sales.payments');
 
@@ -179,6 +195,8 @@ class CustomerAPIController extends AppBaseController
 
     public function customerQuotationsPdfDownload(Customer $customer): JsonResponse
     {
+        abort_unless(hasPermissionStrict('customer.view'), 403);
+
         ini_set('memory_limit','-1');
         $customer = $customer->load('quotations');
 
@@ -201,6 +219,8 @@ class CustomerAPIController extends AppBaseController
 
     public function customerReturnsPdfDownload(Customer $customer): JsonResponse
     {
+        abort_unless(hasPermissionStrict('customer.view'), 403);
+
         ini_set('memory_limit','-1');
         $customer = $customer->load('salesReturns');
 
@@ -223,6 +243,8 @@ class CustomerAPIController extends AppBaseController
 
     public function customerPaymentsPdfDownload($id): JsonResponse
     {
+        abort_unless(hasPermissionStrict('customer.view'), 403);
+
         ini_set('memory_limit','-1');
         $saleIds = [];
 
@@ -253,6 +275,8 @@ class CustomerAPIController extends AppBaseController
 
     public function importCustomers(Request $request)
     {
+        abort_unless(hasPermissionStrict('customer.create'), 403);
+
         Excel::import(new CustomerImport(), request()->file('file'));
 
         return $this->sendSuccess('Customers imported successfully');

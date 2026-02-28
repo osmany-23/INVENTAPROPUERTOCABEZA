@@ -46,6 +46,7 @@ import { useNavigate } from "react-router";
 import PosCloseRegisterDetailsModel from "../../components/posRegister/PosCloseRegisterDetailsModel.js";
 import { addToast } from "../../store/action/toastAction";
 import PosRegisterModel from "../../components/posRegister/PosRegisterModel.js";
+import { can } from "../../shared/can";
 
 const PosMainPage = (props) => {
     const {
@@ -109,6 +110,10 @@ const PosMainPage = (props) => {
     const { closeRegisterDetails } = useSelector((state) => state);
     const dispatch = useDispatch();
     const navigate = useNavigate();
+    const canApplyDiscount = can("pos.apply_discount", { strict: true });
+    const canCancelSale = can("pos.cancel_sale", { strict: true });
+    const canCreateSale = can("pos.create_sale", { strict: true });
+    const canEditPosSalePrice = can("edit_pos_sale_price", { strict: true });
 
     //total Qty on cart item
     const localCart = updateProducts.map((updateQty) =>
@@ -279,6 +284,19 @@ const PosMainPage = (props) => {
         }
 
         let discount = cartItemValue.discount;
+        if (
+            (event.target.name === "discount_value" || event.target.name === "discount_type") &&
+            !canApplyDiscount
+        ) {
+            dispatch(
+                addToast({
+                    text: "No tiene permiso para aplicar descuentos.",
+                    type: toastType.ERROR,
+                })
+            );
+            return;
+        }
+
         if (event.target.name == 'discount_value') {
             if (cartItemValue.discount_type == discountType.FIXED) {
                 discount = value;
@@ -348,6 +366,16 @@ const PosMainPage = (props) => {
 
     //product details model updated value
     const onClickUpdateItemInCart = (item) => {
+        if (!canEditPosSalePrice) {
+            dispatch(
+                addToast({
+                    text: "No tiene permiso para editar el precio de venta en POS.",
+                    type: toastType.ERROR,
+                })
+            );
+            return;
+        }
+
         setProduct(item);
         setIsOpenCartItemUpdateModel(true);
     };
@@ -639,6 +667,7 @@ const PosMainPage = (props) => {
                                                             singleProduct={
                                                                 updateProduct
                                                             }
+                                                            canEditPosSalePrice={canEditPosSalePrice}
                                                             key={index + 1}
                                                             index={index}
                                                             posAllProducts={
@@ -688,6 +717,7 @@ const PosMainPage = (props) => {
                                     subTotal={subTotal}
                                     grandTotal={grandTotal}
                                     cartItemValue={cartItemValue}
+                                    canApplyDiscount={canApplyDiscount}
                                     onChangeCart={onChangeCart}
                                     allConfigData={allConfigData}
                                     frontSetting={frontSetting}
@@ -708,6 +738,8 @@ const PosMainPage = (props) => {
                                     setHoldListValue={setHoldListValue}
                                     selectedCustomerOption={selectedCustomerOption}
                                     setUpdateHoldList={setUpdateHoldList}
+                                    canCancelSale={canCancelSale}
+                                    canCreateSale={canCreateSale}
                                 />
                             </div>
                         </div>
@@ -765,7 +797,7 @@ const PosMainPage = (props) => {
                     </div>
                 </Col>
             </Row>
-            {isOpenCartItemUpdateModel && (
+            {canEditPosSalePrice && isOpenCartItemUpdateModel && (
                 <ProductDetailsModel
                     openProductDetailModal={openProductDetailModal}
                     productModelId={product.id}
@@ -774,6 +806,7 @@ const PosMainPage = (props) => {
                     cartProduct={product}
                     isOpenCartItemUpdateModel={isOpenCartItemUpdateModel}
                     frontSetting={frontSetting}
+                    canEditPosSalePrice={canEditPosSalePrice}
                 />
             )}
             {cashPayment && (

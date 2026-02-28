@@ -30,6 +30,8 @@ class SupplierAPIController extends AppBaseController
 
     public function index(Request $request): SupplierCollection
     {
+        abort_unless(hasPermissionStrict('supplier.view'), 403);
+
         $perPage = getPageSize($request);
         $suppliers = $this->supplierRepository->paginate($perPage);
         SupplierResource::usingWithCollection();
@@ -42,6 +44,8 @@ class SupplierAPIController extends AppBaseController
      */
     public function store(CreateSupplierRequest $request): SupplierResource
     {
+        abort_unless(hasPermissionStrict('supplier.create'), 403);
+
         $input = $request->all();
         $supplier = $this->supplierRepository->create($input);
 
@@ -50,6 +54,8 @@ class SupplierAPIController extends AppBaseController
 
     public function show($id): SupplierResource
     {
+        abort_unless(hasPermissionStrict('supplier.view'), 403);
+
         $supplier = $this->supplierRepository->find($id);
 
         return new SupplierResource($supplier);
@@ -60,6 +66,8 @@ class SupplierAPIController extends AppBaseController
      */
     public function update(UpdateSupplierRequest $request, $id): SupplierResource
     {
+        abort_unless(hasPermissionStrict('supplier.update'), 403);
+
         $input = $request->all();
         $supplier = $this->supplierRepository->update($input, $id);
 
@@ -68,6 +76,8 @@ class SupplierAPIController extends AppBaseController
 
     public function destroy($id): JsonResponse
     {
+        abort_unless(hasPermissionStrict('supplier.delete'), 403);
+
         $purchaseModel = [
             Purchase::class,
         ];
@@ -82,6 +92,8 @@ class SupplierAPIController extends AppBaseController
 
     public function importSuppliers(Request $request): JsonResponse
     {
+        abort_unless(hasPermissionStrict('supplier.create'), 403);
+
         Excel::import(new SupplierImport(), request()->file('file'));
 
         return $this->sendSuccess('Suppliers imported successfully');

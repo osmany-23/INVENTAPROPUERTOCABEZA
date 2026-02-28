@@ -37,6 +37,8 @@ class PurchaseAPIController extends AppBaseController
 
     public function index(Request $request): PurchaseCollection
     {
+        abort_unless(hasPermissionStrict('purchase.view'), 403);
+
         $perPage = getPageSize($request);
         $search = $request->filter['search'] ?? '';
         $supplier = (Supplier::where('name', 'LIKE', "%$search%")->get()->count() != 0);
@@ -74,6 +76,8 @@ class PurchaseAPIController extends AppBaseController
 
     public function store(CreatePurchaseRequest $request): PurchaseResource
     {
+        abort_unless(hasPermissionStrict('purchase.create'), 403);
+
         $input = $request->all();
         $purchase = $this->purchaseRepository->storePurchase($input);
 
@@ -82,6 +86,8 @@ class PurchaseAPIController extends AppBaseController
 
     public function show($id): PurchaseResource
     {
+        abort_unless(hasPermissionStrict('purchase.view'), 403);
+
         $purchase = $this->purchaseRepository
             ->with(['purchaseItems.product.stocks', 'supplier', 'warehouse'])
             ->find($id);
@@ -91,6 +97,8 @@ class PurchaseAPIController extends AppBaseController
 
     public function edit(Purchase $purchase): PurchaseResource
     {
+        abort_unless(hasPermissionStrict('purchase.view'), 403);
+
         $purchase = $purchase->load('purchaseItems.product.stocks', 'warehouse');
 
         return new PurchaseResource($purchase);
@@ -98,6 +106,8 @@ class PurchaseAPIController extends AppBaseController
 
     public function update(UpdatePurchaseRequest $request, $id): PurchaseResource
     {
+        abort_unless(hasPermissionStrict('purchase.update'), 403);
+
         $input = $request->all();
         $purchase = $this->purchaseRepository->updatePurchase($input, $id);
 
@@ -106,6 +116,8 @@ class PurchaseAPIController extends AppBaseController
 
     public function destroy($id): JsonResponse
     {
+        abort_unless(hasPermissionStrict('purchase.delete'), 403);
+
         try {
             DB::beginTransaction();
             $purchase = $this->purchaseRepository->with('purchaseItems')->where('id', $id)->first();
@@ -140,6 +152,8 @@ class PurchaseAPIController extends AppBaseController
      */
     public function pdfDownload(Purchase $purchase): JsonResponse
     {
+        abort_unless(hasPermissionStrict('purchase.view'), 403);
+
         ini_set('memory_limit', '-1');
         $purchase = $purchase->load('purchaseItems.product', 'supplier');
 
@@ -160,6 +174,8 @@ class PurchaseAPIController extends AppBaseController
 
     public function purchaseInfo(Purchase $purchase): JsonResponse
     {
+        abort_unless(hasPermissionStrict('purchase.view'), 403);
+
         $purchase = $purchase->load(['purchaseItems.product.stocks', 'warehouse', 'supplier']);
 
         $purchase->purchaseItems->transform(function ($item) {
@@ -180,6 +196,8 @@ class PurchaseAPIController extends AppBaseController
 
     public function getPurchaseProductReport(Request $request): PurchaseCollection
     {
+        abort_unless(hasPermissionStrict('purchase.view'), 403);
+
         $perPage = getPageSize($request);
         $productId = $request->get('product_id');
         $purchases = $this->purchaseRepository->whereHas('purchaseItems', function ($q) use ($productId) {

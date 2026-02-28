@@ -1,0 +1,442 @@
+import {
+    getLegacyPermissionsForPermission,
+    normalizePermissions,
+} from "./permissionRoute";
+
+const parseStoredPermissions = (value) => {
+    if (!value) {
+        return [];
+    }
+
+    if (Array.isArray(value)) {
+        return value
+            .map((permission) =>
+                typeof permission === "string" ? permission : permission?.name
+            )
+            .filter(Boolean);
+    }
+
+    if (typeof value !== "string") {
+        return [];
+    }
+
+    const trimmedValue = value.trim();
+    if (!trimmedValue) {
+        return [];
+    }
+
+    if (
+        (trimmedValue.startsWith("[") && trimmedValue.endsWith("]")) ||
+        (trimmedValue.startsWith("{") && trimmedValue.endsWith("}"))
+    ) {
+        try {
+            const parsedValue = JSON.parse(trimmedValue);
+            return parseStoredPermissions(parsedValue);
+        } catch (e) {
+            // Fallback to CSV parsing
+        }
+    }
+
+    return trimmedValue
+        .split(",")
+        .map((permission) => permission.trim())
+        .filter(Boolean);
+};
+
+const parsePermissionsFromStorage = () => {
+    const csvPermissions = parseStoredPermissions(
+        localStorage.getItem("get_permissions")
+    );
+    if (csvPermissions.length > 0) {
+        return csvPermissions;
+    }
+
+    try {
+        const userRaw = localStorage.getItem("user");
+        if (userRaw) {
+            const user = JSON.parse(userRaw);
+            const rolePermissions = user?.role?.permissions;
+            const parsedPermissions = parseStoredPermissions(rolePermissions);
+            if (parsedPermissions.length > 0) {
+                return parsedPermissions;
+            }
+        }
+    } catch (e) {
+        // ignore invalid JSON from localStorage
+    }
+
+    try {
+        const loginUserRaw = localStorage.getItem("loginUserArray");
+        if (loginUserRaw) {
+            const loginUser = JSON.parse(loginUserRaw);
+            const rolePermissions = loginUser?.role?.permissions;
+            const parsedPermissions = parseStoredPermissions(rolePermissions);
+            if (parsedPermissions.length > 0) {
+                return parsedPermissions;
+            }
+        }
+    } catch (e) {
+        // ignore invalid JSON from localStorage
+    }
+
+    return [];
+};
+
+const normalizePermissionName = (permission) =>
+    String(permission || "").trim().toLowerCase();
+
+const USER_CRUD_MODULE_PREFIXES = [
+    "user.view",
+    "users.view",
+    "user.create",
+    "users.create",
+    "user.update",
+    "users.update",
+    "user.edit",
+    "users.edit",
+    "user.delete",
+    "users.delete",
+];
+
+const strictPermissionConfigs = {
+    "products.view": {
+        aliases: ["product.view"],
+        modulePrefixes: ["products", "product"],
+        legacyPermission: "manage_products",
+    },
+    "products.create": {
+        aliases: ["product.create"],
+        modulePrefixes: ["products", "product"],
+        legacyPermission: "manage_products",
+    },
+    "products.update": {
+        aliases: ["product.update", "product.edit"],
+        modulePrefixes: ["products", "product"],
+        legacyPermission: "manage_products",
+    },
+    "products.delete": {
+        aliases: ["product.delete"],
+        modulePrefixes: ["products", "product"],
+        legacyPermission: "manage_products",
+    },
+    "products.view_purchase_price": {
+        aliases: ["product.view_purchase_price"],
+        modulePrefixes: ["products", "product"],
+        legacyPermission: "manage_products",
+    },
+    view_purchase_price: {
+        aliases: ["products.view_purchase_price", "product.view_purchase_price"],
+        modulePrefixes: ["products", "product"],
+        legacyPermission: "manage_products",
+    },
+    "purchase.view": {
+        aliases: ["purchases.view"],
+        modulePrefixes: ["purchase", "purchases"],
+        legacyPermission: "manage_purchase",
+    },
+    "purchase.create": {
+        aliases: ["purchases.create"],
+        modulePrefixes: ["purchase", "purchases"],
+        legacyPermission: "manage_purchase",
+    },
+    "purchase.update": {
+        aliases: ["purchase.edit", "purchases.update", "purchases.edit"],
+        modulePrefixes: ["purchase", "purchases"],
+        legacyPermission: "manage_purchase",
+    },
+    "purchase.delete": {
+        aliases: ["purchases.delete"],
+        modulePrefixes: ["purchase", "purchases"],
+        legacyPermission: "manage_purchase",
+    },
+    "customer.view": {
+        aliases: ["customers.view"],
+        modulePrefixes: ["customer", "customers"],
+        legacyPermission: "manage_customers",
+    },
+    "customer.create": {
+        aliases: ["customers.create"],
+        modulePrefixes: ["customer", "customers"],
+        legacyPermission: "manage_customers",
+    },
+    "customer.update": {
+        aliases: ["customer.edit", "customers.update", "customers.edit"],
+        modulePrefixes: ["customer", "customers"],
+        legacyPermission: "manage_customers",
+    },
+    "customer.delete": {
+        aliases: ["customers.delete"],
+        modulePrefixes: ["customer", "customers"],
+        legacyPermission: "manage_customers",
+    },
+    "supplier.view": {
+        aliases: ["suppliers.view"],
+        modulePrefixes: ["supplier", "suppliers"],
+        legacyPermission: "manage_suppliers",
+    },
+    "supplier.create": {
+        aliases: ["suppliers.create"],
+        modulePrefixes: ["supplier", "suppliers"],
+        legacyPermission: "manage_suppliers",
+    },
+    "supplier.update": {
+        aliases: ["supplier.edit", "suppliers.update", "suppliers.edit"],
+        modulePrefixes: ["supplier", "suppliers"],
+        legacyPermission: "manage_suppliers",
+    },
+    "supplier.delete": {
+        aliases: ["suppliers.delete"],
+        modulePrefixes: ["supplier", "suppliers"],
+        legacyPermission: "manage_suppliers",
+    },
+    "user.view": {
+        aliases: ["users.view"],
+        modulePrefixes: USER_CRUD_MODULE_PREFIXES,
+        legacyPermission: "manage_users",
+    },
+    "user.create": {
+        aliases: ["users.create"],
+        modulePrefixes: USER_CRUD_MODULE_PREFIXES,
+        legacyPermission: "manage_users",
+    },
+    "user.update": {
+        aliases: ["user.edit", "users.update", "users.edit"],
+        modulePrefixes: USER_CRUD_MODULE_PREFIXES,
+        legacyPermission: "manage_users",
+    },
+    "user.delete": {
+        aliases: ["users.delete"],
+        modulePrefixes: USER_CRUD_MODULE_PREFIXES,
+        legacyPermission: "manage_users",
+    },
+    "user.update_credentials": {
+        aliases: ["user.edit_credentials"],
+        modulePrefixes: ["user", "users"],
+        legacyPermission: "manage_users",
+    },
+    "pos.view": {
+        aliases: ["pos_screen.view"],
+        modulePrefixes: ["pos", "pos_screen", "edit_pos_sale_price"],
+        legacyPermission: "manage_pos_screen",
+    },
+    "pos.create_sale": {
+        aliases: ["sale.create"],
+        modulePrefixes: ["pos", "pos_screen", "edit_pos_sale_price"],
+        legacyPermission: "manage_sale",
+    },
+    "pos.edit_sale": {
+        aliases: ["sale.update", "sale.edit"],
+        modulePrefixes: ["pos", "pos_screen", "edit_pos_sale_price"],
+        legacyPermission: "manage_sale",
+    },
+    "pos.delete_sale": {
+        aliases: ["sale.delete"],
+        modulePrefixes: ["pos", "pos_screen", "edit_pos_sale_price"],
+        legacyPermission: "manage_sale",
+    },
+    "pos.apply_discount": {
+        aliases: ["pos_screen.apply_discount"],
+        modulePrefixes: ["pos", "pos_screen", "edit_pos_sale_price"],
+        legacyPermission: "manage_pos_screen",
+    },
+    "pos.cancel_sale": {
+        aliases: ["pos_screen.cancel_sale"],
+        modulePrefixes: ["pos", "pos_screen", "edit_pos_sale_price"],
+        legacyPermission: "manage_pos_screen",
+    },
+    "pos_screen.edit_product": {
+        aliases: ["pos.edit_product", "pos.edit_cart_product"],
+        modulePrefixes: ["pos_screen", "pos"],
+        legacyPermission: "manage_pos_screen",
+    },
+    edit_pos_sale_price: {
+        aliases: [
+            "pos_screen.edit_product",
+            "pos.edit_product",
+            "pos.edit_cart_product",
+        ],
+        modulePrefixes: ["pos_screen", "pos"],
+        legacyPermission: "manage_pos_screen",
+    },
+    view_stock_alerts: {
+        aliases: ["dashboard.view_stock_alerts"],
+        modulePrefixes: ["dashboard"],
+    },
+};
+
+const hasAnyPermission = (permissions = [], candidates = []) => {
+    if (!Array.isArray(permissions) || !Array.isArray(candidates)) {
+        return false;
+    }
+
+    const permissionSet = new Set(
+        permissions.map((permission) => normalizePermissionName(permission))
+    );
+
+    return candidates.some((candidate) =>
+        permissionSet.has(normalizePermissionName(candidate))
+    );
+};
+
+const hasGranularPermissionInModule = (permissions = [], modulePrefixes = []) => {
+    if (!Array.isArray(permissions) || !Array.isArray(modulePrefixes)) {
+        return false;
+    }
+
+    const normalizedPrefixes = modulePrefixes
+        .map((prefix) => normalizePermissionName(prefix).replace(/\.$/, ""))
+        .filter(Boolean);
+
+    if (normalizedPrefixes.length === 0) {
+        return false;
+    }
+
+    return permissions.some((permission) =>
+        normalizedPrefixes.some((prefix) =>
+            normalizePermissionName(permission) === prefix ||
+            normalizePermissionName(permission).startsWith(`${prefix}.`)
+        )
+    );
+};
+
+export function can(permission, options = {}) {
+    if (!permission) {
+        return false;
+    }
+
+    if (options.strict) {
+        const rawPermissions = parsePermissionsFromStorage().map((permission) =>
+            normalizePermissionName(permission)
+        );
+        const normalizedPermission = normalizePermissionName(permission);
+        const strictConfig = {
+            ...(strictPermissionConfigs[normalizedPermission] || {}),
+            ...(options || {}),
+        };
+
+        const candidates = [
+            normalizedPermission,
+            ...(strictConfig.aliases || []),
+        ].map((candidate) => normalizePermissionName(candidate));
+
+        if (hasAnyPermission(rawPermissions, candidates)) {
+            return true;
+        }
+
+        const legacyPermission = normalizePermissionName(
+            strictConfig.legacyPermission
+        );
+        if (!legacyPermission) {
+            return false;
+        }
+
+        const hasModuleGranularPermissions = hasGranularPermissionInModule(
+            rawPermissions,
+            strictConfig.modulePrefixes || []
+        );
+
+        if (!hasModuleGranularPermissions) {
+            return hasAnyPermission(rawPermissions, [legacyPermission]);
+        }
+
+        return false;
+    }
+
+    const permissions = normalizePermissions(parsePermissionsFromStorage());
+    if (permissions.includes(permission)) {
+        return true;
+    }
+
+    const legacy = getLegacyPermissionsForPermission(permission);
+    return legacy.some((legacyPermission) =>
+        permissions.includes(legacyPermission)
+    );
+}
+
+const ROUTE_MODULE_PATTERNS = [
+    { pattern: /^\/app\/products(?:\/|$)/, module: "products" },
+    { pattern: /^\/app\/purchases(?:\/|$)/, module: "purchases" },
+    { pattern: /^\/app\/customers(?:\/|$)/, module: "customers" },
+    { pattern: /^\/app\/suppliers(?:\/|$)/, module: "suppliers" },
+    { pattern: /^\/app\/users(?:\/|$)/, module: "users" },
+    { pattern: /^\/app\/sales(?:\/|$)/, module: "sales" },
+];
+
+const CRUD_PERMISSION_BY_MODULE = {
+    products: {
+        create: { permission: "products.create" },
+        update: { permission: "products.update" },
+        delete: { permission: "products.delete" },
+    },
+    purchases: {
+        create: { permission: "purchase.create" },
+        update: { permission: "purchase.update" },
+        delete: { permission: "purchase.delete" },
+    },
+    customers: {
+        create: { permission: "customer.create" },
+        update: { permission: "customer.update" },
+        delete: { permission: "customer.delete" },
+    },
+    suppliers: {
+        create: { permission: "supplier.create" },
+        update: { permission: "supplier.update" },
+        delete: { permission: "supplier.delete" },
+    },
+    users: {
+        create: { permission: "user.create" },
+        update: { permission: "user.update" },
+        delete: { permission: "user.delete" },
+    },
+    sales: {
+        create: { permission: "pos.create_sale" },
+        update: { permission: "pos.edit_sale" },
+        delete: { permission: "pos.delete_sale" },
+    },
+};
+
+const normalizePath = (rawPath) => {
+    let path = String(rawPath || "").trim();
+
+    if (!path && typeof window !== "undefined") {
+        path = window.location.hash || window.location.pathname || "";
+    }
+
+    if (path.startsWith("#")) {
+        path = path.slice(1);
+    }
+
+    if (!path.startsWith("/")) {
+        path = `/${path}`;
+    }
+
+    return path.split("?")[0].split("#")[0].toLowerCase();
+};
+
+const resolveModuleFromPath = (path) => {
+    const normalizedPath = normalizePath(path);
+    const moduleMatch = ROUTE_MODULE_PATTERNS.find(({ pattern }) =>
+        pattern.test(normalizedPath)
+    );
+
+    return moduleMatch?.module || null;
+};
+
+export function canCrud(action, path = null) {
+    const normalizedAction = normalizePermissionName(action);
+    const module = resolveModuleFromPath(path);
+    if (!module) {
+        return true;
+    }
+
+    const permissionConfig =
+        CRUD_PERMISSION_BY_MODULE[module]?.[normalizedAction];
+    if (!permissionConfig?.permission) {
+        return true;
+    }
+
+    return can(permissionConfig.permission, {
+        strict: true,
+        ...(permissionConfig.options || {}),
+    });
+}

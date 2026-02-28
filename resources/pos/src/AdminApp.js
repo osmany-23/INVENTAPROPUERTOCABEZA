@@ -6,11 +6,13 @@ import { ProtectedRoute } from "./shared/sharedMethod";
 import { route } from "./routes";
 import TopProgressBar from "./shared/components/loaders/TopProgressBar";
 import { useSelector } from "react-redux";
+import { normalizePermissions } from "./shared/permissionRoute";
 
 function AdminApp(props) {
     const { config } = props;
     const token = localStorage.getItem(Tokens.ADMIN);
     const { allConfigData } = useSelector((state) => state);
+    const normalizedConfig = normalizePermissions(config || []);
 
     const prepareRoutes = (config) => {
         const permissions = config;
@@ -30,7 +32,7 @@ function AdminApp(props) {
         return <TopProgressBar />;
     }
 
-    const routes = config && prepareRoutes(config);
+    const routes = prepareRoutes(normalizedConfig);
 
     return (
         <Routes>

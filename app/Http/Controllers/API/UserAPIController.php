@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\AppBaseController;
 use App\Http\Requests\CreateUserRequest;
 use App\Http\Requests\UpdateChangePasswordRequest;
+use App\Http\Requests\UpdateUserCredentialsRequest;
 use App\Http\Requests\UpdateUserProfileRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Http\Resources\UserCollection;
@@ -32,6 +33,8 @@ class UserAPIController extends AppBaseController
 
     public function index(Request $request): UserCollection
     {
+        abort_unless(hasPermissionStrict('user.view'), 403);
+
         $perPage = getPageSize($request);
         $users = $this->userRepository->getUsers($perPage);
         UserResource::usingWithCollection();
@@ -41,6 +44,8 @@ class UserAPIController extends AppBaseController
 
     public function store(CreateUserRequest $request): UserResource
     {
+        abort_unless(hasPermissionStrict('user.create'), 403);
+
         $input = $request->all();
         $user = $this->userRepository->storeUser($input);
 
@@ -49,6 +54,8 @@ class UserAPIController extends AppBaseController
 
     public function show($id): UserResource
     {
+        abort_unless(hasPermissionStrict('user.view'), 403);
+
         $user = $this->userRepository->find($id);
 
         return new UserResource($user);
@@ -59,6 +66,8 @@ class UserAPIController extends AppBaseController
      */
     public function update(UpdateUserRequest $request, User $user)
     {
+        abort_unless(hasPermissionStrict('user.update'), 403);
+
         if (Auth::id() == $user->id) {
             return $this->sendError('User can\'t be updated.');
         }
@@ -70,12 +79,24 @@ class UserAPIController extends AppBaseController
 
     public function destroy(User $user): JsonResponse
     {
+        abort_unless(hasPermissionStrict('user.delete'), 403);
+
         if (Auth::id() == $user->id) {
             return $this->sendError('User can\'t be deleted.');
         }
         $this->userRepository->delete($user->id);
 
         return $this->sendSuccess('User deleted successfully');
+    }
+
+    public function updateCredentials(UpdateUserCredentialsRequest $request, User $user): UserResource
+    {
+        abort_unless(hasPermissionStrict('user.update_credentials'), 403);
+
+        $input = $request->only(['email', 'password']);
+        $updatedUser = $this->userRepository->updateUserCredentials($input, $user->id);
+
+        return new UserResource($updatedUser);
     }
 
     public function editProfile(): UserResource
@@ -120,7 +141,9 @@ class UserAPIController extends AppBaseController
     {
         $user = Auth::user();
 
-        $userPermissions = $user->getAllPermissions()->pluck('name')->toArray();
+        $userPermissions = expandPermissionsWithLegacyNames(
+            $user->getAllPermissions()->pluck('name')->toArray()
+        );
 
         $composerFile = file_get_contents('../composer.json');
         $composerData = json_decode($composerFile, true);

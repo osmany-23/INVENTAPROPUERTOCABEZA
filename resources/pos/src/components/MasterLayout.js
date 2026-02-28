@@ -10,6 +10,7 @@ import { environment } from "../config/environment";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBars } from "@fortawesome/free-solid-svg-icons";
 import { fetchConfig } from "../store/action/configAction";
+import { normalizePermissions } from "../shared/permissionRoute";
 
 const MasterLayout = (props) => {
     const {
@@ -103,7 +104,7 @@ const getRouteWithSubMenu = (route, permissions) => {
 };
 
 const prepareRoutes = (config) => {
-    const permissions = config;
+    const permissions = normalizePermissions(config || []);
     let filterRoutes = [];
     asideConfig.forEach((route) => {
         const permissionsRoute = getRouteWithSubMenu(route, permissions);

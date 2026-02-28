@@ -9,6 +9,7 @@ use App\Http\Resources\SaleCollection;
 use App\Http\Resources\SaleResource;
 use App\Models\Customer;
 use App\Models\Hold;
+use App\Models\Product;
 use App\Models\Sale;
 use App\Models\Setting;
 use App\Models\Warehouse;
@@ -38,6 +39,8 @@ class SaleAPIController extends AppBaseController
 
     public function index(Request $request): SaleCollection
     {
+        abort_unless(hasPermissionStrict('pos.view'), 403);
+
         $perPage = getPageSize($request);
         $search = $request->filter['search'] ?? '';
         $customer = (Customer::where('name', 'LIKE', "%$search%")->get()->count() != 0);
@@ -89,6 +92,8 @@ class SaleAPIController extends AppBaseController
 
     public function store(CreateSaleRequest $request): SaleResource
     {
+        abort_unless(hasPermissionStrict('pos.create_sale'), 403);
+
         if (isset($request->hold_ref_no)) {
             $holdExist = Hold::whereReferenceCode($request->hold_ref_no)->first();
             if (!empty($holdExist)) {
@@ -96,6 +101,7 @@ class SaleAPIController extends AppBaseController
             }
         }
         $input = $request->all();
+        $this->ensureSalePriceEditingPermission($input['sale_items'] ?? []);
         $sale = $this->saleRepository->storeSale($input);
 
         return new SaleResource($sale);
@@ -103,6 +109,8 @@ class SaleAPIController extends AppBaseController
 
     public function show($id): SaleResource
     {
+        abort_unless(hasPermissionStrict('pos.view'), 403);
+
         $sale = $this->saleRepository->find($id);
 
         return new SaleResource($sale);
@@ -110,6 +118,8 @@ class SaleAPIController extends AppBaseController
 
     public function edit(Sale $sale): SaleResource
     {
+        abort_unless(hasPermissionStrict('pos.view'), 403);
+
         $sale = $sale->load('saleItems.product.stocks', 'warehouse');
 
         return new SaleResource($sale);
@@ -117,7 +127,10 @@ class SaleAPIController extends AppBaseController
 
     public function update(UpdateSaleRequest $request, $id): SaleResource
     {
+        abort_unless(hasPermissionStrict('pos.edit_sale'), 403);
+
         $input = $request->all();
+        $this->ensureSalePriceEditingPermission($input['sale_items'] ?? []);
         $sale = $this->saleRepository->updateSale($input, $id);
 
         return new SaleResource($sale);
@@ -125,6 +138,8 @@ class SaleAPIController extends AppBaseController
 
     public function destroy($id): JsonResponse
     {
+        abort_unless(hasPermissionStrict('pos.delete_sale'), 403);
+
         try {
             DB::beginTransaction();
             $sale = $this->saleRepository->with('saleItems')->where('id', $id)->first();
@@ -150,6 +165,8 @@ class SaleAPIController extends AppBaseController
      */
     public function pdfDownload(Sale $sale): JsonResponse
     {
+        abort_unless(hasPermissionStrict('pos.view'), 403);
+
         ini_set('memory_limit','-1');
         $sale = $sale->load('customer', 'saleItems.product', 'payments');
         $data = [];
@@ -169,6 +186,8 @@ class SaleAPIController extends AppBaseController
 
     public function saleInfo(Sale $sale): JsonResponse
     {
+        abort_unless(hasPermissionStrict('pos.view'), 403);
+
         $sale = $sale->load('saleItems.product', 'warehouse', 'customer');
         $keyName = [
             'email', 'company_name', 'phone', 'address',
@@ -181,6 +200,8 @@ class SaleAPIController extends AppBaseController
 
     public function getSaleProductReport(Request $request): SaleCollection
     {
+        abort_unless(hasPermissionStrict('pos.view'), 403);
+
         $perPage = getPageSize($request);
         $productId = $request->get('product_id');
         $sales = $this->saleRepository->whereHas('saleItems', function ($q) use ($productId) {
@@ -192,5 +213,48 @@ class SaleAPIController extends AppBaseController
         SaleResource::usingWithCollection();
 
         return new SaleCollection($sales);
+    }
+
+    private function ensureSalePriceEditingPermission(array $saleItems): void
+    {
+        if (empty($saleItems) || hasPermissionStrict('edit_pos_sale_price')) {
+            return;
+        }
+
+        $productIds = collect($saleItems)
+            ->pluck('product_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($productIds)) {
+            return;
+        }
+
+        $productPrices = Product::query()
+            ->whereIn('id', $productIds)
+            ->pluck('product_price', 'id');
+
+        foreach ($saleItems as $saleItem) {
+            $productId = (int) ($saleItem['product_id'] ?? 0);
+            $requestedPrice = $saleItem['product_price'] ?? null;
+
+            if (
+                $productId === 0 ||
+                ! is_numeric($requestedPrice) ||
+                ! $productPrices->has($productId)
+            ) {
+                continue;
+            }
+
+            $requestedPrice = (float) $requestedPrice;
+            $originalPrice = (float) $productPrices->get($productId);
+
+            if (abs($requestedPrice - $originalPrice) > 0.0001) {
+                abort(403, 'No tiene permiso para editar el precio de venta en POS.');
+            }
+        }
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class UpdateUserProfileRequest extends FormRequest
 {
@@ -25,8 +26,16 @@ class UpdateUserProfileRequest extends FormRequest
         return [
             'first_name' => 'required',
             'last_name' => 'required',
-            'phone' => 'required|numeric',
-            'email' => 'required|email|unique:users,email,'.$id,
+            'phone' => [
+                'required',
+                'numeric',
+                Rule::unique('users', 'phone')->ignore($id),
+            ],
+            'email' => [
+                'required',
+                'email',
+                Rule::unique('users', 'email')->ignore($id),
+            ],
             'image' => 'image|mimes:jpg,jpeg,png',
         ];
     }

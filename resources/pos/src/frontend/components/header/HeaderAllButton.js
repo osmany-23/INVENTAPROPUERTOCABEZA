@@ -1,6 +1,6 @@
 import { faList } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import React, { useEffect, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Nav } from "react-bootstrap-v5";
 import PosCalculator from "./PosCalculator";
 import Dropdown from "react-bootstrap/Dropdown";
@@ -8,6 +8,10 @@ import { getFormattedMessage } from "../../../shared/sharedMethod";
 import PosRegisterOpenAlertModel from "../../../components/posRegister/PosRegisterOpenAlertModel";
 import { useSelector } from "react-redux";
 import ShowLogoutModal from "../../ShowLogoutModal";
+import {
+    getDefaultRedirectRoute,
+    getMappedRoutes,
+} from "../../../shared/permissionRoute";
 
 const HeaderAllButton = (props) => {
     const {
@@ -34,69 +38,8 @@ const HeaderAllButton = (props) => {
         }
     };
 
-    const permissionMappings = {
-        manage_dashboard: "/app/dashboard",
-        manage_roles: "/app/roles",
-        manage_brands: "/app/brands",
-        manage_warehouses: "/app/warehouses",
-        manage_units: "/app/units",
-        manage_product_categories: "/app/product-categories",
-        manage_products: "/app/products",
-        manage_suppliers: "/app/suppliers",
-        manage_customers: "/app/customers",
-        manage_users: "/app/users",
-        manage_purchase: "/app/purchases",
-        manage_pos_screen: "/app/pos",
-        manage_sale: "/app/sales",
-        manage_print_barcode: "/app/print/barcode",
-        manage_adjustments: "/app/adjustments",
-        manage_quotations: "/app/quotations",
-        manage_transfers: "/app/transfers",
-        manage_expenses: "/app/expenses",
-        manage_currency: "/app/currencies",
-        manage_variations: "/app/variations",
-        manage_expense_categories: "/app/expense-categories",
-        manage_setting: "/app/settings",
-        manage_purchase_return: "/app/purchase-return",
-        manage_sale_return: "/app/sale-return",
-        manage_report: "/app/report/report-warehouse",
-        manage_language: "/app/languages",
-    };
-
-    const mapPermissionToRoute = (permission) => {
-        const permissionKey = permission.toLowerCase();
-        if (permissionMappings.hasOwnProperty(permissionKey)) {
-            return permissionMappings[permissionKey];
-        } else {
-            const entity = permissionKey.split("_").slice(1).join("-");
-            return `/app/${entity}`;
-        }
-    };
-
-    const [mappedRoutes, setMappedRoutes] = useState([]);
-    const [redirectTo, setRedirectTo] = useState("");
-    useEffect(() => {
-        setMappedRoutes(config.map(mapPermissionToRoute));
-    }, [config]);
-
-    useEffect(() => {
-        if (mappedRoutes && mappedRoutes.length > 0) {
-            if (config.includes("manage_dashboard")) {
-                setRedirectTo("/app/dashboard");
-            } else {
-                const currentPath = window.location.hash;
-                const targetPath = mappedRoutes[0];
-
-                if (currentPath === `#${targetPath}`) {
-                    setRedirectTo(mappedRoutes[1]);
-                } else {
-                    setRedirectTo(mappedRoutes[0]);
-                }
-            }
-        } else {
-            setRedirectTo("/app/dashboard");
-        }
-    }, [mappedRoutes]);
+    const mappedRoutes = useMemo(() => getMappedRoutes(config), [config]);
+    const redirectTo = useMemo(() => getDefaultRedirectRoute(config), [config]);
 
     const opneCalculatorModel = () => {
         if (opneCalculator) {

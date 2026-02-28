@@ -236,7 +236,6 @@ class Product extends BaseModel implements HasMedia, JsonResourceful
             'main_product_id' => $this->main_product_id,
             'product_category_id' => $this->product_category_id,
             'brand_id' => $this->brand_id,
-            'product_cost' => $this->product_cost,
             'product_price' => $this->product_price,
             'product_unit' => $this->product_unit,
             'sale_unit' => $this->sale_unit,
@@ -260,6 +259,10 @@ class Product extends BaseModel implements HasMedia, JsonResourceful
             'barcode_url' => Storage::url('product_barcode/barcode-PR_' . $this->id . '.png'),
             'in_stock' => $inStockValue,
         ];
+
+        $fields['product_cost'] = hasPermissionStrict('view_purchase_price')
+            ? $this->product_cost
+            : 0;
 
         if ($this->variationProduct) {
             $fields['variation_product'] = $this->variationProduct->prepareAttributes();

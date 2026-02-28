@@ -49,6 +49,8 @@ class Permission extends BaseModel implements JsonResourceful
         $fields = [
             'name' => $this->name,
             'display_name' => $this->display_name,
+            'module' => $this->module,
+            'action' => $this->action,
         ];
 
         return $fields;

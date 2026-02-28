@@ -20,6 +20,7 @@ const CartItemMainCalculation = (props) => {
         frontSetting,
         allConfigData,
         onChangeTaxCart,
+        canApplyDiscount = true,
     } = props;
 
     return (
@@ -64,6 +65,7 @@ const CartItemMainCalculation = (props) => {
                                     )}
                                     onChange={(e) => onChangeCart(e)}
                                     value={discountType.FIXED}
+                                    disabled={!canApplyDiscount}
                                     checked={
                                         cartItemValue.discount_type == discountType.FIXED
                                     }
@@ -78,6 +80,7 @@ const CartItemMainCalculation = (props) => {
                                     onChange={(e) => onChangeCart(e)}
                                     value={discountType.PERCENTAGE}
                                     className="me-md-2"
+                                    disabled={!canApplyDiscount}
                                     checked={
                                         cartItemValue.discount_type == discountType.PERCENTAGE} />
                             </Form.Group>
@@ -95,6 +98,7 @@ const CartItemMainCalculation = (props) => {
                                         ? ""
                                         : cartItemValue.discount_value
                                 }
+                                disabled={!canApplyDiscount}
                                 onKeyPress={(event) => decimalValidate(event)}
                                 name="discount_value"
                                 min="0"

@@ -30,6 +30,8 @@ const PaymentButton = (props) => {
         selectedOption,
         cashPaymentValue,
         setUpdateHoldList,
+        canCancelSale = true,
+        canCreateSale = true,
     } = props;
     const dispatch = useDispatch();
     const qtyCart = updateProducts.filter((a) => a.quantity === 0);
@@ -38,6 +40,16 @@ const PaymentButton = (props) => {
 
     //cash model open onClick
     const openPaymentModel = () => {
+        if (!canCreateSale) {
+            dispatch(
+                addToast({
+                    text: "No tiene permiso para crear ventas.",
+                    type: toastType.ERROR,
+                })
+            );
+            return;
+        }
+
         if (
             !updateProducts.length > 0 ||
             qtyCart.length > 0 ||
@@ -111,6 +123,16 @@ const PaymentButton = (props) => {
     };
 
     const holdPaymentModel = () => {
+        if (!canCreateSale) {
+            dispatch(
+                addToast({
+                    text: "No tiene permiso para crear ventas.",
+                    type: toastType.ERROR,
+                })
+            );
+            return;
+        }
+
         if (
             updateProducts.length > 0 ||
             qtyCart.length < 0 ||
@@ -135,7 +157,9 @@ const PaymentButton = (props) => {
     // handle what happens on key press
     const handleKeyPress = (event) => {
         if (event.altKey && event.code === "KeyR") {
-            return resetPaymentModel();
+            if (canCancelSale) {
+                return resetPaymentModel();
+            }
         } else if (event.altKey && event.code === "KeyS") {
             return openPaymentModel();
         }
@@ -243,6 +267,7 @@ const PaymentButton = (props) => {
                 variant="anger"
                 className="text-white btn-danger btn-rounded btn-block me-2 w-100 py-3 rounded-10 px-3"
                 onClick={resetPaymentModel}
+                disabled={!canCancelSale}
             >
                 {getFormattedMessage("date-picker.filter.reset.label")}{" "}
                 <FontAwesomeIcon

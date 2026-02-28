@@ -36,6 +36,8 @@ class MainProductAPIController extends AppBaseController
 
     public function index(Request $request)
 {
+    abort_unless(hasPermissionStrict('products.view'), 403);
+
     $perPage = getPageSize($request);
 
     // Inicia consulta
@@ -129,6 +131,8 @@ class MainProductAPIController extends AppBaseController
 
     public function show($id): MainProductResource
     {
+        abort_unless(hasPermissionStrict('products.view'), 403);
+
         /** @var MainProduct $mainProduct */
         $mainProduct = $this->mainProductRepository->find($id);
 
@@ -137,6 +141,8 @@ class MainProductAPIController extends AppBaseController
 
     public function store(CreateMainProductRequest $request)
     {
+        abort_unless(hasPermissionStrict('products.create'), 403);
+
         $input = $request->all();
 
         if ($input['barcode_symbol'] == Product::EAN8 && strlen($input['code']) != 7) {
@@ -197,6 +203,8 @@ class MainProductAPIController extends AppBaseController
 
     public function update(UpdateMainProductRequest $request, $id): MainProductResource
     {
+        abort_unless(hasPermissionStrict('products.update'), 403);
+
         $input = $request->all();
         $mainProduct = MainProduct::find($id);
 
@@ -233,6 +241,8 @@ class MainProductAPIController extends AppBaseController
 
     public function destroy($id): JsonResponse
     {
+        abort_unless(hasPermissionStrict('products.delete'), 403);
+
         try {
             DB::beginTransaction();
             $products = Product::where('main_product_id', $id)->get();

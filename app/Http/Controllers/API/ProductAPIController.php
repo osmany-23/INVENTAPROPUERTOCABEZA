@@ -39,6 +39,8 @@ class ProductAPIController extends AppBaseController
 
     public function index(Request $request): ProductCollection
     {
+        abort_unless(hasPermissionStrict('products.view'), 403);
+
         $perPage = getPageSize($request);
         $query = Product::query();
 
@@ -88,6 +90,8 @@ class ProductAPIController extends AppBaseController
      */
     public function store(CreateProductRequest $request)
     {
+        abort_unless(hasPermissionStrict('products.create'), 403);
+
         $input = $request->all();
 
         if ($input['main_product_id']) {
@@ -119,6 +123,8 @@ class ProductAPIController extends AppBaseController
 
     public function show($id): ProductResource
     {
+        abort_unless(hasPermissionStrict('products.view'), 403);
+
         $product = $this->productRepository->find($id);
 
         return new ProductResource($product);
@@ -126,6 +132,8 @@ class ProductAPIController extends AppBaseController
 
     public function update(UpdateProductRequest $request, $id): ProductResource
     {
+        abort_unless(hasPermissionStrict('products.update'), 403);
+
         $input = $request->all();
 
         $product = $this->productRepository->updateProduct($input, $id);
@@ -135,6 +143,8 @@ class ProductAPIController extends AppBaseController
 
     public function quickUpdatePrice(QuickUpdateProductPriceRequest $request, Product $product): ProductResource
     {
+        abort_unless(hasPermissionStrict('products.update'), 403);
+
         $payload = $request->only(['product_cost', 'product_price', 'tax_type', 'order_tax']);
         $product->update($payload);
 
@@ -143,6 +153,7 @@ class ProductAPIController extends AppBaseController
 
     public function destroy($id): JsonResponse
     {
+        abort_unless(hasPermissionStrict('products.delete'), 403);
 
         $purchaseItemModels = [
             PurchaseItem::class,
@@ -176,6 +187,8 @@ class ProductAPIController extends AppBaseController
 
     public function productImageDelete($mediaId): JsonResponse
     {
+        abort_unless(hasPermissionStrict('products.update'), 403);
+
         $media = Media::where('id', $mediaId)->firstOrFail();
         $media->delete();
 
@@ -184,6 +197,8 @@ class ProductAPIController extends AppBaseController
 
     public function importProducts(Request $request): JsonResponse
     {
+        abort_unless(hasPermissionStrict('products.create'), 403);
+
         Excel::import(new ProductImport, request()->file('file'));
 
         return $this->sendSuccess('Products imported successfully');
@@ -191,6 +206,8 @@ class ProductAPIController extends AppBaseController
 
     public function getProductExportExcel(Request $request): JsonResponse
     {
+        abort_unless(hasPermissionStrict('products.view'), 403);
+
         if (Storage::exists('excel/product-excel-export.xlsx')) {
             Storage::delete('excel/product-excel-export.xlsx');
         }
@@ -203,6 +220,8 @@ class ProductAPIController extends AppBaseController
 
     public function getAllProducts()
     {
+        abort_unless(hasPermissionStrict('products.view'), 403);
+
         $products = Product::all();
         $data = [];
 

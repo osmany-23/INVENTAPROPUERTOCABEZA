@@ -9,6 +9,7 @@ import {fetchAllWarehouses} from '../../../store/action/warehouseAction';
 import {fetchFrontSetting} from '../../../store/action/frontSettingAction';
 import {productQuantityReportAction} from '../../../store/action/paymentQuantityReport';
 import TopProgressBar from "../../../shared/components/loaders/TopProgressBar";
+import { can } from "../../../shared/can";
 
 const StockReport = (props) => {
     const {
@@ -21,13 +22,18 @@ const StockReport = (props) => {
         productQuantityReport
     } = props;
     const [warehouseValue, setWarehouseValue] = useState({label: 'All', value: null});
+    const canViewStockAlerts = can("view_stock_alerts", { strict: true });
     const array = warehouses && warehouses
     const newFirstElement = {attributes: {name: getFormattedMessage("report-all.warehouse.label")}, id: null}
     const newArray = [newFirstElement].concat(array)
 
     useEffect(() => {
+        if (!canViewStockAlerts) {
+            return;
+        }
+
         productQuantityReportAction(warehouseValue.value)
-    }, [warehouseValue])
+    }, [warehouseValue, canViewStockAlerts])
 
     useEffect(() => {
         fetchFrontSetting();
@@ -45,6 +51,10 @@ const StockReport = (props) => {
     }));
 
     const onChange = (filter) => {
+        if (!canViewStockAlerts) {
+            return;
+        }
+
         productQuantityReportAction(warehouseValue.value, filter)
     };
 
@@ -104,6 +114,13 @@ const StockReport = (props) => {
         <MasterLayout>
             <TopProgressBar />
             <TabTitle title={placeholderText('stock.reports.title')}/>
+            {!canViewStockAlerts && (
+                <div className='alert alert-warning mt-4 mb-0'>
+                    No tiene permiso para ver alertas de stock.
+                </div>
+            )}
+            {canViewStockAlerts && (
+                <>
                 <div className='mx-auto mb-md-5 col-12 col-md-4'>
                 {newArray &&
                     <ReactSelect data={newArray} onChange={onWarehouseChange} defaultValue={newArray[0] ? {
@@ -117,6 +134,8 @@ const StockReport = (props) => {
                 <ReactDataTable subHeader={false} items={itemsValue} columns={columns}  onChange={onChange} isLoading={isLoading}
                                 totalRows={totalRecord} warehouseValue={warehouseValue} />
             </div>
+                </>
+            )}
         </MasterLayout>
     )
 };

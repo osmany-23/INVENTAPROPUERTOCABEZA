@@ -17,6 +17,7 @@ const ProductDetailsModel = (props) => {
         onProductUpdateInCart,
         productModelId,
         updateCost,
+        canEditPosSalePrice = true,
         productUnitDropdown,
         productUnits,
         frontSetting
@@ -38,6 +39,10 @@ const ProductDetailsModel = (props) => {
     });
     if (!cartProduct) {
         return ''
+    }
+
+    if (!canEditPosSalePrice) {
+        return null;
     }
 
     useEffect(() => {
