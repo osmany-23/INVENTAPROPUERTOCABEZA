@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { connect, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import moment from 'moment';
@@ -31,6 +31,7 @@ const PurchaseReturnForm = ( props ) => {
     const [ subTotal, setSubTotal ] = useState( '' );
     const [ updateProducts, setUpdateProducts ] = useState( [] );
     const [ quantity, setQuantity ] = useState( 0 );
+    const initializedPurchaseRef = useRef( null );
 
     const [ purchaseValue, setPurchaseValue ] = useState( {
         purchase_id: singlePurchase ? singlePurchase.purchase_id : null,
@@ -58,15 +59,16 @@ const PurchaseReturnForm = ( props ) => {
     } );
 
     useEffect( () => {
-        setUpdateProducts( updateProducts );
-    }, [ updateProducts, quantity, newCost, newDiscount, newTax, subTotal, newPurchaseUnit ] );
-
-    useEffect( () => {
         updateProducts.length >= 1 ? dispatch( { type: 'DISABLE_OPTION', payload: true } ) : dispatch( { type: 'DISABLE_OPTION', payload: false } )
     }, [ updateProducts ] )
 
     useEffect( () => {
         if ( singlePurchase ) {
+            const incomingPurchaseId = singlePurchase.purchase_id || singlePurchase.id || null;
+            if ( initializedPurchaseRef.current === incomingPurchaseId && updateProducts.length > 0 ) {
+                return;
+            }
+
             setPurchaseValue( {
                 purchase_id: singlePurchase.purchase_id || null,
                 date: singlePurchase.date ? moment( singlePurchase.date ).toDate() : new Date(),
@@ -81,6 +83,7 @@ const PurchaseReturnForm = ( props ) => {
                 status_id: singlePurchase.status_id || { label: getFormattedMessage( "status.filter.received.label" ), value: 1 },
             } );
             setUpdateProducts( singlePurchase.purchase_return_items || [] );
+            initializedPurchaseRef.current = incomingPurchaseId;
         }
     }, [ singlePurchase ] );
 

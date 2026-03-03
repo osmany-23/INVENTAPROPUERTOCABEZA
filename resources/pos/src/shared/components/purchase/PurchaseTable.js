@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { InputGroup } from "react-bootstrap-v5";
 import { connect, useDispatch } from "react-redux";
 import ProductModal from "./ProductModal";
@@ -37,12 +37,25 @@ const PurchaseTable = (props) => {
     const [updateData, setUpdateData] = useState([]);
     const [isOpen, setIsOpen] = useState(false);
     const [modalId, setModalId] = useState(null);
+    const [quantityDraft, setQuantityDraft] = useState(
+        singleProduct?.quantity === undefined || singleProduct?.quantity === null
+            ? ""
+            : String(singleProduct.quantity)
+    );
 
     useEffect(() => {
         if (singleProduct.newItem !== "") {
             productUnitDropdown(singleProduct.product_unit);
         }
     }, [updateData, singleProduct.purchase_unit, singleProduct.newItem, singleProduct.product_unit, productUnitDropdown]);
+
+    useEffect(() => {
+        setQuantityDraft(
+            singleProduct?.quantity === undefined || singleProduct?.quantity === null
+                ? ""
+                : String(singleProduct.quantity)
+        );
+    }, [singleProduct.quantity]);
 
     const maxQty = Number(singleProduct.max_return_quantity);
     const hasMaxLimit = Number.isFinite(maxQty) && maxQty > 0;
@@ -69,6 +82,67 @@ const PurchaseTable = (props) => {
         );
     };
 
+    const isSameRow = useCallback(
+        (item) => {
+            const itemId = item?.id;
+            const currentId = singleProduct?.id;
+            if (itemId !== undefined && itemId !== null && currentId !== undefined && currentId !== null) {
+                return Number(itemId) === Number(currentId);
+            }
+
+            const itemPurchaseReturnId = item?.purchase_return_item_id;
+            const currentPurchaseReturnId = singleProduct?.purchase_return_item_id;
+            if (
+                itemPurchaseReturnId !== undefined &&
+                itemPurchaseReturnId !== null &&
+                currentPurchaseReturnId !== undefined &&
+                currentPurchaseReturnId !== null
+            ) {
+                return Number(itemPurchaseReturnId) === Number(currentPurchaseReturnId);
+            }
+
+            return Number(item?.product_id) === Number(singleProduct?.product_id);
+        },
+        [singleProduct]
+    );
+
+    const commitQuantity = useCallback(
+        (rawValue, showLimitToast = true) => {
+            if (rawValue === "") {
+                setUpdateProducts((prev) =>
+                    prev.map((item) =>
+                        isSameRow(item) ? { ...item, quantity: 0 } : item
+                    )
+                );
+                setQuantityDraft("0");
+                return;
+            }
+
+            const parsedQty = Number(rawValue);
+            if (Number.isNaN(parsedQty)) {
+                setQuantityDraft(
+                    singleProduct?.quantity === undefined || singleProduct?.quantity === null
+                        ? "0"
+                        : String(singleProduct.quantity)
+                );
+                return;
+            }
+
+            const normalizedQty = clampQty(parsedQty);
+            if (hasMaxLimit && parsedQty > maxQty && showLimitToast) {
+                notifyQtyLimit();
+            }
+
+            setUpdateProducts((prev) =>
+                prev.map((item) =>
+                    isSameRow(item) ? { ...item, quantity: normalizedQty } : item
+                )
+            );
+            setQuantityDraft(String(normalizedQty));
+        },
+        [clampQty, hasMaxLimit, isSameRow, maxQty, notifyQtyLimit, setUpdateProducts, singleProduct]
+    );
+
     const onDeleteCartItem = (id) => {
         const newProduct = updateProducts.filter((item) => item.id !== id);
         setUpdateProducts(newProduct);
@@ -91,48 +165,39 @@ const PurchaseTable = (props) => {
 
     const handleIncrement = () => {
         const nextQty = Number(singleProduct.quantity || 0) + 1;
-        const normalized = clampQty(nextQty);
-        if (hasMaxLimit && nextQty > maxQty) {
-            notifyQtyLimit();
-        }
-        setUpdateProducts((prev) =>
-            prev.map((item) =>
-                item.id === singleProduct.id
-                    ? { ...item, quantity: normalized }
-                    : item
-            )
-        );
+        commitQuantity(nextQty, true);
     };
 
     const handleDecrement = () => {
-        setUpdateProducts((prev) =>
-            prev.map((item) =>
-                item.id === singleProduct.id
-                    ? { ...item, quantity: Math.max(0, Number(item.quantity || 0) - 1) }
-                    : item
-            )
-        );
+        const nextQty = Math.max(0, Number(singleProduct.quantity || 0) - 1);
+        commitQuantity(nextQty, false);
     };
 
     const handleChange = (e) => {
         e.preventDefault();
         const { value } = e.target;
+
+        if (value === "") {
+            setQuantityDraft("");
+            return;
+        }
+
+        if (!/^\d*\.?\d*$/.test(value)) {
+            return;
+        }
+
         if (value.match(/\./g)) {
             const [, decimal] = value.split(".");
             if (decimal?.length > 2) {
                 return;
             }
         }
-        const nextQty = Number(value || 0);
-        const normalized = clampQty(nextQty);
-        if (hasMaxLimit && nextQty > maxQty) {
-            notifyQtyLimit();
-        }
-        setUpdateProducts((prev) =>
-            prev.map((item) =>
-                item.id === singleProduct.id ? { ...item, quantity: normalized } : item
-            )
-        );
+
+        setQuantityDraft(value);
+    };
+
+    const handleBlur = () => {
+        commitQuantity(quantityDraft, true);
     };
 
     return (
@@ -197,12 +262,14 @@ const PurchaseTable = (props) => {
                                 aria-label="Product Quantity"
                                 onKeyPress={(event) => decimalValidate(event)}
                                 className="text-center px-0 py-2 rounded-0 hide-arrow"
-                                value={singleProduct.quantity}
-                                type="number"
+                                value={quantityDraft}
+                                type="text"
+                                inputMode="decimal"
                                 step={0.01}
                                 min={0.0}
                                 max={hasMaxLimit ? maxQty : undefined}
                                 onChange={(e) => handleChange(e)}
+                                onBlur={handleBlur}
                             />
                             <InputGroup.Text
                                 className="btn btn-primary btn-sm px-4 pt-2"
