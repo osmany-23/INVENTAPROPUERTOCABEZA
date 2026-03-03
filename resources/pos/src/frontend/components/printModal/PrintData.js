@@ -457,49 +457,24 @@ class PrintData extends React.PureComponent {
 
                 {/*note section*/}
                 {paymentPrint && paymentPrint.note ? (
-                    <Table>
-                        <tbody>
-                            <tr
+                        <div>
+                            <h3
+                                className="text-black mt-2 mb-2"
                                 style={{
-                                    border: "0",
+                                    fontWeight: "400",
+                                    fontSize: "16px",
+                                    textAlign: "left",
+                                    marginLeft: "10px",
+                                    marginRight: "10px",
+                                    whiteSpace: "normal",
+                                    wordBreak: "break-word",
+                                    overflowWrap: "break-word",
+                                    maxWidth: "100%"
                                 }}
                             >
-                                <td
-                                    scope="row"
-                                    style={{
-                                        padding: "none !important",
-                                        fontSize: "15px",
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            padding: "none !important",
-                                            fontSize: "15px",
-                                            verticalAlign: "top",
-                                            display: "inline-block",
-                                            color: "#000000",
-                                        }}
-                                    >
-                                        {getFormattedMessage(
-                                            "globally.input.notes.label"
-                                        )}{" "}
-                                        :
-                                    </span>
-                                    <p
-                                        style={{
-                                            fontSize: "15px",
-                                            verticalAlign: "top",
-                                            display: "inline-block",
-                                            padding: "none !important",
-                                            color: "#000000",
-                                        }}
-                                    >
-                                        {paymentPrint && paymentPrint.note}
-                                    </p>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </Table>
+                                <span style={{fontWeight:600}}>Descripcion :</span> {paymentPrint.note}
+                            </h3>
+                        </div>
                 ) : (
                     ""
                 )}
@@ -526,24 +501,29 @@ class PrintData extends React.PureComponent {
                             paymentPrint.settings.attributes
                                 ?.show_barcode_in_receipt
                         ) === 1 && (
-                            <Image
-                                src={paymentPrint && paymentPrint.barcode_url}
-                                alt={
-                                    paymentPrint && paymentPrint.reference_code
-                                }
-                                height={25}
-                                width={100}
-                            />
+                            <>
+                                    <div style={{ marginTop: '30px', marginBottom: '10px' }}>
+                                        <Image
+                                            src={paymentPrint && paymentPrint.barcode_url}
+                                            alt={paymentPrint && paymentPrint.reference_code}
+                                            height={30}
+                                            width={120}
+                                            style={{ display: 'block', margin: '0 auto' }}
+                                        />
+                                    </div>
+                                    <span
+                                        className="d-block"
+                                        style={{
+                                            color: "#000000",
+                                            padding: "none !important",
+                                            marginTop: '20px',
+                                            fontSize: '16px',
+                                        }}
+                                    >
+                                        {paymentPrint && paymentPrint.reference_code}
+                                    </span>
+                            </>
                         )}
-                    <span
-                        className="d-block"
-                        style={{
-                            color: "#000000",
-                            padding: "none !important",
-                        }}
-                    >
-                        {paymentPrint && paymentPrint.reference_code}
-                    </span>
                 </div>
             </div>
         );
