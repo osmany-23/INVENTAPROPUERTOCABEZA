@@ -493,39 +493,42 @@ const PosMainPage = (props) => {
             return;
         }
 
-        setUpdateProducts((products) => {
-            const productIndex = products.findIndex(
-                (cartProduct) => Number(cartProduct.id) === Number(productId)
+        const productIndex = updateProducts.findIndex(
+            (cartProduct) => Number(cartProduct.id) === Number(productId)
+        );
+
+        if (productIndex === -1) {
+            setUpdateProducts([
+                ...updateProducts,
+                { ...template, warehouse_id: selectedOption.value },
+            ]);
+            return;
+        }
+
+        const currentProduct = updateProducts[productIndex];
+        if (Number(currentProduct.quantity) >= availableStock) {
+            dispatch(
+                addToast({
+                    text: getFormattedMessage("pos.quantity.exceeds.quantity.available.in.stock.message"),
+                    type: toastType.ERROR,
+                })
             );
+            return;
+        }
 
-            if (productIndex === -1) {
-                return [...products, { ...template, warehouse_id: selectedOption.value }];
-            }
+        const updatedProducts = [...updateProducts];
+        updatedProducts[productIndex] = {
+            ...currentProduct,
+            quantity: Number(currentProduct.quantity) + 1,
+            warehouse_id: selectedOption.value,
+        };
 
-            const currentProduct = products[productIndex];
-            if (Number(currentProduct.quantity) >= availableStock) {
-                dispatch(
-                    addToast({
-                        text: getFormattedMessage("pos.quantity.exceeds.quantity.available.in.stock.message"),
-                        type: toastType.ERROR,
-                    })
-                );
-                return products;
-            }
-
-            const updatedProducts = [...products];
-            updatedProducts[productIndex] = {
-                ...currentProduct,
-                quantity: Number(currentProduct.quantity) + 1,
-                warehouse_id: selectedOption.value,
-            };
-
-            return updatedProducts;
-        });
+        setUpdateProducts(updatedProducts);
     }, [
         selectedOption,
         customCartByProductId,
         productStockById,
+        updateProducts,
         dispatch,
         getFormattedMessage,
     ]);

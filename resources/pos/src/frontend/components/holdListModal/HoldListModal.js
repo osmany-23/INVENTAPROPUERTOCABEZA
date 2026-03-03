@@ -113,6 +113,8 @@ function HoldListModal ( props ) {
         setIsDeteleHold( false )
     }
 
+    const hasHoldItems = Array.isArray(holdListData) && holdListData.length > 0;
+
     return (
         <>
             <div>
@@ -138,12 +140,16 @@ function HoldListModal ( props ) {
                                     <th >{getFormattedMessage( "hold-list-ref-id.table.column.label" )}</th>
                                     <th colSpan={2}>{getFormattedMessage( "react-data-table.action.column.label" )}</th>
                                 </tr>
-                                {holdListData && holdListData.length <= 0 ?
-                                    <td colSpan={4} className={"custom-text-center"}>{getFormattedMessage( "sale.product.table.no-data.label" )}</td> : ''
-                                }
-                                {holdListData && holdListData.length > 0 && holdListData.map( ( items, index ) => {
+                                {!hasHoldItems && (
+                                    <tr>
+                                        <td colSpan={4} className={"custom-text-center"}>
+                                            {getFormattedMessage( "sale.product.table.no-data.label" )}
+                                        </td>
+                                    </tr>
+                                )}
+                                {hasHoldItems && holdListData.map( ( items ) => {
                                     return (
-                                        <tr key={index}>
+                                        <tr key={items.id}>
                                             <td>{items.id}</td>
                                             <td>{getFormattedDate( items.attributes.date, allConfigData && allConfigData )}</td>
                                             <td>{items.attributes.reference_code}</td>

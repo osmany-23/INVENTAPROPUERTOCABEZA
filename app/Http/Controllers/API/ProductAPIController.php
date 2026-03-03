@@ -107,6 +107,12 @@ class ProductAPIController extends AppBaseController
             })
             ->groupBy('product_id');
 
+        $mainProductImageQuery = DB::table('media')
+            ->select('model_id', DB::raw('MIN(id) as media_id'))
+            ->where('model_type', MainProduct::class)
+            ->where('collection_name', MainProduct::PATH)
+            ->groupBy('model_id');
+
         $productsQuery = Product::query()
             ->select([
                 'products.id',
@@ -122,11 +128,18 @@ class ProductAPIController extends AppBaseController
                 'products.tax_type',
                 DB::raw('COALESCE(stock.quantity, 0) as stock_quantity'),
                 DB::raw('COALESCE(base_units.name, "") as product_unit_name'),
+                'product_media.id as image_media_id',
+                'product_media.file_name as image_file_name',
+                'product_media.disk as image_disk',
             ])
             ->leftJoinSub($stockQuery, 'stock', function ($join) {
                 $join->on('stock.product_id', '=', 'products.id');
             })
             ->leftJoin('base_units', 'base_units.id', '=', 'products.product_unit')
+            ->leftJoinSub($mainProductImageQuery, 'main_product_image', function ($join) {
+                $join->on('main_product_image.model_id', '=', 'products.main_product_id');
+            })
+            ->leftJoin('media as product_media', 'product_media.id', '=', 'main_product_image.media_id')
             ->whereRaw('COALESCE(stock.quantity, 0) > 0')
             ->when($brandId > 0, function ($query) use ($brandId) {
                 $query->where('products.brand_id', $brandId);
@@ -154,6 +167,14 @@ class ProductAPIController extends AppBaseController
             hasPermissionStrict('products.view_purchase_price');
 
         $data = $visibleProducts->map(function ($product) use ($canViewPurchasePrice) {
+            $imageUrl = '';
+            if (! empty($product->image_media_id) && ! empty($product->image_file_name)) {
+                $imagePath = MainProduct::PATH.'/'.$product->image_media_id.'/'.$product->image_file_name;
+                $imageDisk = $product->image_disk ?: config('app.media_disc');
+                $resolvedUrl = Storage::disk($imageDisk)->url($imagePath);
+                $imageUrl = str_starts_with($resolvedUrl, 'http') ? $resolvedUrl : url($resolvedUrl);
+            }
+
             return [
                 'id' => (int) $product->id,
                 'attributes' => [
@@ -174,7 +195,7 @@ class ProductAPIController extends AppBaseController
                         'quantity' => (float) $product->stock_quantity,
                     ],
                     'images' => [
-                        'imageUrls' => [],
+                        'imageUrls' => $imageUrl ? [$imageUrl] : [],
                     ],
                 ],
             ];

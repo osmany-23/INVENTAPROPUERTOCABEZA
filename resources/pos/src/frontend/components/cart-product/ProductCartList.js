@@ -40,29 +40,27 @@ const ProductCartList = ({
 
     const updateQuantity = useCallback(
         (quantity, showErrorIfExceeded = true) => {
+            const finalQuantity = Math.max(0, Number(quantity));
+            const cappedQuantity = Math.min(finalQuantity, Number(availableStock));
+
+            if (showErrorIfExceeded && finalQuantity > Number(availableStock)) {
+                dispatch(
+                    addToast({
+                        text: getFormattedMessage(
+                            "pos.product-quantity-error.message"
+                        ),
+                        type: toastType.ERROR,
+                    })
+                );
+            }
+
             setUpdateProducts((updateProducts) =>
                 updateProducts.map((item) => {
                     if (item.id !== singleProduct.id) {
                         return item;
                     }
 
-                    const finalQuantity = Math.max(0, Number(quantity));
-                    if (finalQuantity > availableStock) {
-                        if (showErrorIfExceeded) {
-                            dispatch(
-                                addToast({
-                                    text: getFormattedMessage(
-                                        "pos.product-quantity-error.message"
-                                    ),
-                                    type: toastType.ERROR,
-                                })
-                            );
-                        }
-
-                        return { ...item, quantity: availableStock };
-                    }
-
-                    return { ...item, quantity: finalQuantity };
+                    return { ...item, quantity: cappedQuantity };
                 })
             );
         },

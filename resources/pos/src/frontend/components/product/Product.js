@@ -11,6 +11,27 @@ const CLIENT_RENDER_STEP = 120;
 
 const normalize = (value) => (value || "").toString().trim().toUpperCase();
 
+const OptimizedProductImage = memo(({ src, alt }) => {
+    const [imageSource, setImageSource] = useState(src || productImage);
+
+    useEffect(() => {
+        setImageSource(src || productImage);
+    }, [src]);
+
+    return (
+        <img
+            src={imageSource}
+            alt={alt}
+            loading="lazy"
+            decoding="async"
+            className="card-img-top"
+            onError={() => {
+                setImageSource(productImage);
+            }}
+        />
+    );
+});
+
 const ProductCard = memo(
     ({ product, isActive, onAddProduct, allConfigData, currencySymbol }) => {
         const handleClick = useCallback(() => {
@@ -23,7 +44,7 @@ const ProductCard = memo(
         return (
             <div className="product-custom-card" key={product.id} onClick={handleClick}>
                 <Card className={`position-relative h-100 ${isActive ? "product-active" : ""}`}>
-                    <Card.Img variant="top" src={imageUrl} />
+                    <OptimizedProductImage src={imageUrl} alt={product.attributes?.name || "product"} />
                     <Card.Body className="px-2 pt-2 pb-1 custom-card-body">
                         <h6 className="product-title mb-0 text-gray-900">
                             {product.attributes?.name}
