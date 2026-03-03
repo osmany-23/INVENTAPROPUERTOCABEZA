@@ -85,6 +85,111 @@ class ProductAPIController extends AppBaseController
         return new ProductCollection($products);
     }
 
+    public function posFeed(Request $request): JsonResponse
+    {
+        abort_unless(
+            hasPermissionStrict('products.view') || hasPermissionStrict('pos.view'),
+            403
+        );
+
+        $warehouseId = (int) $request->input('warehouse_id');
+        $page = max((int) $request->input('page.number', 1), 1);
+        $pageSize = max(min((int) $request->input('page.size', 120), 250), 1);
+        $search = trim((string) $request->input('search', ''));
+        $filters = $request->input('filter', []);
+        $brandId = (int) Arr::get($filters, 'brand_id', 0);
+        $categoryId = (int) Arr::get($filters, 'product_category_id', 0);
+
+        $stockQuery = DB::table('manage_stocks')
+            ->select('product_id', DB::raw('SUM(quantity) as quantity'))
+            ->when($warehouseId > 0, function ($query) use ($warehouseId) {
+                $query->where('warehouse_id', $warehouseId);
+            })
+            ->groupBy('product_id');
+
+        $productsQuery = Product::query()
+            ->select([
+                'products.id',
+                'products.name',
+                'products.code',
+                'products.product_code',
+                'products.product_cost',
+                'products.product_price',
+                'products.product_unit',
+                'products.sale_unit',
+                'products.stock_alert',
+                'products.order_tax',
+                'products.tax_type',
+                DB::raw('COALESCE(stock.quantity, 0) as stock_quantity'),
+                DB::raw('COALESCE(base_units.name, "") as product_unit_name'),
+            ])
+            ->leftJoinSub($stockQuery, 'stock', function ($join) {
+                $join->on('stock.product_id', '=', 'products.id');
+            })
+            ->leftJoin('base_units', 'base_units.id', '=', 'products.product_unit')
+            ->whereRaw('COALESCE(stock.quantity, 0) > 0')
+            ->when($brandId > 0, function ($query) use ($brandId) {
+                $query->where('products.brand_id', $brandId);
+            })
+            ->when($categoryId > 0, function ($query) use ($categoryId) {
+                $query->where('products.product_category_id', $categoryId);
+            })
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($subQuery) use ($search) {
+                    $likeSearch = '%' . $search . '%';
+                    $subQuery->where('products.name', 'LIKE', $likeSearch)
+                        ->orWhere('products.code', 'LIKE', $likeSearch)
+                        ->orWhere('products.product_code', 'LIKE', $likeSearch);
+                });
+            })
+            ->orderBy('products.name');
+
+        $rows = $productsQuery
+            ->forPage($page, $pageSize + 1)
+            ->get();
+
+        $hasMorePages = $rows->count() > $pageSize;
+        $visibleProducts = $rows->take($pageSize);
+        $canViewPurchasePrice = hasPermissionStrict('view_purchase_price') ||
+            hasPermissionStrict('products.view_purchase_price');
+
+        $data = $visibleProducts->map(function ($product) use ($canViewPurchasePrice) {
+            return [
+                'id' => (int) $product->id,
+                'attributes' => [
+                    'name' => $product->name,
+                    'code' => $product->code,
+                    'product_code' => $product->product_code,
+                    'product_cost' => $canViewPurchasePrice ? (float) $product->product_cost : 0,
+                    'product_price' => (float) $product->product_price,
+                    'product_unit' => $product->product_unit,
+                    'sale_unit' => $product->sale_unit,
+                    'stock_alert' => $product->stock_alert,
+                    'order_tax' => is_null($product->order_tax) ? 0 : (float) $product->order_tax,
+                    'tax_type' => is_null($product->tax_type) ? 1 : (int) $product->tax_type,
+                    'product_unit_name' => [
+                        'name' => $product->product_unit_name,
+                    ],
+                    'stock' => [
+                        'quantity' => (float) $product->stock_quantity,
+                    ],
+                    'images' => [
+                        'imageUrls' => [],
+                    ],
+                ],
+            ];
+        })->values();
+
+        return response()->json([
+            'data' => $data,
+            'meta' => [
+                'page' => $page,
+                'page_size' => $pageSize,
+                'has_more_pages' => $hasMorePages,
+            ],
+        ]);
+    }
+
     /**
      * @return ProductResource|JsonResponse
      */

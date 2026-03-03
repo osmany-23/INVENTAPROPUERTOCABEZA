@@ -197,7 +197,7 @@ const ProductDetailsModel = (props) => {
 
     //product details save button function
     const onSaveDetailModal = () => {
-        const newProduct = product;
+        const newProduct = { ...product };
         const Valid = handleValidation();
         if (Valid) {
             if (productModelId === product.id) {
@@ -212,7 +212,9 @@ const ProductDetailsModel = (props) => {
                 newProduct.sale_unit = saleUnitType[0] ? saleUnitType[0].value : saleUnitType || saleUnitType ? saleUnitType.value : saleUnitType;
                 onProductUpdateInCart(newProduct);
             }
-            updateCost(newProduct.net_unit_cost = calculateProductCost(unitPrice));
+            if (typeof updateCost === "function") {
+                updateCost(newProduct.net_unit_cost = calculateProductCost(unitPrice));
+            }
             openProductDetailModal(false);
         }
     };

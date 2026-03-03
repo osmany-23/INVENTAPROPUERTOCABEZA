@@ -1,6 +1,6 @@
-import React from "react";
+import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "react-bootstrap-v5";
-import { connect, useDispatch } from "react-redux";
+import { useDispatch } from "react-redux";
 import {
     currencySymbolHandling,
     decimalValidate,
@@ -10,102 +10,139 @@ import { calculateProductCost } from "../../shared/SharedMethod";
 import { addToast } from "../../../store/action/toastAction";
 import { toastType } from "../../../constants";
 
-const ProductCartList = (props) => {
-    const {
-        singleProduct,
-        index,
-        onClickUpdateItemInCart,
-        onDeleteCartItem,
-        frontSetting,
-        setUpdateProducts,
-        posAllProducts,
-        allConfigData,
-        canEditPosSalePrice,
-    } = props;
+const QUANTITY_DEBOUNCE_MS = 120;
+
+const ProductCartList = ({
+    singleProduct,
+    onClickUpdateItemInCart,
+    onDeleteCartItem,
+    frontSetting,
+    setUpdateProducts,
+    allConfigData,
+    canEditPosSalePrice,
+    availableStock = 0,
+}) => {
     const dispatch = useDispatch();
-    const totalQty = posAllProducts
-        .filter((product) => product.id === singleProduct.id)
-        .map((product) => product.attributes.stock.quantity);
+    const [quantityDraft, setQuantityDraft] = useState(singleProduct.quantity);
+    const debounceRef = useRef(null);
 
-    const handleIncrement = () => {
-        setUpdateProducts((updateProducts) =>
-            updateProducts.map((item) => {
-                if (item.id === singleProduct.id) {
-                    if (item.quantity >= totalQty[0]) {
-                        dispatch(
-                            addToast({
-                                text: getFormattedMessage(
-                                    "pos.product-quantity-error.message"
-                                ),
-                                type: toastType.ERROR,
-                            })
-                        );
-                        return item;
-                    } else {
-                        return { ...item, quantity: item.quantity++ + 1 };
-                    }
-                } else {
-                    return item;
-                }
-            })
-        );
-    };
+    useEffect(() => {
+        setQuantityDraft(singleProduct.quantity);
+    }, [singleProduct.quantity]);
 
-    const handleDecrement = () => {
-        if (singleProduct.quantity - 1 > 0.0) {
+    useEffect(() => {
+        return () => {
+            if (debounceRef.current) {
+                clearTimeout(debounceRef.current);
+            }
+        };
+    }, []);
+
+    const updateQuantity = useCallback(
+        (quantity, showErrorIfExceeded = true) => {
             setUpdateProducts((updateProducts) =>
-                updateProducts.map((item) =>
-                    item.id === singleProduct.id
-                        ? { ...item, quantity: item.quantity-- - 1 }
-                        : item
-                )
-            );
-        }
-    };
+                updateProducts.map((item) => {
+                    if (item.id !== singleProduct.id) {
+                        return item;
+                    }
 
-    //qty onChange
-    const handleChange = (e) => {
-        e.preventDefault();
-        const { value } = e.target;
-        // check if value includes a decimal point
-        if (value.match(/\./g)) {
-            const [, decimal] = value.split(".");
-            // restrict value to only 2 decimal places
-            if (decimal?.length > 2) {
-                // do nothing
+                    const finalQuantity = Math.max(0, Number(quantity));
+                    if (finalQuantity > availableStock) {
+                        if (showErrorIfExceeded) {
+                            dispatch(
+                                addToast({
+                                    text: getFormattedMessage(
+                                        "pos.product-quantity-error.message"
+                                    ),
+                                    type: toastType.ERROR,
+                                })
+                            );
+                        }
+
+                        return { ...item, quantity: availableStock };
+                    }
+
+                    return { ...item, quantity: finalQuantity };
+                })
+            );
+        },
+        [availableStock, dispatch, setUpdateProducts, singleProduct.id]
+    );
+
+    const handleIncrement = useCallback(() => {
+        const nextQuantity = Number(singleProduct.quantity) + 1;
+        setQuantityDraft(nextQuantity);
+        updateQuantity(nextQuantity);
+    }, [singleProduct.quantity, updateQuantity]);
+
+    const handleDecrement = useCallback(() => {
+        const nextQuantity = Number(singleProduct.quantity) - 1;
+        if (nextQuantity <= 0) {
+            return;
+        }
+
+        setQuantityDraft(nextQuantity);
+        updateQuantity(nextQuantity, false);
+    }, [singleProduct.quantity, updateQuantity]);
+
+    const handleChange = useCallback(
+        (event) => {
+            event.preventDefault();
+            const { value } = event.target;
+
+            if (value.match(/\./g)) {
+                const [, decimal] = value.split(".");
+                if (decimal?.length > 2) {
+                    return;
+                }
+            }
+
+            if (value === "") {
+                setQuantityDraft("");
                 return;
             }
+
+            const nextQuantity = Number(value);
+            if (Number.isNaN(nextQuantity)) {
+                return;
+            }
+
+            setQuantityDraft(nextQuantity);
+
+            if (debounceRef.current) {
+                clearTimeout(debounceRef.current);
+            }
+
+            debounceRef.current = setTimeout(() => {
+                updateQuantity(nextQuantity);
+            }, QUANTITY_DEBOUNCE_MS);
+        },
+        [updateQuantity]
+    );
+
+    const handleBlur = useCallback(() => {
+        if (quantityDraft === "" || Number(quantityDraft) <= 0) {
+            setQuantityDraft(singleProduct.quantity);
+            return;
         }
 
-        setUpdateProducts((updateProducts) =>
-            updateProducts.map((item) => {
-                if (item.id === singleProduct.id) {
-                    if (totalQty[0] < Number(e.target.value)) {
-                        dispatch(
-                            addToast({
-                                text: getFormattedMessage(
-                                    "pos.product-quantity-error.message"
-                                ),
-                                type: toastType.ERROR,
-                            })
-                        );
-                        return { ...item, quantity: totalQty[0] };
-                    } else {
-                        return {
-                            ...item,
-                            quantity: Number(e.target.value),
-                        };
-                    }
-                } else {
-                    return item;
-                }
-            })
-        );
-    };
+        updateQuantity(quantityDraft);
+    }, [quantityDraft, singleProduct.quantity, updateQuantity]);
+
+    const handleEditClick = useCallback(() => {
+        onClickUpdateItemInCart(singleProduct);
+    }, [onClickUpdateItemInCart, singleProduct]);
+
+    const handleDeleteClick = useCallback(() => {
+        onDeleteCartItem(singleProduct.id);
+    }, [onDeleteCartItem, singleProduct.id]);
+
+    const unitCost = calculateProductCost(singleProduct);
+    const rowTotal = unitCost * Number(singleProduct.quantity || 0);
 
     return (
-        <tr key={index} className="align-middle">
-            <td className="text-nowrap text-nowrap ps-0">
+        <tr className="align-middle">
+            <td className="text-nowrap ps-0">
                 <h4 className="product-name text-gray-900 mb-1 text-capitalize text-truncate">
                     {singleProduct.name}
                 </h4>
@@ -116,7 +153,7 @@ const ProductCartList = (props) => {
                     {canEditPosSalePrice && (
                         <i
                             className="bi bi-pencil-fill text-gray-600 ms-2 cursor-pointer fs-small"
-                            onClick={() => onClickUpdateItemInCart(singleProduct)}
+                            onClick={handleEditClick}
                         />
                     )}
                 </span>
@@ -126,22 +163,23 @@ const ProductCartList = (props) => {
                     <Button
                         type="button"
                         variant="primary"
-                        onClick={() => handleDecrement()}
+                        onClick={handleDecrement}
                         className="counter__down d-flex align-items-center justify-content-center"
                     >
                         -
                     </Button>
                     <input
                         type="number"
-                        value={singleProduct.quantity}
+                        value={quantityDraft}
                         className="hide-arrow"
-                        onKeyPress={(event) => decimalValidate(event)}
-                        onChange={(e) => handleChange(e)}
+                        onKeyPress={decimalValidate}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
                     />
                     <Button
                         type="button"
                         variant="primary"
-                        onClick={() => handleIncrement()}
+                        onClick={handleIncrement}
                         className="counter__up d-flex align-items-center justify-content-center"
                     >
                         +
@@ -152,20 +190,20 @@ const ProductCartList = (props) => {
                 {currencySymbolHandling(
                     allConfigData,
                     frontSetting.value && frontSetting.value.currency_symbol,
-                    calculateProductCost(singleProduct)
+                    unitCost
                 )}
             </td>
             <td className="text-nowrap">
                 {currencySymbolHandling(
                     allConfigData,
                     frontSetting.value && frontSetting.value.currency_symbol,
-                    calculateProductCost(singleProduct) * singleProduct.quantity
+                    rowTotal
                 )}
             </td>
             <td className="text-end remove-button pe-0">
                 <Button
                     className="p-0 bg-transparent border-0"
-                    onClick={() => onDeleteCartItem(singleProduct.id)}
+                    onClick={handleDeleteClick}
                 >
                     <i className="bi bi-trash3 text-danger" />
                 </Button>
@@ -174,4 +212,4 @@ const ProductCartList = (props) => {
     );
 };
 
-export default connect(null, null)(ProductCartList);
+export default memo(ProductCartList);

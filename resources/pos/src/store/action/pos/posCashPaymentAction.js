@@ -15,7 +15,6 @@ export const posCashPaymentAction =
         detailsCash,
         setUpdateProducts,
         setModalShowPaymentSlip,
-        posAllProduct,
         filterData,
         printSlip = false,
         isLoading = true
@@ -47,7 +46,13 @@ export const posCashPaymentAction =
                     fetchBrandClickable(
                         filterData.brandId,
                         filterData.categoryId,
-                        filterData.selectedOption.value
+                        filterData.selectedOption?.value,
+                        {
+                            search: filterData.search || "",
+                            page: 1,
+                            append: false,
+                            isLoading: false,
+                        }
                     )
                 );
                 if (isLoading) {

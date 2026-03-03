@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Col, Container, Row, Table } from "react-bootstrap-v5";
 import { connect, useDispatch, useSelector } from "react-redux";
 import moment from "moment";
@@ -22,7 +22,6 @@ import { fetchSetting } from "../../store/action/settingAction";
 import { calculateProductCost } from "../shared/SharedMethod";
 import {
     fetchBrandClickable,
-    posAllProduct,
 } from "../../store/action/pos/posAllProductAction";
 import TabTitle from "../../shared/tab-title/TabTitle";
 import HeaderAllButton from "./header/HeaderAllButton";
@@ -52,7 +51,6 @@ const PosMainPage = (props) => {
     const {
         onClickFullScreen,
         posAllProducts,
-        customCart,
         posCashPaymentAction,
         frontSetting,
         fetchFrontSetting,
@@ -65,29 +63,31 @@ const PosMainPage = (props) => {
         fetchHoldLists,
         holdListData,
     } = props;
+    const PRODUCT_PAGE_SIZE = 120;
     const componentRef = useRef();
     const registerDetailsRef = useRef();
+    const productRequestRef = useRef(0);
     // const [play] = useSound('https://s3.amazonaws.com/freecodecamp/drums/Heater-4_1.mp3');
     const [openCalculator, setOpenCalculator] = useState(false);
-    const [quantity, setQuantity] = useState(1);
     const [updateProducts, setUpdateProducts] = useState([]);
     const [isOpenCartItemUpdateModel, setIsOpenCartItemUpdateModel] =
         useState(false);
     const [product, setProduct] = useState(null);
-    const [cartProductIds, setCartProductIds] = useState([]);
-    const [newCost, setNewCost] = useState("");
     const [paymentPrint, setPaymentPrint] = useState({});
     const [cashPayment, setCashPayment] = useState(false);
     const [modalShowPaymentSlip, setModalShowPaymentSlip] = useState(false);
     const [modalShowCustomer, setModalShowCustomer] = useState(false);
-    const [productMsg, setProductMsg] = useState(0);
     const [searchTerm, setSearchTerm] = useState("");
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
     const [brandId, setBrandId] = useState();
     const [categoryId, setCategoryId] = useState();
     const [selectedCustomerOption, setSelectedCustomerOption] = useState(null);
     const [selectedOption, setSelectedOption] = useState(null);
     const [updateHolList, setUpdateHoldList] = useState(false);
     const [hold_ref_no, setHold_ref_no] = useState("");
+    const [currentProductPage, setCurrentProductPage] = useState(1);
+    const [hasMoreProducts, setHasMoreProducts] = useState(true);
+    const [isLoadingMoreProducts, setIsLoadingMoreProducts] = useState(false);
     const [cartItemValue, setCartItemValue] = useState({
         discount_type: discountType.FIXED,    // 0 = fixed, 1 = percentage
         discount_value: 0,
@@ -115,33 +115,45 @@ const PosMainPage = (props) => {
     const canCreateSale = can("pos.create_sale", { strict: true });
     const canEditPosSalePrice = can("edit_pos_sale_price", { strict: true });
 
-    //total Qty on cart item
-    const localCart = updateProducts.map((updateQty) =>
-        Number(updateQty.quantity)
-    );
-    const totalQty =
-        localCart.length > 0 &&
-        localCart?.reduce((cart, current) => {
-            return cart + current;
+    const customCart = useMemo(() => prepareCartArray(posAllProducts), [posAllProducts]);
+    const customCartByProductId = useMemo(() => {
+        const cartTemplateMap = new Map();
+        customCart.forEach((item) => {
+            cartTemplateMap.set(Number(item.id), item);
         });
 
-    //subtotal on cart item
-    const localTotal = updateProducts.map(
-        (updateQty) =>
-            calculateProductCost(updateQty).toFixed(2) * updateQty.quantity
-    );
-    const subTotal =
-        localTotal.length > 0 &&
-        localTotal?.reduce((cart, current) => {
-            return cart + current;
+        return cartTemplateMap;
+    }, [customCart]);
+
+    const productStockById = useMemo(() => {
+        const stockMap = {};
+        posAllProducts.forEach((productItem) => {
+            stockMap[Number(productItem.id)] = Number(
+                productItem?.attributes?.stock?.quantity || 0
+            );
         });
+
+        return stockMap;
+    }, [posAllProducts]);
+
+    const totalQty = useMemo(() => {
+        return updateProducts.reduce(
+            (sum, cartProduct) => sum + Number(cartProduct.quantity || 0),
+            0
+        );
+    }, [updateProducts]);
+
+    const subTotal = useMemo(() => {
+        return updateProducts.reduce((sum, cartProduct) => {
+            return sum + Number(calculateProductCost(cartProduct) || 0) * Number(cartProduct.quantity || 0);
+        }, 0);
+    }, [updateProducts]);
 
     const [holdListId, setHoldListValue] = useState({
         referenceNumber: "",
     });
 
-    //grand total on cart item
-        const discountTotal = subTotal - cartItemValue.discount;
+    const discountTotal = subTotal - cartItemValue.discount;
     const taxTotal = (discountTotal * cartItemValue.tax) / 100;
     const mainTotal = discountTotal + taxTotal;
     const grandTotal = (
@@ -149,15 +161,15 @@ const PosMainPage = (props) => {
     ).toFixed(2);
 
     useEffect(() => {
-        setPaymentPrint({
-            ...paymentPrint,
+        setPaymentPrint((previous) => ({
+            ...previous,
             barcode_url:
                 paymentDetails.attributes &&
                 paymentDetails.attributes.barcode_url,
             reference_code:
                 paymentDetails.attributes &&
                 paymentDetails.attributes.reference_code,
-        });
+        }));
     }, [paymentDetails]);
 
     useEffect(() => {
@@ -178,9 +190,9 @@ const PosMainPage = (props) => {
     useEffect(() => {
         fetchSetting();
         fetchFrontSetting();
-        fetchTodaySaleOverAllReport();
+        dispatch(fetchTodaySaleOverAllReport());
         fetchHoldLists();
-    }, []);
+    }, [fetchSetting, fetchFrontSetting, dispatch, fetchHoldLists]);
 
     useEffect(() => {
         if(allConfigData){
@@ -196,8 +208,14 @@ const PosMainPage = (props) => {
     }, [updateHolList]);
 
     useEffect(() => {
-        setUpdateProducts(updateProducts);
-    }, [quantity, grandTotal]);
+        const debounceTimer = setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm);
+        }, 250);
+
+        return () => {
+            clearTimeout(debounceTimer);
+        };
+    }, [searchTerm]);
 
     const handleValidation = () => {
         let errors = {};
@@ -215,41 +233,91 @@ const PosMainPage = (props) => {
         return isValid;
     };
 
-    //filter on category id
-    const setCategory = (item) => {
-        setCategoryId(item);
-    };
+    const fetchProductsPage = useCallback(
+        async (pageNumber, append = false) => {
+            if (!selectedOption?.value) {
+                return;
+            }
 
-    useEffect(() => {
-        if (selectedOption) {
-            fetchBrandClickable(
+            const requestId = ++productRequestRef.current;
+            setIsLoadingMoreProducts(true);
+
+            const meta = await fetchBrandClickable(
                 brandId,
                 categoryId,
-                selectedOption.value && selectedOption.value
+                selectedOption.value,
+                {
+                    page: pageNumber,
+                    pageSize: PRODUCT_PAGE_SIZE,
+                    append,
+                    search: debouncedSearchTerm,
+                    isLoading: !append,
+                }
             );
+
+            if (requestId !== productRequestRef.current) {
+                return;
+            }
+
+            setCurrentProductPage(pageNumber);
+            setHasMoreProducts(Boolean(meta?.has_more_pages));
+            setIsLoadingMoreProducts(false);
+        },
+        [
+            selectedOption,
+            fetchBrandClickable,
+            brandId,
+            categoryId,
+            debouncedSearchTerm,
+            PRODUCT_PAGE_SIZE,
+        ]
+    );
+
+    useEffect(() => {
+        if (!selectedOption?.value) {
+            return;
         }
-    }, [selectedOption, brandId, categoryId]);
 
-    //filter on brand id
-    const setBrand = (item) => {
+        fetchProductsPage(1, false);
+    }, [selectedOption, brandId, categoryId, debouncedSearchTerm, fetchProductsPage]);
+
+    const loadMoreProducts = useCallback(() => {
+        if (!selectedOption?.value || isLoadingMoreProducts || !hasMoreProducts) {
+            return;
+        }
+
+        fetchProductsPage(currentProductPage + 1, true);
+    }, [
+        selectedOption,
+        isLoadingMoreProducts,
+        hasMoreProducts,
+        currentProductPage,
+        fetchProductsPage,
+    ]);
+
+    const setCategory = useCallback((item) => {
+        setCategoryId(item);
+    }, []);
+
+    const setBrand = useCallback((item) => {
         setBrandId(item);
-    };
+    }, []);
 
-    const onChangeInput = (e) => {
+    const onChangeInput = useCallback((e) => {
         e.preventDefault();
         setCashPaymentValue((inputs) => ({
             ...inputs,
             [e.target.name]: e.target.value,
         }));
-    };
+    }, []);
 
-    const onPaymentStatusChange = (obj) => {
+    const onPaymentStatusChange = useCallback((obj) => {
         setCashPaymentValue((inputs) => ({ ...inputs, payment_status: obj }));
-    };
+    }, []);
 
-    const onChangeReturnChange = (change) => {
+    const onChangeReturnChange = useCallback((change) => {
         setChangeReturn(change);
-    };
+    }, []);
 
     // payment type dropdown functionality
     const paymentTypeFilterOptions = getFormattedOptions(paymentMethodOptions);
@@ -263,13 +331,13 @@ const PosMainPage = (props) => {
         payment_type: paymentTypeDefaultValue[0],
     });
 
-    const onPaymentTypeChange = (obj) => {
-        setPaymentValue({ ...paymentValue, payment_type: obj });
-    };
+    const onPaymentTypeChange = useCallback((obj) => {
+        setPaymentValue((previous) => ({ ...previous, payment_type: obj }));
+    }, []);
 
-    const onChangeCart = (event) => {
-        if(updateProducts.length == 0){
-            dispatch(addToast({text: getFormattedMessage("pos.cash-payment.product-error.message"), type: toastType.ERROR}))
+    const onChangeCart = useCallback((event) => {
+        if (updateProducts.length === 0) {
+            dispatch(addToast({ text: getFormattedMessage("pos.cash-payment.product-error.message"), type: toastType.ERROR }));
             return;
         }
         const { value } = event.target;
@@ -317,11 +385,11 @@ const PosMainPage = (props) => {
             discount: discount,
             [event.target.name]: value,
         }));
-    };
+    }, [updateProducts.length, dispatch, getFormattedMessage, cartItemValue, canApplyDiscount, subTotal]);
 
-    const onChangeTaxCart = (event) => {
-        if(updateProducts.length == 0){
-            dispatch(addToast({text: getFormattedMessage("pos.cash-payment.product-error.message"), type: toastType.ERROR}))
+    const onChangeTaxCart = useCallback((event) => {
+        if (updateProducts.length === 0) {
+            dispatch(addToast({ text: getFormattedMessage("pos.cash-payment.product-error.message"), type: toastType.ERROR }));
             return;
         }
         const min = 0;
@@ -341,10 +409,10 @@ const PosMainPage = (props) => {
             ...inputs,
             [event.target.name]: values,
         }));
-    };
+    }, [updateProducts.length, dispatch, getFormattedMessage]);
 
     //payment slip model onchange
-    const handleCashPayment = () => {
+    const handleCashPayment = useCallback(() => {
         setCashPaymentValue({
             notes: "",
             payment_status: {
@@ -352,20 +420,16 @@ const PosMainPage = (props) => {
                 value: 1,
             },
         });
-        setCashPayment(!cashPayment);
-    };
-
-    const updateCost = (item) => {
-        setNewCost(item);
-    };
+        setCashPayment((previous) => !previous);
+    }, [getFormattedMessage]);
 
     //product details model onChange
-    const openProductDetailModal = () => {
-        setIsOpenCartItemUpdateModel(!isOpenCartItemUpdateModel);
-    };
+    const openProductDetailModal = useCallback(() => {
+        setIsOpenCartItemUpdateModel((previous) => !previous);
+    }, []);
 
     //product details model updated value
-    const onClickUpdateItemInCart = (item) => {
+    const onClickUpdateItemInCart = useCallback((item) => {
         if (!canEditPosSalePrice) {
             dispatch(
                 addToast({
@@ -378,37 +442,103 @@ const PosMainPage = (props) => {
 
         setProduct(item);
         setIsOpenCartItemUpdateModel(true);
-    };
+    }, [canEditPosSalePrice, dispatch]);
 
-    const onProductUpdateInCart = () => {
-        const localCart = updateProducts.slice();
-        updateCart(localCart);
-    };
+    const onProductUpdateInCart = useCallback((updatedProduct) => {
+        if (!updatedProduct) {
+            return;
+        }
 
-    //updated Qty function
-    const updatedQty = (qty) => {
-        setQuantity(qty);
-    };
+        setUpdateProducts((products) =>
+            products.map((cartProduct) =>
+                Number(cartProduct.id) === Number(updatedProduct.id)
+                    ? { ...updatedProduct }
+                    : cartProduct
+            )
+        );
+    }, []);
 
-    const updateCart = (cartProducts) => {
+    const updateCart = useCallback((cartProducts) => {
         setUpdateProducts(cartProducts);
-    };
+    }, []);
 
     //cart item delete
-    const onDeleteCartItem = (productId) => {
-        const existingCart = updateProducts.filter((e) => e.id !== productId);
-        updateCart(existingCart);
-    };
+    const onDeleteCartItem = useCallback((productId) => {
+        setUpdateProducts((products) =>
+            products.filter((cartProduct) => Number(cartProduct.id) !== Number(productId))
+        );
+    }, []);
+
+    const addProductToCart = useCallback((productId) => {
+        if (!selectedOption?.value) {
+            dispatch(
+                addToast({
+                    text: getFormattedMessage("purchase.select.warehouse.validate.label"),
+                    type: toastType.ERROR,
+                })
+            );
+            return;
+        }
+
+        const template = customCartByProductId.get(Number(productId));
+        const availableStock = Number(productStockById[Number(productId)] || 0);
+
+        if (!template || availableStock <= 0) {
+            dispatch(
+                addToast({
+                    text: getFormattedMessage("pos.this.product.out.of.stock.message"),
+                    type: toastType.ERROR,
+                })
+            );
+            return;
+        }
+
+        setUpdateProducts((products) => {
+            const productIndex = products.findIndex(
+                (cartProduct) => Number(cartProduct.id) === Number(productId)
+            );
+
+            if (productIndex === -1) {
+                return [...products, { ...template, warehouse_id: selectedOption.value }];
+            }
+
+            const currentProduct = products[productIndex];
+            if (Number(currentProduct.quantity) >= availableStock) {
+                dispatch(
+                    addToast({
+                        text: getFormattedMessage("pos.quantity.exceeds.quantity.available.in.stock.message"),
+                        type: toastType.ERROR,
+                    })
+                );
+                return products;
+            }
+
+            const updatedProducts = [...products];
+            updatedProducts[productIndex] = {
+                ...currentProduct,
+                quantity: Number(currentProduct.quantity) + 1,
+                warehouse_id: selectedOption.value,
+            };
+
+            return updatedProducts;
+        });
+    }, [
+        selectedOption,
+        customCartByProductId,
+        productStockById,
+        dispatch,
+        getFormattedMessage,
+    ]);
 
     //product add to cart function
-    const addToCarts = (items) => {
+    const addToCarts = useCallback((items) => {
         updateCart(items);
-    };
+    }, [updateCart]);
 
     // create customer model
-    const customerModel = (val) => {
+    const customerModel = useCallback((val) => {
         setModalShowCustomer(val);
-    };
+    }, []);
 
     //prepare data for print Model
     const preparePrintData = () => {
@@ -471,11 +601,11 @@ const PosMainPage = (props) => {
                 prepareData(updateProducts),
                 setUpdateProducts,
                 setModalShowPaymentSlip,
-                posAllProduct,
                 {
                     brandId,
                     categoryId,
                     selectedOption,
+                    search: debouncedSearchTerm,
                 },printSlip
             );
             // setModalShowPaymentSlip(true);
@@ -497,7 +627,6 @@ const PosMainPage = (props) => {
                     value: 1,
                 },
             });
-            setCartProductIds("");
         }
     };
 
@@ -664,31 +793,28 @@ const PosMainPage = (props) => {
                                     <tbody className="border-0">
                                         {updateProducts && updateProducts.length ? (
                                             updateProducts.map(
-                                                (updateProduct, index) => {
+                                                (updateProduct) => {
                                                     return (
                                                         <ProductCartList
                                                             singleProduct={
                                                                 updateProduct
                                                             }
                                                             canEditPosSalePrice={canEditPosSalePrice}
-                                                            key={index + 1}
-                                                            index={index}
-                                                            posAllProducts={
-                                                                posAllProducts
-                                                            }
+                                                            key={updateProduct.id}
                                                             onClickUpdateItemInCart={
                                                                 onClickUpdateItemInCart
                                                             }
-                                                            updatedQty={updatedQty}
-                                                            updateCost={updateCost}
+                                                            availableStock={
+                                                                productStockById[
+                                                                    Number(updateProduct.id)
+                                                                ] || 0
+                                                            }
                                                             onDeleteCartItem={
                                                                 onDeleteCartItem
                                                             }
-                                                            quantity={quantity}
                                                             frontSetting={
                                                                 frontSetting
                                                             }
-                                                            newCost={newCost}
                                                             allConfigData={
                                                                 allConfigData
                                                             }
@@ -752,13 +878,9 @@ const PosMainPage = (props) => {
                     <div className="right-content mb-3 d-flex flex-column h-100">
                         <div className="d-sm-flex align-items-center flex-xxl-nowrap flex-wrap">
                             <ProductSearchbar
-                                customCart={customCart}
-                                setUpdateProducts={setUpdateProducts}
-                                updateProducts={updateProducts}
-                                selectedOption={selectedOption}
+                                posAllProducts={posAllProducts}
+                                onAddProduct={addProductToCart}
                                 onSearchTermChange={setSearchTerm}
-                            // handleOnSelect={handleOnSelect} handleOnSearch={handleOnSearch}
-                            // searchString={searchString}
                             />
                             <HeaderAllButton
                                 holdListData={holdListData}
@@ -786,15 +908,15 @@ const PosMainPage = (props) => {
                                 />
                             </div>
                             <Product
+                                posAllProducts={posAllProducts}
                                 cartProducts={updateProducts}
-                                updateCart={addToCarts}
-                                customCart={customCart}
-                                setCartProductIds={setCartProductIds}
-                                cartProductIds={cartProductIds}
                                 settings={settings}
-                                productMsg={productMsg}
-                                selectedOption={selectedOption}
                                 searchTerm={searchTerm}
+                                allConfigData={allConfigData}
+                                isLoading={isLoadingMoreProducts}
+                                onAddProduct={addProductToCart}
+                                hasMoreProducts={hasMoreProducts}
+                                onLoadMoreProducts={loadMoreProducts}
                             />
                         </div>
                     </div>
@@ -805,7 +927,6 @@ const PosMainPage = (props) => {
                     openProductDetailModal={openProductDetailModal}
                     productModelId={product.id}
                     onProductUpdateInCart={onProductUpdateInCart}
-                    updateCost={updateCost}
                     cartProduct={product}
                     isOpenCartItemUpdateModel={isOpenCartItemUpdateModel}
                     frontSetting={frontSetting}
@@ -893,7 +1014,6 @@ const mapStateToProps = (state) => {
         frontSetting,
         settings,
         paymentDetails: cashPayment,
-        customCart: prepareCartArray(posAllProducts),
         allConfigData,
         posAllTodaySaleOverAllReport,
     };
@@ -903,7 +1023,6 @@ export default connect(mapStateToProps, {
     fetchSetting,
     fetchFrontSetting,
     posCashPaymentAction,
-    posAllProduct,
     fetchBrandClickable,
     fetchHoldLists,
 })(PosMainPage);

@@ -1,109 +1,89 @@
-import React, { useEffect, useState } from "react";
-import { Card, Badge } from "react-bootstrap-v5";
-import { connect, useDispatch } from "react-redux";
-import { posAllProduct } from "../../../store/action/pos/posAllProductAction";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { Badge, Card } from "react-bootstrap-v5";
 import productImage from "../../../assets/images/brand_logo.png";
-import { addToast } from "../../../store/action/toastAction";
 import {
     currencySymbolHandling,
     getFormattedMessage,
 } from "../../../shared/sharedMethod";
-import { toastType } from "../../../constants";
 import Skelten from "../../../shared/components/loaders/Skelten";
+
+const CLIENT_RENDER_STEP = 120;
+
+const normalize = (value) => (value || "").toString().trim().toUpperCase();
+
+const ProductCard = memo(
+    ({ product, isActive, onAddProduct, allConfigData, currencySymbol }) => {
+        const handleClick = useCallback(() => {
+            onAddProduct(product.id);
+        }, [onAddProduct, product.id]);
+
+        const imageUrl = product?.attributes?.images?.imageUrls?.[0] || productImage;
+        const stockQuantity = Number(product?.attributes?.stock?.quantity || 0);
+
+        return (
+            <div className="product-custom-card" key={product.id} onClick={handleClick}>
+                <Card className={`position-relative h-100 ${isActive ? "product-active" : ""}`}>
+                    <Card.Img variant="top" src={imageUrl} />
+                    <Card.Body className="px-2 pt-2 pb-1 custom-card-body">
+                        <h6 className="product-title mb-0 text-gray-900">
+                            {product.attributes?.name}
+                            {product.attributes?.code !== product.attributes?.product_code
+                                ? ` (${product.attributes?.code}, ${product.attributes?.product_code})`
+                                : null}
+                        </h6>
+                        <span className="fs-small text-gray-700">{product.attributes?.code}</span>
+                        <p className="m-0 item-badges">
+                            <Badge
+                                bg="info"
+                                text="white"
+                                className="product-custom-card__card-badge"
+                            >
+                                {stockQuantity}{" "}
+                                {product?.attributes?.product_unit_name?.name || ""}
+                            </Badge>
+                        </p>
+                        <p className="m-0 item-badge">
+                            <Badge
+                                bg="primary"
+                                text="white"
+                                className="product-custom-card__card-badge"
+                            >
+                                {currencySymbolHandling(
+                                    allConfigData,
+                                    currencySymbol,
+                                    product.attributes?.product_price || 0
+                                )}
+                            </Badge>
+                        </p>
+                    </Card.Body>
+                </Card>
+            </div>
+        );
+    }
+);
 
 const Product = (props) => {
     const {
-        posAllProducts,
-        cartProducts,
-        updateCart,
-        customCart,
-        cartProductIds,
-        setCartProductIds,
-        settings,
-        productMsg,
-        newCost,
-        selectedOption,
-        searchTerm,
+        posAllProducts = [],
+        cartProducts = [],
+        searchTerm = "",
         allConfigData,
+        settings,
         isLoading,
+        onAddProduct,
+        onLoadMoreProducts,
+        hasMoreProducts = false,
     } = props;
-    const [updateProducts, setUpdateProducts] = useState([]);
-    const dispatch = useDispatch();
+    const [renderLimit, setRenderLimit] = useState(CLIENT_RENDER_STEP);
 
-    useEffect(() => {
-        // update cart while cart is updated
-        cartProducts && setUpdateProducts(cartProducts);
-        const ids = updateProducts.map((item) => {
-            return item.id;
-        });
-        setCartProductIds(ids);
-    }, [updateProducts, cartProducts]);
+    const activeCartIds = useMemo(() => {
+        return new Set(cartProducts.map((item) => Number(item.id)));
+    }, [cartProducts]);
 
-    const addToCart = (product) => {
-        // posFetchProduct(product.id);
-        addProductToCart(product);
-    };
+    const normalizedSearchTerm = useMemo(() => normalize(searchTerm), [searchTerm]);
 
-    const addProductToCart = (product) => {
-        const newId = posAllProducts
-            .filter((item) => item.id === product.id)
-            .map((item) => item.id);
-        const finalIdArrays = customCart.map((id) => id.product_id);
-        const finalId = finalIdArrays.filter(
-            (finalIdArray) => finalIdArray === newId[0]
-        );
-        const pushArray = [...customCart];
-        const newProduct = pushArray.find(
-            (element) => element.id === finalId[0]
-        );
-        const filterQty = updateProducts
-            .filter((item) => item.id === product.id)
-            .map((qty) => qty.quantity)[0];
-        if (
-            updateProducts.filter((item) => item.id === product.id).length > 0
-        ) {
-            if (filterQty >= product.attributes.stock.quantity) {
-                dispatch(
-                    addToast({
-                        text: getFormattedMessage(
-                            "pos.quantity.exceeds.quantity.available.in.stock.message"
-                        ),
-                        type: toastType.ERROR,
-                    })
-                );
-            } else {
-                setUpdateProducts((updateProducts) =>
-                    updateProducts.map((item) =>
-                        item.id === product.id
-                            ? {
-                                  ...item,
-                                  quantity:
-                                      product.attributes.stock.quantity >
-                                      item.quantity
-                                          ? item.quantity++ + 1
-                                          : null,
-                              }
-                            : { ...item, id: item.id }
-                    )
-                );
-                updateCart(updateProducts, {...product,warehouse_id: selectedOption.value});
-            }
-        } else {
-            setUpdateProducts((prevSelected) => [...prevSelected, {...product,warehouse_id: selectedOption.value}]);
-            updateCart((prevSelected) => [...prevSelected, {...newProduct,warehouse_id: selectedOption.value}]);
-        }
-    };
-
-    const isProductExistInCart = (productId) => {
-        return cartProductIds.includes(productId);
-    };
-
-    const normalize = (value) => (value || "").toString().trim().toUpperCase();
-    const normalizedSearchTerm = normalize(searchTerm);
-
-    const posFilterProduct =
-        posAllProducts &&
-        posAllProducts.filter((product) => {
+    const filteredProducts = useMemo(() => {
+        return posAllProducts.filter((product) => {
             const stockQty = Number(product?.attributes?.stock?.quantity || 0);
             if (stockQty <= 0) {
                 return false;
@@ -123,115 +103,68 @@ const Product = (props) => {
                 internalCode.includes(normalizedSearchTerm)
             );
         });
-    //Cart Item Array
-    const loadAllProduct = (product) => {
-        return product.attributes.stock.quantity > 0 ? (
-            <div
-                className="product-custom-card"
-                key={product.id}
-                onClick={() => addToCart(product)}
-            >
-                <Card
-                    className={`position-relative h-100 ${
-                        isProductExistInCart(product.id) ? "product-active" : ""
-                    }`}
-                >
-                    <Card.Img
-                        variant="top"
-                        src={
-                            product.attributes.images.imageUrls
-                                ? product.attributes.images.imageUrls[0]
-                                : productImage
-                        }
-                    />
-                    <Card.Body className="px-2 pt-2 pb-1 custom-card-body">
-                        <h6 className="product-title mb-0 text-gray-900">
-                            {product.attributes?.name}
-                            {product.attributes?.code !==
-                            product.attributes?.product_code
-                                ? ` (${product.attributes?.code}, ${product.attributes?.product_code})`
-                                : null}
-                        </h6>
-                        <span className="fs-small text-gray-700">
-                            {product.attributes.code}
-                        </span>
-                        <p className="m-0 item-badges">
-                            <Badge
-                                bg="info"
-                                text="white"
-                                className="product-custom-card__card-badge"
-                            >
-                                {product.attributes.stock &&
-                                    product.attributes.stock.quantity}{" "}
-                                {product?.attributes?.product_unit_name?.name}
-                            </Badge>
-                        </p>
-                        <p className="m-0 item-badge">
-                            <Badge
-                                bg="primary"
-                                text="white"
-                                className="product-custom-card__card-badge"
-                            >
-                                {currencySymbolHandling(
-                                    allConfigData,
-                                    settings.attributes &&
-                                        settings.attributes.currency_symbol,
-                                    newCost
-                                        ? newCost
-                                        : product.attributes.product_price
-                                )}
-                            </Badge>
-                        </p>
-                    </Card.Body>
-                </Card>
-            </div>
-        ) : (
-            ""
-        );
-    };
+    }, [posAllProducts, normalizedSearchTerm]);
+
+    useEffect(() => {
+        setRenderLimit(CLIENT_RENDER_STEP);
+    }, [normalizedSearchTerm, posAllProducts.length]);
+
+    const visibleProducts = useMemo(() => {
+        return filteredProducts.slice(0, renderLimit);
+    }, [filteredProducts, renderLimit]);
+
+    const handleScroll = useCallback(
+        (event) => {
+            const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
+            const nearBottom = scrollHeight - (scrollTop + clientHeight) < 220;
+
+            if (!nearBottom) {
+                return;
+            }
+
+            if (renderLimit < filteredProducts.length) {
+                setRenderLimit((previous) => previous + CLIENT_RENDER_STEP);
+                return;
+            }
+
+            if (hasMoreProducts && !isLoading) {
+                onLoadMoreProducts?.();
+            }
+        },
+        [renderLimit, filteredProducts.length, hasMoreProducts, isLoading, onLoadMoreProducts]
+    );
+
+    const currencySymbol = settings?.attributes?.currency_symbol;
 
     return (
         <div
             className={`${
-                posFilterProduct && posFilterProduct.length === 0
-                    ? "d-flex align-items-center justify-content-center"
-                    : ""
+                filteredProducts.length === 0 ? "d-flex align-items-center justify-content-center" : ""
             } product-list-block pt-1`}
+            onScroll={handleScroll}
         >
             <div className="d-flex flex-wrap product-list-block__product-block w-100">
-                {posFilterProduct && posFilterProduct.length === 0 ? (
-                    isLoading ? (
-                        <Skelten />
-                    ) : (
-                        <h4 className="m-auto">
-                            {getFormattedMessage(
-                                "pos-no-product-available.label"
-                            )}
-                        </h4>
-                    )
-                ) : (
-                    ""
-                )}
-                {productMsg && productMsg === 1 ? (
+                {!isLoading && filteredProducts.length === 0 && (
                     <h4 className="m-auto">
                         {getFormattedMessage("pos-no-product-available.label")}
                     </h4>
-                ) : (
-                    posFilterProduct &&
-                    posFilterProduct.map((product) => {
-                        return loadAllProduct(product);
-                    })
                 )}
+
+                {visibleProducts.map((product) => (
+                    <ProductCard
+                        key={product.id}
+                        product={product}
+                        isActive={activeCartIds.has(Number(product.id))}
+                        onAddProduct={onAddProduct}
+                        allConfigData={allConfigData}
+                        currencySymbol={currencySymbol}
+                    />
+                ))}
+
+                {isLoading && <Skelten />}
             </div>
         </div>
     );
 };
 
-const mapStateToProps = (state) => {
-    const { posAllProducts, allConfigData, isLoading } = state;
-    return { posAllProducts, allConfigData, isLoading };
-};
-
-export default connect(mapStateToProps, { posAllProduct })(
-    Product
-);
+export default memo(Product);

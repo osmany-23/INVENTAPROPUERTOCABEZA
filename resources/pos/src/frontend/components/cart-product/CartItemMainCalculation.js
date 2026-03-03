@@ -1,4 +1,4 @@
-import React from "react";
+import React, { memo, useCallback } from "react";
 import { Form, InputGroup, FormControl } from "react-bootstrap-v5";
 import { Row } from "react-bootstrap";
 import {
@@ -23,6 +23,20 @@ const CartItemMainCalculation = (props) => {
         canApplyDiscount = true,
     } = props;
 
+    const handleTaxChange = useCallback(
+        (event) => {
+            onChangeTaxCart(event);
+        },
+        [onChangeTaxCart]
+    );
+
+    const handleCartChange = useCallback(
+        (event) => {
+            onChangeCart(event);
+        },
+        [onChangeCart]
+    );
+
     return (
         <div className="calculation mt-5">
             <Row className="total-price">
@@ -38,7 +52,7 @@ const CartItemMainCalculation = (props) => {
                                 placeholder={placeholderText(
                                     "globally.detail.tax"
                                 )}
-                                onChange={(e) => onChangeTaxCart(e)}
+                                onChange={handleTaxChange}
                                 onKeyPress={(event) => numValidate(event)}
                                 value={
                                     cartItemValue.tax === 0
@@ -63,7 +77,7 @@ const CartItemMainCalculation = (props) => {
                                     label={placeholderText(
                                         "discount-type.filter.fixed.label"
                                     )}
-                                    onChange={(e) => onChangeCart(e)}
+                                    onChange={handleCartChange}
                                     value={discountType.FIXED}
                                     disabled={!canApplyDiscount}
                                     checked={
@@ -77,7 +91,7 @@ const CartItemMainCalculation = (props) => {
                                     label={placeholderText(
                                         "discount-type.filter.percentage.label"
                                     )}
-                                    onChange={(e) => onChangeCart(e)}
+                                    onChange={handleCartChange}
                                     value={discountType.PERCENTAGE}
                                     className="me-md-2"
                                     disabled={!canApplyDiscount}
@@ -92,7 +106,7 @@ const CartItemMainCalculation = (props) => {
                                 type="text"
                                 id="discount"
                                 className="rounded-1 pe-8"
-                                onChange={(e) => onChangeCart(e)}
+                                onChange={handleCartChange}
                                 value={
                                     cartItemValue.discount_value === 0
                                         ? ""
@@ -124,7 +138,7 @@ const CartItemMainCalculation = (props) => {
                                 placeholder={placeholderText(
                                     "purchase.input.shipping.label"
                                 )}
-                                onChange={(e) => onChangeCart(e)}
+                                onChange={handleCartChange}
                                 onKeyPress={(event) => decimalValidate(event)}
                                 value={
                                     cartItemValue.shipping === 0
@@ -168,4 +182,4 @@ const CartItemMainCalculation = (props) => {
         </div>
     );
 };
-export default CartItemMainCalculation;
+export default memo(CartItemMainCalculation);

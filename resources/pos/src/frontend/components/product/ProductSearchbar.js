@@ -1,206 +1,238 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, {
+    memo,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import { Col } from "react-bootstrap-v5";
-import { ReactSearchAutocomplete } from "react-search-autocomplete";
-import { connect, useDispatch } from "react-redux";
-import {
-    getFormattedMessage,
-    placeholderText,
-} from "../../../shared/sharedMethod";
-import { addToast } from "../../../store/action/toastAction";
-import { toastType } from "../../../constants";
+import { getFormattedMessage, placeholderText } from "../../../shared/sharedMethod";
 
-const ProductSearchbar = (props) => {
-    const {
-        posAllProducts,
-        customCart,
-        setUpdateProducts,
-        selectedOption,
-        onSearchTermChange,
-    } = props;
+const SEARCH_DEBOUNCE_MS = 250;
+const MAX_SUGGESTIONS = 15;
+
+const normalize = (value) => (value || "").toString().trim().toUpperCase();
+
+const ProductSearchbar = ({
+    posAllProducts = [],
+    onAddProduct,
+    onSearchTermChange,
+}) => {
     const [searchString, setSearchString] = useState("");
-    const dispatch = useDispatch();
-    const lastAutoAddedCodeRef = useRef("");
-    const filterProduct = posAllProducts
-        .filter((qty) => Number(qty?.attributes?.stock?.quantity || 0) > 0)
-        .map((item) => ({
-            name: item.attributes.name,
-            code: item.attributes.code,
-            id: item.id,
-        }));
+    const [isOpen, setIsOpen] = useState(false);
+    const [activeIndex, setActiveIndex] = useState(-1);
+    const inputRef = useRef(null);
+    const containerRef = useRef(null);
 
-    const formatResult = (item) => {
-        return (
-            <span style={{ display: "block", textAlign: "left" }}>
-                {" "}
-                {item.code} ({item.name})
-            </span>
-        );
-    };
-
-    const removeSearchClass = () => {
-        const container = document.getElementsByClassName("search-bar")[0];
-        if (!container?.firstChild?.firstChild?.lastChild) {
-            return;
-        }
-        container.firstChild.firstChild.lastChild.style.display = "none";
-    };
-
-    const normalize = (value) => (value || "").toString().trim().toUpperCase();
-
-    const onProductSearch = (searchValue) => {
-        const query = normalize(searchValue?.code || searchValue?.name || searchValue);
-        if (!query) {
-            return;
+    const suggestionItems = useMemo(() => {
+        const term = normalize(searchString);
+        if (!term) {
+            return [];
         }
 
-        const productEntity = posAllProducts.find((product) => {
-            const code = normalize(product.attributes?.code);
-            const productCode = normalize(product.attributes?.product_code);
-            const name = normalize(product.attributes?.name);
-            return code === query || productCode === query || name === query;
-        });
+        return posAllProducts
+            .filter((item) => Number(item?.attributes?.stock?.quantity || 0) > 0)
+            .filter((item) => {
+                const name = normalize(item?.attributes?.name);
+                const code = normalize(item?.attributes?.code);
+                const productCode = normalize(item?.attributes?.product_code);
 
-        if (!productEntity) {
-            return;
-        }
-
-        const availableStock = Number(productEntity.attributes?.stock?.quantity || 0);
-        if (availableStock <= 0) {
-            dispatch(
-                addToast({
-                    text: getFormattedMessage("pos.this.product.out.of.stock.message"),
-                    type: toastType.ERROR,
-                })
-            );
-            return;
-        }
-
-        if (!selectedOption?.value) {
-            dispatch(
-                addToast({
-                    text: getFormattedMessage("purchase.select.warehouse.validate.label"),
-                    type: toastType.ERROR,
-                })
-            );
-            return;
-        }
-
-        const cartTemplate = customCart.find((item) => Number(item.id) === Number(productEntity.id));
-        if (!cartTemplate) {
-            return;
-        }
-
-        setUpdateProducts((prevProducts) => {
-            const existingProduct = prevProducts.find((item) => Number(item.id) === Number(productEntity.id));
-            if (!existingProduct) {
-                return [...prevProducts, { ...cartTemplate, warehouse_id: selectedOption.value }];
-            }
-
-            if (Number(existingProduct.quantity) >= availableStock) {
-                dispatch(
-                    addToast({
-                        text: getFormattedMessage("pos.quantity.exceeds.quantity.available.in.stock.message"),
-                        type: toastType.ERROR,
-                    })
+                return (
+                    name.includes(term) ||
+                    code.includes(term) ||
+                    productCode.includes(term)
                 );
-                return prevProducts;
-            }
+            })
+            .slice(0, MAX_SUGGESTIONS)
+            .map((item) => ({
+                id: item.id,
+                code: item?.attributes?.code || "",
+                product_code: item?.attributes?.product_code || "",
+                name: item?.attributes?.name || "",
+            }));
+    }, [posAllProducts, searchString]);
 
-            return prevProducts.map((item) =>
-                Number(item.id) === Number(productEntity.id)
-                    ? { ...item, quantity: Number(item.quantity) + 1 }
-                    : item
-            );
-        });
+    useEffect(() => {
+        const debounceTimer = setTimeout(() => {
+            onSearchTermChange?.(searchString);
+        }, SEARCH_DEBOUNCE_MS);
 
-        removeSearchClass();
-        setSearchString("");
-        onSearchTermChange?.("");
-    };
-
-    const handleOnSelect = (result) => {
-        onProductSearch(result);
-    };
-
-    const handleOnSearch = (string) => {
-        const normalizedInput = normalize(string);
-        setSearchString(string);
-        onSearchTermChange?.(string);
-
-        if (!normalizedInput) {
-            lastAutoAddedCodeRef.current = "";
-            return;
-        }
-
-        if (lastAutoAddedCodeRef.current === normalizedInput) {
-            return;
-        }
-
-        const exactMatch = posAllProducts.find((item) => {
-            const code = normalize(item.attributes?.code);
-            const productCode = normalize(item.attributes?.product_code);
-            return code === normalizedInput || productCode === normalizedInput;
-        });
-
-        if (exactMatch) {
-            lastAutoAddedCodeRef.current = normalizedInput;
-            onProductSearch({
-                name: exactMatch?.attributes?.name,
-                code: exactMatch?.attributes?.code,
-                id: exactMatch?.id,
-            });
-        }
-    };
-
-    const inputFocus = () => {
-        let searchInput = document.querySelector(
-            'input[data-test="search-input"]'
-        );
-        if (searchInput) {
-            searchInput.focus();
-        }
-    };
+        return () => clearTimeout(debounceTimer);
+    }, [searchString, onSearchTermChange]);
 
     useEffect(() => {
         const keyDownHandler = (event) => {
             if (event.altKey && event.code === "KeyQ") {
                 event.preventDefault();
-                inputFocus();
+                inputRef.current?.focus();
             }
         };
 
         document.addEventListener("keydown", keyDownHandler);
-
         return () => {
             document.removeEventListener("keydown", keyDownHandler);
         };
     }, []);
 
+    useEffect(() => {
+        const handleOutsideClick = (event) => {
+            if (!containerRef.current?.contains(event.target)) {
+                setIsOpen(false);
+                setActiveIndex(-1);
+            }
+        };
+
+        document.addEventListener("mousedown", handleOutsideClick);
+        return () => {
+            document.removeEventListener("mousedown", handleOutsideClick);
+        };
+    }, []);
+
+    const addProductAndResetInput = useCallback(
+        (productId) => {
+            onAddProduct?.(productId);
+            setSearchString("");
+            onSearchTermChange?.("");
+            setIsOpen(false);
+            setActiveIndex(-1);
+            inputRef.current?.focus();
+        },
+        [onAddProduct, onSearchTermChange]
+    );
+
+    const tryAddExactMatch = useCallback(() => {
+        const term = normalize(searchString);
+        if (!term) {
+            return false;
+        }
+
+        const exactMatch = posAllProducts.find((item) => {
+            const code = normalize(item?.attributes?.code);
+            const productCode = normalize(item?.attributes?.product_code);
+
+            return code === term || productCode === term;
+        });
+
+        if (!exactMatch) {
+            return false;
+        }
+
+        addProductAndResetInput(exactMatch.id);
+        return true;
+    }, [addProductAndResetInput, posAllProducts, searchString]);
+
+    const handleInputChange = useCallback((event) => {
+        setSearchString(event.target.value);
+        setIsOpen(true);
+        setActiveIndex(-1);
+    }, []);
+
+    const handleSelectSuggestion = useCallback(
+        (item) => {
+            addProductAndResetInput(item.id);
+        },
+        [addProductAndResetInput]
+    );
+
+    const handleInputKeyDown = useCallback(
+        (event) => {
+            if (event.key === "ArrowDown") {
+                event.preventDefault();
+                setIsOpen(true);
+                setActiveIndex((prev) =>
+                    Math.min(prev + 1, suggestionItems.length - 1)
+                );
+                return;
+            }
+
+            if (event.key === "ArrowUp") {
+                event.preventDefault();
+                setActiveIndex((prev) => Math.max(prev - 1, 0));
+                return;
+            }
+
+            if (event.key === "Escape") {
+                setIsOpen(false);
+                setActiveIndex(-1);
+                return;
+            }
+
+            if (event.key !== "Enter") {
+                return;
+            }
+
+            event.preventDefault();
+
+            if (activeIndex >= 0 && suggestionItems[activeIndex]) {
+                handleSelectSuggestion(suggestionItems[activeIndex]);
+                return;
+            }
+
+            if (tryAddExactMatch()) {
+                return;
+            }
+
+            if (suggestionItems[0]) {
+                handleSelectSuggestion(suggestionItems[0]);
+            }
+        },
+        [
+            activeIndex,
+            handleSelectSuggestion,
+            suggestionItems,
+            tryAddExactMatch,
+        ]
+    );
+
     return (
-        <Col className="position-relative my-3 search-bar col-xxl-8 col-lg-12 col-12">
-            <ReactSearchAutocomplete
-                placeholder={placeholderText("pos-globally.search.field.label")}
-                items={filterProduct}
-                onSearch={handleOnSearch}
-                inputSearchString={searchString}
-                fuseOptions={{ keys: ["name", "code"] }}
-                resultStringKeyName="code"
-                onSelect={(data) => {
-                    handleOnSelect(data);
-                }}
-                formatResult={formatResult}
-                showIcon={false}
-                showClear={false}
-                autoFocus={true}
-            />
+        <Col
+            className="position-relative my-3 search-bar col-xxl-8 col-lg-12 col-12"
+            ref={containerRef}
+        >
+            <div className="wrapper">
+                <input
+                    ref={inputRef}
+                    type="text"
+                    value={searchString}
+                    onChange={handleInputChange}
+                    onFocus={() => setIsOpen(true)}
+                    onKeyDown={handleInputKeyDown}
+                    placeholder={placeholderText("pos-globally.search.field.label")}
+                    autoFocus
+                />
+                {isOpen && suggestionItems.length > 0 && (
+                    <div>
+                        <ul>
+                            {suggestionItems.map((item, index) => (
+                                <li
+                                    key={item.id}
+                                    className={index === activeIndex ? "selected" : ""}
+                                    onMouseDown={() => handleSelectSuggestion(item)}
+                                >
+                                    <span className="ellipsis">
+                                        {item.code} ({item.name})
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+                {isOpen && searchString && suggestionItems.length === 0 && (
+                    <div>
+                        <ul>
+                            <li data-test="no-results-message">
+                                <span className="ellipsis">
+                                    {getFormattedMessage("sale.product.table.no-data.label")}
+                                </span>
+                            </li>
+                        </ul>
+                    </div>
+                )}
+            </div>
             <i className="bi bi-search fs-2 react-search-icon position-absolute top-0 bottom-0 d-flex align-items-center ms-2" />
         </Col>
     );
 };
 
-const mapStateToProps = (state) => {
-    const { posAllProducts } = state;
-    return { posAllProducts };
-};
-
-export default connect(mapStateToProps)(ProductSearchbar);
+export default memo(ProductSearchbar);
