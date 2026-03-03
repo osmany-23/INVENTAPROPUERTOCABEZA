@@ -12,7 +12,6 @@ class PrintData extends React.PureComponent {
         const paymentPrint = this.props.updateProducts;
         const allConfigData = this.props.allConfigData;
         const paymentType = this.props.paymentType;
-        const receiptDate = paymentPrint && paymentPrint.date ? paymentPrint.date : new Date();
         const currency =
             paymentPrint.settings &&
             paymentPrint.settings.attributes &&
@@ -67,11 +66,27 @@ class PrintData extends React.PureComponent {
                         </span>
                         <span>
                             {getFormattedDate(
-                                receiptDate,
+                                new Date(),
                                 allConfigData && allConfigData
                             )}
                         </span>
                     </div>
+                        {/* Campo de Hora debajo de la Fecha */}
+                        <div
+                            style={{
+                                marginBottom: "4px",
+                            }}
+                        >
+                            <span className="fw-bold me-2">Hora:</span>
+                            <span>{
+                                new Date().toLocaleTimeString('es-ES', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    hour12: true
+                                })
+                            }</span>
+                        </div>
 
                                 <div
                     style={{
@@ -525,8 +540,7 @@ class PrintData extends React.PureComponent {
                         parseInt(
                             paymentPrint.settings.attributes
                                 ?.show_barcode_in_receipt
-                        ) === 1 &&
-                        paymentPrint?.barcode_url && (
+                        ) === 1 && (
                             <Image
                                 src={paymentPrint && paymentPrint.barcode_url}
                                 alt={
@@ -534,9 +548,6 @@ class PrintData extends React.PureComponent {
                                 }
                                 height={25}
                                 width={100}
-                                onError={(event) => {
-                                    event.currentTarget.style.display = "none";
-                                }}
                             />
                         )}
                     <span

@@ -142,6 +142,26 @@ export const currencySymbolHandling = (
     }
 };
 
+// Enforce consistent NIO-style formatting (thousands comma, decimal point)
+export const formatCurrency = (isRightside, currency, value, is_forment) => {
+    const num = Number(value);
+    const safeNum = Number.isFinite(num) ? num : 0;
+    const formattedNumber = safeNum.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (isRightside?.is_currency_right === "true") {
+        if (is_forment) {
+            return formatAmount(safeNum) + " " + currency;
+        } else {
+            return formattedNumber + " " + currency;
+        }
+    } else {
+        if (is_forment) {
+            return currency + " " + formatAmount(safeNum);
+        } else {
+            return currency + " " + formattedNumber;
+        }
+    }
+};
+
 export const getFormattedDate = (date, config) => {
     const format = config && config.date_format;
     if (format === "d-m-y") {

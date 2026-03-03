@@ -145,10 +145,14 @@ const Sales = (props) => {
 
         const receivedAmount = Number(saleInfo?.received_amount || 0);
         const grandTotalAmount = Number(saleInfo?.grand_total || 0);
-        const changeReturn =
-            receivedAmount > grandTotalAmount
-                ? receivedAmount - grandTotalAmount
-                : 0;
+
+        // Preferimos el cálculo del backend (source of truth) para el vuelto
+        const changeReturn = Number(
+            saleInfo?.change_return ??
+                (receivedAmount > grandTotalAmount
+                    ? receivedAmount - grandTotalAmount
+                    : 0)
+        );
 
         const products =
             saleInfo?.sale_items?.map((saleItem) => ({
@@ -191,6 +195,10 @@ const Sales = (props) => {
             barcode_url: barcodeUrl,
             reference_code: referenceCode,
             date: saleInfo?.date || saleInfo?.created_at || new Date(),
+            // Nuevos campos para el ticket
+            sale_time: saleInfo?.sale_time,
+            served_by: saleInfo?.served_by,
+            received_amount: receivedAmount,
         };
     };
 

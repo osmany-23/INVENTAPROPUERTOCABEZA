@@ -42,6 +42,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
  * @property-read int|null $sale_items_count
  * @property-read \App\Models\Warehouse $warehouse
  * @property-read \App\Models\SalesPayment $latestPayment
+ * @property-read \App\Models\User|null $user
  *
  * @method static \Illuminate\Database\Eloquent\Builder|Sale newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder|Sale newQuery()
@@ -125,6 +126,7 @@ class Sale extends BaseModel implements HasMedia, JsonResourceful
         'discount' => 'nullable|numeric',
         'shipping' => 'nullable|numeric',
         'grand_total' => 'nullable|numeric',
+        // "RECIBIDO" del modal (para impresión y vuelto)
         'received_amount' => 'numeric|nullable',
         'paid_amount' => 'numeric|nullable',
         'payment_type' => 'numeric|integer',
@@ -203,6 +205,8 @@ class Sale extends BaseModel implements HasMedia, JsonResourceful
     {
         $fields = [
             'date' => $this->date,
+            // Hora exacta de creación/registro de la venta (backend source of truth)
+            'sale_time' => optional($this->created_at)->format('h:i A'),
             'is_return' => $this->is_return,
             'customer_id' => $this->customer_id,
             'customer_name' => $this->customer->name,
@@ -215,6 +219,10 @@ class Sale extends BaseModel implements HasMedia, JsonResourceful
             'grand_total' => $this->grand_total,
             'received_amount' => $this->received_amount,
             'paid_amount' => $this->paid_amount,
+            // Vuelto calculado en backend para impresión
+            'change_return' => max((float) ($this->received_amount ?? 0) - (float) ($this->grand_total ?? 0), 0),
+            // Usuario que atendió (si existe)
+            'served_by' => optional($this->user)->name,
             'due_amount' => $this->dueAmount($this->id),
             'payment_type' => $this->payment_type,
             'note' => $this->note,
@@ -242,6 +250,11 @@ class Sale extends BaseModel implements HasMedia, JsonResourceful
         ];
 
         return $fields;
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id', 'id');
     }
 
     public function customer(): BelongsTo

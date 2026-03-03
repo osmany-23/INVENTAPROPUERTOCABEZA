@@ -444,10 +444,12 @@ const PosMainPage = (props) => {
                     ? selectedOption[0].value
                     : selectedOption && selectedOption.value,
             sale_items: updateProducts,
-            grand_total: grandTotal, 
+            grand_total: grandTotal,
             ...(cashPaymentValue?.payment_status?.value === 1
                 ? { payment_type: paymentValue?.payment_type?.value }
-                : {}),            
+                : {}),
+            // Valor ingresado en el modal "RECIBIDO"
+            received_amount: cashPaymentValue?.received_amount,
             discount: cartItemValue.discount,
             shipping: cartItemValue.shipping,
             tax_rate: cartItemValue.tax,

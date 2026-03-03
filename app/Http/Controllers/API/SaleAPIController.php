@@ -188,12 +188,20 @@ class SaleAPIController extends AppBaseController
     {
         abort_unless(hasPermissionStrict('pos.view'), 403);
 
-        $sale = $sale->load('saleItems.product', 'warehouse', 'customer');
+        // Incluye el usuario para "Atendido por"
+        $sale = $sale->load('saleItems.product', 'warehouse', 'customer', 'user');
+
         $keyName = [
             'email', 'company_name', 'phone', 'address',
         ];
+
         $sale['company_info'] = Setting::whereIn('key', $keyName)->pluck('value', 'key')->toArray();
         $sale['barcode_url'] = Storage::url('sales/barcode-'.$sale->reference_code.'.png');
+
+        // Campos adicionales para impresión (sin tocar la lógica de venta)
+        $sale['sale_time'] = optional($sale->created_at)->format('h:i A');
+        $sale['served_by'] = optional($sale->user)->name;
+        $sale['change_return'] = max((float) ($sale->received_amount ?? 0) - (float) ($sale->grand_total ?? 0), 0);
 
         return $this->sendResponse($sale, 'Sale information retrieved successfully');
     }
