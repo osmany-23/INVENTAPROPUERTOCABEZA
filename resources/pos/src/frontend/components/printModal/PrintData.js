@@ -79,12 +79,16 @@ class PrintData extends React.PureComponent {
                         >
                             <span className="fw-bold me-2">Hora:</span>
                             <span>{
-                                new Date().toLocaleTimeString('es-ES', {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    second: '2-digit',
-                                    hour12: true
-                                })
+                                (() => {
+                                    const time = new Date().toLocaleTimeString('es-ES', {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                        hour12: true
+                                    });
+                                    // Reemplazar am/pm por AM/PM
+                                    return time.replace(' a. m.', ' AM').replace(' p. m.', ' PM').replace(' a. m.', ' AM').replace(' p. m.', ' PM').replace(' a.m.', ' AM').replace(' p.m.', ' PM');
+                                })()
                             }</span>
                         </div>
 
@@ -150,6 +154,7 @@ class PrintData extends React.PureComponent {
                         parseInt(
                             paymentPrint.settings.attributes.show_phone
                         ) === 1 && (
+                            <>
                             <div
                                 style={{
                                     marginBottom: "4px",
@@ -166,6 +171,32 @@ class PrintData extends React.PureComponent {
                                         paymentPrint.frontSetting.value.phone}
                                 </span>
                             </div>
+                            {/* Campo Atendido por */}
+                            <div
+                                style={{
+                                    marginBottom: "4px",
+                                }}
+                            >
+                                <span className="fw-bold me-2">Atendido por:</span>
+                                <span>{(() => {
+                                    let user = null;
+                                    try {
+                                        user = JSON.parse(localStorage.getItem('loginUserArray'));
+                                    } catch (e) {}
+                                    if (user) {
+                                        // Intenta mostrar el nombre completo, o el email si no hay nombre
+                                        if (user.first_name && user.last_name) {
+                                            return user.first_name + ' ' + user.last_name;
+                                        } else if (user.name) {
+                                            return user.name;
+                                        } else if (user.email) {
+                                            return user.email;
+                                        }
+                                    }
+                                    return 'Usuario';
+                                })()}</span>
+                            </div>
+                            </>
                         )}
                     {paymentPrint.settings &&
                         parseInt(
