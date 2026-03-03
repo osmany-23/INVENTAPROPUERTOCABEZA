@@ -406,100 +406,41 @@ class PrintData extends React.PureComponent {
                     </div>
                 </section>
 
-                <Table
-                    style={{
-                        padding: "none !important",
-                        marginTop: "20px !important",
-                    }}
-                >
-                    <thead>
-                        <tr
-                            style={{
-                                padding: "none !important",
-                            }}
-                        >
-                            <th
-                                className="fw-bold"
-                                style={{
-                                    textAlign: "start",
-                                    padding: "8px 15px",
-
-                                    color: "#000000",
-                                }}
-                            >
-                                {getFormattedMessage(
-                                    "pos-sale.detail.Paid-bt.title"
-                                )}
-                            </th>
-                            <th
-                                className="fw-bold"
-                                style={{
-                                    textAlign: "center",
-                                    padding: "8px 15px",
-
-                                    color: "#000000",
-                                }}
-                            >
-                                {getFormattedMessage(
-                                    "expense.input.amount.label"
-                                )}
-                            </th>
-                            <th
-                                className="fw-bold"
-                                style={{
-                                    textAlign: "end",
-                                    padding: "8px 15px",
-
-                                    color: "#000000",
-                                }}
-                            >
-                                {getFormattedMessage("pos.change-return.label")}
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            style={{
-                                padding: "none !important",
-                            }}
-                        >
-                            <td
-                                style={{
-                                    padding: "8px 15px",
-                                    color: "#000000",
-                                }}
-                            >
-                                {paymentType}
-                            </td>
-                            <td
-                                style={{
-                                    textAlign: "center",
-                                    padding: "8px 15px",
-                                    color: "#000000",
-                                }}
-                            >
-                                {currencySymbolHandling(
-                                    allConfigData,
-                                    currency,
-                                    paymentPrint.grandTotal
-                                )}
-                            </td>
-                            <td
-                                style={{
-                                    textAlign: "end",
-                                    padding: "8px 15px",
-                                    color: "#000000",
-                                }}
-                            >
-                                {currencySymbolHandling(
-                                    allConfigData,
-                                    currency,
-                                    paymentPrint.changeReturn
-                                )}
-                            </td>
-                        </tr>
-                    </tbody>
-                </Table>
+                {/* Campos PAGADO CON, MONTO y VUELTO alineados como los totales */}
+                <section className="mt-3 product-border">
+                    <div className="d-flex">
+                        <div style={{fontWeight: "500", color: "#000000"}}>
+                            {getFormattedMessage("pos-sale.detail.Paid-bt.title")}:
+                        </div>
+                        <div className="text-end ms-auto">
+                            {paymentType}
+                        </div>
+                    </div>
+                    <div className="d-flex">
+                        <div style={{fontWeight: "500", color: "#000000"}}>
+                            {getFormattedMessage("expense.input.amount.label")}:
+                        </div>
+                        <div className="text-end ms-auto">
+                            {currencySymbolHandling(
+                                allConfigData,
+                                currency,
+                                paymentPrint.grandTotal
+                            )}
+                        </div>
+                    </div>
+                    <div className="d-flex">
+                        <div style={{fontWeight: "500", color: "#000000"}}>
+                            {getFormattedMessage("pos.change-return.label")}:
+                        </div>
+                        <div className="text-end ms-auto">
+                            {currencySymbolHandling(
+                                allConfigData,
+                                currency,
+                                paymentPrint.changeReturn
+                            )}
+                        </div>
+                    </div>
+                </section>
 
                 {/*note section*/}
                 {paymentPrint && paymentPrint.note ? (
