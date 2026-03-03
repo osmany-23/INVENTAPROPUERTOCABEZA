@@ -428,6 +428,19 @@ class PrintData extends React.PureComponent {
                             )}
                         </div>
                     </div>
+                    {/* Campo Cantidad Recibida */}
+                    <div className="d-flex">
+                        <div style={{fontWeight: "500", color: "#000000"}}>
+                            Cantidad Recibida:
+                        </div>
+                        <div className="text-end ms-auto">
+                            {currencySymbolHandling(
+                                allConfigData,
+                                currency,
+                                paymentPrint.received_amount
+                            )}
+                        </div>
+                    </div>
                     <div className="d-flex">
                         <div style={{fontWeight: "500", color: "#000000"}}>
                             {getFormattedMessage("pos.change-return.label")}:

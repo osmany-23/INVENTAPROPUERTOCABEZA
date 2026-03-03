@@ -427,6 +427,7 @@ const PosMainPage = (props) => {
             note: cashPaymentValue.notes,
             changeReturn,
             payment_status: cashPaymentValue.payment_status,
+            received_amount: cashPaymentValue.received_amount // <-- Asegura que se pase el valor recibido
         };
         return formValue;
     };
