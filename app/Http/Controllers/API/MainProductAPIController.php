@@ -33,6 +33,196 @@ class MainProductAPIController extends AppBaseController
         $this->mainProductRepository = $mainProductRepository;
     }
 
+    public function fastList(Request $request): JsonResponse
+    {
+        abort_unless(hasPermissionStrict('products.view'), 403);
+
+        $perPage = (int) $request->input('page.size', 20);
+        $perPage = max(min($perPage, 50), 1);
+        $currentPage = max((int) $request->input('page.number', 1), 1);
+
+        $filters = $request->input('filter', []);
+        $search = trim((string) data_get($filters, 'search', ''));
+        $productUnit = $request->input('product_unit');
+        $brandId = (int) $request->input('brand_id', 0);
+        $productCategoryId = (int) $request->input('product_category_id', 0);
+        $warehouseId = (int) $request->input('warehouse_id', 0);
+
+        $sortValue = (string) $request->input('sort', '-created_at');
+        $sortDirection = str_starts_with($sortValue, '-') ? 'desc' : 'asc';
+        $sortField = ltrim($sortValue, '-');
+        $allowedSorts = [
+            'name' => 'main_products.name',
+            'code' => 'main_products.code',
+            'created_at' => 'main_products.created_at',
+            'brand_name' => 'brands.name',
+            'product_unit' => 'base_units.name',
+            'in_stock' => 'stock.in_stock',
+            'min_price' => 'meta.min_price',
+            'max_price' => 'meta.max_price',
+        ];
+        $sortColumn = $allowedSorts[$sortField] ?? 'main_products.created_at';
+
+        $stockSubQuery = DB::table('products as products_for_stock')
+            ->leftJoin('manage_stocks as manage_stocks', function ($join) use ($warehouseId) {
+                $join->on('manage_stocks.product_id', '=', 'products_for_stock.id');
+                if ($warehouseId > 0) {
+                    $join->where('manage_stocks.warehouse_id', $warehouseId);
+                }
+            })
+            ->select(
+                'products_for_stock.main_product_id',
+                DB::raw('COALESCE(SUM(manage_stocks.quantity), 0) as in_stock')
+            )
+            ->groupBy('products_for_stock.main_product_id');
+
+        $metaSubQuery = DB::table('products as products_for_meta')
+            ->select(
+                'products_for_meta.main_product_id',
+                DB::raw('MIN(products_for_meta.product_price) as min_price'),
+                DB::raw('MAX(products_for_meta.product_price) as max_price'),
+                DB::raw('MIN(products_for_meta.brand_id) as brand_id'),
+                DB::raw('MIN(products_for_meta.product_category_id) as product_category_id'),
+                DB::raw('MIN(products_for_meta.created_at) as first_product_created_at'),
+                DB::raw("SUBSTRING_INDEX(GROUP_CONCAT(COALESCE(products_for_meta.notes, '') ORDER BY products_for_meta.created_at DESC SEPARATOR '|||'), '|||', 1) as latest_notes")
+            )
+            ->groupBy('products_for_meta.main_product_id');
+
+        $mainProductImageSubQuery = DB::table('media')
+            ->select(
+                'model_id as main_product_id',
+                DB::raw('MIN(id) as media_id')
+            )
+            ->where('model_type', MainProduct::class)
+            ->where('collection_name', MainProduct::PATH)
+            ->groupBy('model_id');
+
+        $query = DB::table('main_products')
+            ->leftJoinSub($metaSubQuery, 'meta', function ($join) {
+                $join->on('meta.main_product_id', '=', 'main_products.id');
+            })
+            ->leftJoinSub($stockSubQuery, 'stock', function ($join) {
+                $join->on('stock.main_product_id', '=', 'main_products.id');
+            })
+            ->leftJoin('brands', 'brands.id', '=', 'meta.brand_id')
+            ->leftJoin('base_units', 'base_units.id', '=', 'main_products.product_unit')
+            ->leftJoinSub($mainProductImageSubQuery, 'main_product_image', function ($join) {
+                $join->on('main_product_image.main_product_id', '=', 'main_products.id');
+            })
+            ->leftJoin('media as product_media', 'product_media.id', '=', 'main_product_image.media_id')
+            ->select([
+                'main_products.id',
+                'main_products.name',
+                'main_products.code',
+                'main_products.created_at',
+                DB::raw('COALESCE(meta.min_price, 0) as min_price'),
+                DB::raw('COALESCE(meta.max_price, 0) as max_price'),
+                DB::raw('COALESCE(meta.latest_notes, "") as latest_notes'),
+                DB::raw('COALESCE(stock.in_stock, 0) as in_stock'),
+                DB::raw('COALESCE(brands.name, "") as brand_name'),
+                DB::raw('COALESCE(base_units.name, "") as product_unit_name'),
+                'product_media.id as image_media_id',
+                'product_media.file_name as image_file_name',
+                'product_media.disk as image_disk',
+                'meta.product_category_id',
+            ]);
+
+        if (! empty($search)) {
+            $likeSearch = '%'.$search.'%';
+            $query->where(function ($builder) use ($likeSearch) {
+                $builder
+                    ->where('main_products.name', 'LIKE', $likeSearch)
+                    ->orWhere('main_products.code', 'LIKE', $likeSearch)
+                    ->orWhere('brands.name', 'LIKE', $likeSearch)
+                    ->orWhere('meta.latest_notes', 'LIKE', $likeSearch)
+                    ->orWhereExists(function ($searchSubQuery) use ($likeSearch) {
+                        $searchSubQuery
+                            ->select(DB::raw(1))
+                            ->from('products as search_products')
+                            ->whereColumn('search_products.main_product_id', 'main_products.id')
+                            ->where(function ($productsSearchBuilder) use ($likeSearch) {
+                                $productsSearchBuilder
+                                    ->where('search_products.name', 'LIKE', $likeSearch)
+                                    ->orWhere('search_products.code', 'LIKE', $likeSearch);
+                            });
+                    });
+            });
+        }
+
+        if (! empty($productUnit) && $productUnit !== '0') {
+            $query->where('main_products.product_unit', $productUnit);
+        }
+
+        if ($brandId > 0) {
+            $query->where('meta.brand_id', $brandId);
+        }
+
+        if ($productCategoryId > 0) {
+            $query->where('meta.product_category_id', $productCategoryId);
+        }
+
+        if ($warehouseId > 0) {
+            $query->whereRaw('COALESCE(stock.in_stock, 0) > 0');
+        }
+
+        $paginator = $query
+            ->orderBy($sortColumn, $sortDirection)
+            ->paginate($perPage, ['*'], 'page[number]', $currentPage);
+
+        $data = collect($paginator->items())
+            ->map(function ($item) {
+                $imageUrl = '';
+                if (! empty($item->image_media_id) && ! empty($item->image_file_name)) {
+                    $imagePath = MainProduct::PATH.'/'.$item->image_media_id.'/'.$item->image_file_name;
+                    $imageDisk = $item->image_disk ?: config('app.media_disc');
+                    $resolvedImageUrl = Storage::disk($imageDisk)->url($imagePath);
+                    $imageUrl = str_starts_with($resolvedImageUrl, 'http') ? $resolvedImageUrl : url($resolvedImageUrl);
+                }
+
+                $fullDescription = trim((string) $item->latest_notes);
+                $shortDescription = $fullDescription;
+                if (mb_strlen($shortDescription) > 140) {
+                    $shortDescription = mb_substr($shortDescription, 0, 140).'...';
+                }
+
+                return [
+                    'type' => MainProduct::JSON_API_TYPE,
+                    'id' => (int) $item->id,
+                    'attributes' => [
+                        'name' => $item->name,
+                        'code' => $item->code,
+                        'brand_name' => $item->brand_name,
+                        'min_price' => (float) $item->min_price,
+                        'max_price' => (float) $item->max_price,
+                        'in_stock' => (float) $item->in_stock,
+                        'description' => $shortDescription,
+                        'full_description' => $fullDescription,
+                        'created_at' => $item->created_at,
+                        'product_unit' => [
+                            'name' => $item->product_unit_name,
+                        ],
+                        'images' => [
+                            'imageUrls' => $imageUrl ? [$imageUrl] : [],
+                        ],
+                    ],
+                    'links' => [
+                        'self' => route('main-products.show', $item->id),
+                    ],
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'data' => $data,
+            'meta' => [
+                'total' => $paginator->total(),
+                'per_page' => $paginator->perPage(),
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+            ],
+        ]);
+    }
+
 
     public function index(Request $request)
 {

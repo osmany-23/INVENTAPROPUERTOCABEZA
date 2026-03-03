@@ -20,6 +20,7 @@ export const apiBaseURL = {
     EXPENSES_CATEGORIES: "/expense-categories",
     EXPENSES: "/expenses",
     MAIN_PRODUCTS: "/main-products",
+    MAIN_PRODUCTS_FAST: "/main-products-fast",
     PRODUCTS: "/products",
     PRODUCT_QUICK_PRICE_UPDATE: "products",
     IMPORT_PRODUCT: "/import-products", 

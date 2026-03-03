@@ -204,25 +204,38 @@ export const addImportProduct = (importProduct) => async (dispatch) => {
             );
         });
 };
-export const fetchAllMainProducts = (filter = {}, isLoading = true) => async (dispatch) => {
-    if (isLoading) {
-        dispatch(setLoading(true));
-    }
-    let url = apiBaseURL.MAIN_PRODUCTS;
-    if (
-        !_.isEmpty(filter) &&
-        (filter.page ||
-            filter.pageSize ||
-            filter.search ||
-            filter.order_By ||
-            filter.created_at)
-    ) {
-        url += requestParam(filter, null, null, null, url);
-    }
+let mainProductsRequestSequence = 0;
 
-    apiConfig
-        .get(url)
-        .then((response) => {
+export const fetchAllMainProducts =
+    (filter = {}, isLoading = true, signal = null) =>
+    async (dispatch) => {
+        const requestId = ++mainProductsRequestSequence;
+        if (isLoading) {
+            dispatch(setLoading(true));
+        }
+
+        let url = apiBaseURL.MAIN_PRODUCTS_FAST || apiBaseURL.MAIN_PRODUCTS;
+        if (
+            !_.isEmpty(filter) &&
+            (filter.page ||
+                filter.pageSize ||
+                filter.search ||
+                filter.order_By ||
+                filter.created_at)
+        ) {
+            url += requestParam(filter, null, null, null, url);
+        }
+
+        try {
+            const response = await apiConfig.get(
+                url,
+                signal ? { signal } : undefined
+            );
+
+            if (requestId !== mainProductsRequestSequence || signal?.aborted) {
+                return;
+            }
+
             dispatch({
                 type: productActionType.FETCH_ALL_MAIN_PRODUCTS,
                 payload: response.data.data,
@@ -236,16 +249,30 @@ export const fetchAllMainProducts = (filter = {}, isLoading = true) => async (di
                         : response.data.data.total
                 )
             );
-            if (isLoading) {
+        } catch (error) {
+            const isCanceled =
+                signal?.aborted ||
+                error?.code === "ERR_CANCELED" ||
+                error?.name === "CanceledError";
+
+            if (isCanceled || requestId !== mainProductsRequestSequence) {
+                return;
+            }
+
+            dispatch(
+                addToast({
+                    text:
+                        error?.response?.data?.message ||
+                        "Failed to load products.",
+                    type: toastType.ERROR,
+                })
+            );
+        } finally {
+            if (isLoading && requestId === mainProductsRequestSequence) {
                 dispatch(setLoading(false));
             }
-        })
-        .catch(({ response }) => {
-            dispatch(
-                addToast({ text: response.data.message, type: toastType.ERROR })
-            );
-        });
-}
+        }
+    };
 
 export const deleteMainProduct = (productId) => async (dispatch) => {
     apiConfig

@@ -57,9 +57,10 @@ const ReactDataTable = (props) => {
         isBrandFilter,
         brandFilterTitle,
         productCategoryFilterTitle,
+        customStyles,
     } = props;
     const [perPage, setPerPages] = useState(defaultLimit);
-    const [pageSize, setPageSize] = useState(Filters.OBJ.pageSize);
+    const [pageSize, setPageSize] = useState(defaultLimit);
     const [adminName] = useState(Filters.OBJ.adminName);
     const [created_at] = useState(Filters.OBJ.created_at);
     const [order_By, setOrderBy] = useState(Filters.OBJ.order_By);
@@ -379,6 +380,7 @@ const ReactDataTable = (props) => {
                 columns={tableColumns}
                 noDataComponent={<EmptyComponent {...emptyStateProps} />}
                 data={items}
+                customStyles={customStyles}
                 paginationRowsPerPageOptions={paginationRowsPerPageOptions}
                 pagination={true}
                 onChangePage={handlePageChange}
@@ -404,5 +406,6 @@ ReactDataTable.propTypes = {
     totalRows: PropTypes.number,
     onChange: PropTypes.func,
     sortAction: PropTypes.func,
+    customStyles: PropTypes.object,
 };
 export default ReactDataTable;

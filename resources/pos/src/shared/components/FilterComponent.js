@@ -1,22 +1,31 @@
-import React, {useState} from 'react';
+import React, { useEffect, useRef } from 'react';
 import {placeholderText} from '../sharedMethod';
 import {faSearch} from '@fortawesome/free-solid-svg-icons';
 import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
 
 const FilterComponent = (props) => {
     const {handleSearch} = props;
-    const [typingTimeout, setTypingTimeout] = useState(0);
+    const typingTimeoutRef = useRef(null);
 
     const sendToParent = (searchText) => {
         handleSearch(searchText);
     };
 
     const onChangeName = (event) => {
-        if (typingTimeout) {
-            clearTimeout(typingTimeout);
+        if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
         }
-        setTypingTimeout(setTimeout(() => sendToParent(event.target.value), 500));
+        typingTimeoutRef.current = setTimeout(() => sendToParent(event.target.value), 500);
     };
+
+    useEffect(() => {
+        return () => {
+            if (typingTimeoutRef.current) {
+                clearTimeout(typingTimeoutRef.current);
+            }
+        };
+    }, []);
+
     // justify-content-md-end
     return (
         <div className='d-flex position-relative col-12 col-xxl-4 col-md-3 col-lg-4 mb-lg-0 mb-md-0 mb-3 searchBox'>

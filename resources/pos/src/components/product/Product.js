@@ -1,7 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, {
+    memo,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import { connect } from "react-redux";
 import moment from "moment";
-import { Button, Image, OverlayTrigger, Tooltip } from "react-bootstrap-v5";
+import { Button, Image } from "react-bootstrap-v5";
 import MasterLayout from "../MasterLayout";
 import { fetchAllMainProducts } from "../../store/action/productAction";
 import ReactDataTable from "../../shared/table/ReactDataTable";
@@ -13,13 +20,86 @@ import {
     getFormattedDate,
     getFormattedMessage,
     placeholderText,
-    currencySymbolHandling,
 } from "../../shared/sharedMethod";
 import ActionButton from "../../shared/action-buttons/ActionButton";
 import { fetchFrontSetting } from "../../store/action/frontSettingAction";
 import TopProgressBar from "../../shared/components/loaders/TopProgressBar";
 import ImportProductModel from "./ImportProductModel";
 import { productExcelAction } from "../../store/action/productExcelAction";
+
+const ProductImageCell = memo(function ProductImageCell({
+    imageUrl,
+    imageUrls,
+    productName,
+    onPreviewImage,
+}) {
+    const handlePreview = useCallback(
+        (event) => {
+            event.stopPropagation();
+            if (Array.isArray(imageUrls) && imageUrls.length > 0) {
+                onPreviewImage(imageUrls);
+            }
+        },
+        [imageUrls, onPreviewImage]
+    );
+
+    return (
+        <div className="d-flex align-items-center">
+            <Button
+                type="button"
+                className="btn-transparent me-2 d-flex align-items-center justify-content-center"
+                onClick={handlePreview}
+            >
+                <Image
+                    src={imageUrl || user}
+                    height="50"
+                    width="50"
+                    alt={productName || "Product Image"}
+                    className="image image-circle image-mini cursor-pointer"
+                    loading="lazy"
+                    decoding="async"
+                />
+            </Button>
+        </div>
+    );
+});
+
+const ProductDescriptionCell = memo(function ProductDescriptionCell({ row }) {
+    const fullDescription = row.fullDescription || "";
+    const displayDescription = row.description || "-";
+
+    return (
+        <div
+            title={fullDescription || "-"}
+            style={{
+                maxWidth: 220,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+            }}
+        >
+            {displayDescription}
+        </div>
+    );
+});
+
+const ProductActionCell = memo(function ProductActionCell({
+    row,
+    onView,
+    onEdit,
+    onDelete,
+}) {
+    return (
+        <ActionButton
+            isViewIcon={true}
+            goToDetailScreen={onView}
+            item={row}
+            goToEditProduct={onEdit}
+            isEditMode={true}
+            onClickDeleteModel={onDelete}
+        />
+    );
+});
 
 const Product = (props) => {
     const {
@@ -38,288 +118,277 @@ const Product = (props) => {
     const [isDelete, setIsDelete] = useState(null);
     const [isOpen, setIsOpen] = useState(false);
     const [lightBoxImage, setLightBoxImage] = useState([]);
-
-    const [importProduct, setimportProduct] = useState(false);
-    const handleClose = () => {
-        setimportProduct(!importProduct);
-    };
-
+    const [importProduct, setImportProduct] = useState(false);
     const [isWarehouseValue, setIsWarehouseValue] = useState(false);
+
+    const activeRequestRef = useRef(null);
+
+    const handleClose = useCallback(() => {
+        setImportProduct((previous) => !previous);
+    }, []);
+
     useEffect(() => {
         if (isWarehouseValue === true) {
             productExcelAction(setIsWarehouseValue, true, productUnitId);
         }
-    }, [isWarehouseValue]);
+    }, [isWarehouseValue, productExcelAction, productUnitId]);
 
-    const onExcelClick = () => {
+    const onExcelClick = useCallback(() => {
         setIsWarehouseValue(true);
-    };
+    }, []);
+
+    const cancelActiveRequest = useCallback(() => {
+        if (activeRequestRef.current) {
+            activeRequestRef.current.abort();
+            activeRequestRef.current = null;
+        }
+    }, []);
 
     useEffect(() => {
         fetchFrontSetting();
+
+        return () => {
+            cancelActiveRequest();
+        };
+    }, [fetchFrontSetting, cancelActiveRequest]);
+
+    const onClickDeleteModel = useCallback((item = null) => {
+        setDeleteModel((previous) => !previous);
+        setIsDelete(item);
     }, []);
 
-    const onClickDeleteModel = (isDelete = null) => {
-        setDeleteModel(!deleteModel);
-        setIsDelete(isDelete);
-    };
+    const onChange = useCallback(
+        (filter) => {
+            cancelActiveRequest();
+            const controller = new AbortController();
+            activeRequestRef.current = controller;
+            fetchAllMainProducts(filter, true, controller.signal);
+        },
+        [cancelActiveRequest, fetchAllMainProducts]
+    );
 
-    const onChange = (filter) => {
-        fetchAllMainProducts(filter, true);
-    };
-
-    const goToEditProduct = (item) => {
+    const goToEditProduct = useCallback((item) => {
         const id = item.id;
         window.location.href = "#/app/products/edit/" + id;
-    };
+    }, []);
 
-    const goToProductDetailPage = (ProductId) => {
-        window.location.href = "#/app/products/detail/" + ProductId;
-    };
+    const goToProductDetailPage = useCallback((productId) => {
+        window.location.href = "#/app/products/detail/" + productId;
+    }, []);
 
-    const currencySymbol =
-        frontSetting &&
-        frontSetting.value &&
-        frontSetting.value.currency_symbol;
+    const onPreviewImage = useCallback((images) => {
+        if (!Array.isArray(images) || images.length === 0) {
+            return;
+        }
 
-    const formattedPrice = (product_price) => {
-    if (!product_price) return "";
-    // Formatear número con coma como separador de miles y punto como decimal
-    const formattedNumber = new Intl.NumberFormat("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    }).format(product_price);
+        setLightBoxImage(images);
+        setIsOpen(true);
+    }, []);
 
-    return `${formattedNumber} ${currencySymbol}`;
-};
+    const currencySymbol = frontSetting?.value?.currency_symbol;
 
-    const itemsValue =
-        currencySymbol &&
-        products.length >= 0 &&
-        products.map((product) => {
-            let product_price =
-                product.attributes.min_price == product.attributes.max_price
-                    ? formattedPrice(product.attributes.min_price)
-                    : formattedPrice(product.attributes.min_price) +
-                      " - " +
-                      formattedPrice(product.attributes.max_price);
+    const formattedPrice = useCallback(
+        (productPrice) => {
+            const numericPrice = Number(productPrice);
+            if (!Number.isFinite(numericPrice)) {
+                return "";
+            }
+
+            const formattedNumber = new Intl.NumberFormat("en-US", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            }).format(numericPrice);
+
+            return currencySymbol
+                ? `${formattedNumber} ${currencySymbol}`
+                : formattedNumber;
+        },
+        [currencySymbol]
+    );
+
+    const itemsValue = useMemo(() => {
+        if (!Array.isArray(products) || products.length === 0) {
+            return [];
+        }
+
+        return products.map((product) => {
+            const attributes = product?.attributes || {};
+            const firstVariation = attributes?.products?.[0] || {};
+
+            const minPrice = Number(
+                attributes.min_price ?? firstVariation.product_price
+            );
+            const maxPrice = Number(
+                attributes.max_price ?? firstVariation.product_price
+            );
+
+            const productPrice =
+                Number.isFinite(minPrice) && Number.isFinite(maxPrice)
+                    ? minPrice === maxPrice
+                        ? formattedPrice(minPrice)
+                        : `${formattedPrice(minPrice)} - ${formattedPrice(maxPrice)}`
+                    : "";
+
+            const createdAt = attributes.created_at || firstVariation.created_at;
+            const fullDescription =
+                attributes.full_description || firstVariation.notes || "";
+            const description =
+                attributes.description ||
+                (fullDescription.length > 140
+                    ? `${fullDescription.slice(0, 140)}...`
+                    : fullDescription);
+
+            const imageUrls = attributes?.images?.imageUrls || [];
+            const inStockFromVariations = Array.isArray(attributes.products)
+                ? attributes.products.reduce(
+                      (sum, rowProduct) =>
+                          sum + Number(rowProduct?.in_stock || 0),
+                      0
+                  )
+                : 0;
+
             return {
-                name: product?.attributes.name,
-                code: product?.attributes.code,
-                date: getFormattedDate(
-                    product?.attributes?.products && product?.attributes?.products[0]?.created_at,
-                    allConfigData && allConfigData
-                ),
-                time: moment(product?.attributes?.products && product?.attributes?.products[0]?.created_at).format("LT"),
-                brand_name:
-                    product?.attributes.products &&
-                    product?.attributes?.products[0]?.brand_name
-                        ? product?.attributes?.products[0]?.brand_name
-                        : "",
-                product_price: product_price,
-                product_unit: product?.attributes.product_unit?.name
-                    ? product?.attributes.product_unit?.name
-                    : "N/A",
-                in_stock: product.attributes.products?.reduce(
-                    (sum, product) =>
-                        product?.in_stock
-                            ? sum + product?.in_stock
-                            : 0,
-                    0
-                ),
-                fullDescription:
-                    product?.attributes?.products &&
-                    product?.attributes?.products[0] &&
-                    product.attributes.products[0].notes
-                        ? product.attributes.products[0].notes
-                        : "",
-                description:
-                    product?.attributes?.products &&
-                    product?.attributes?.products[0] &&
-                    product.attributes.products[0].notes
-                        ? (product.attributes.products[0].notes.length > 50
-                              ? product.attributes.products[0].notes.slice(0, 50) + "..."
-                              : product.attributes.products[0].notes)
-                        : "",
-                images: product?.attributes.images,
                 id: product.id,
-                currency: currencySymbol,
+                name: attributes.name,
+                code: attributes.code,
+                date: createdAt
+                    ? getFormattedDate(createdAt, allConfigData && allConfigData)
+                    : "",
+                time: createdAt ? moment(createdAt).format("LT") : "",
+                brand_name: attributes.brand_name || firstVariation.brand_name || "",
+                product_price: productPrice,
+                product_unit: attributes?.product_unit?.name || "N/A",
+                in_stock: Number(attributes.in_stock ?? inStockFromVariations),
+                fullDescription,
+                description,
+                imageUrl: imageUrls[0] || null,
+                imageUrls,
             };
         });
+    }, [allConfigData, formattedPrice, products]);
 
-    const columns = [
-        {
-            name: getFormattedMessage("product.title"),
-            sortField: "name",
-            sortable: false,
-            cell: (row) => {
-                const imageUrl = row.images
-                    ? row.images.imageUrls && row.images.imageUrls[0]
-                    : null;
-                return imageUrl ? (
-                    <div className="d-flex align-items-center">
-                        <Button
-                            type="button"
-                            className="btn-transparent me-2 d-flex align-items-center justify-content-center"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setIsOpen(!isOpen);
-                                setLightBoxImage(row.images.imageUrls);
-                            }}
-                        >
-                            <Image
-                                src={imageUrl}
-                                height="50"
-                                width="50"
-                                alt="Product Image"
-                                className="image image-circle image-mini cursor-pointer"
-                            />
-                        </Button>
-                    </div>
-                ) : (
-                    <div className="d-flex align-items-center">
-                        <div className="me-2">
-                            <Image
-                                src={user}
-                                height="50"
-                                width="50"
-                                alt="Product Image"
-                                className="image image-circle image-mini"
-                            />
-                        </div>
-                    </div>
-                );
+    const columns = useMemo(
+        () => [
+            {
+                name: getFormattedMessage("product.title"),
+                sortField: "name",
+                sortable: false,
+                cell: (row) => (
+                    <ProductImageCell
+                        imageUrl={row.imageUrl}
+                        imageUrls={row.imageUrls}
+                        productName={row.name}
+                        onPreviewImage={onPreviewImage}
+                    />
+                ),
             },
-        },
-        {
-            name: getFormattedMessage("supplier.table.name.column.title"),
-            selector: (row) => row.name,
-            className: "product-name",
-            sortField: "name",
-            sortable: true,
-        },
-        {
-            name: getFormattedMessage("product.input.code.label"),
-            selector: (row) => (
-                <span className="badge bg-light-danger">
-                    <span>{row.code}</span>
-                </span>
-            ),
-            sortField: "code",
-            sortable: true,
-        },
-        {
-            name: getFormattedMessage("product.input.brand.label"),
-            selector: (row) => row.brand_name,
-            sortField: "brand_name",
-            sortable: false,
-        },
-        {
-            name: getFormattedMessage("product.table.price.column.label"),
-
-            selector: (row) => row.product_price,
-        },
-        {
-            name: getFormattedMessage("product.input.product-unit.label"),
-            sortField: "product_unit",
-            sortable: true,
-            cell: (row) => {
-                return (
-                    row.product_unit && (
-                        <span className="badge bg-light-success">
-                            <span>{row.product_unit}</span>
-                        </span>
-                    )
-                );
+            {
+                name: getFormattedMessage("supplier.table.name.column.title"),
+                selector: (row) => row.name,
+                className: "product-name",
+                sortField: "name",
+                sortable: true,
             },
-        },
-        {
-            name: getFormattedMessage("product.product-in-stock.label"),
-            // name: "In stock",
-            selector: (row) => row.in_stock,
-            sortField: "in_stock",
-            sortable: false,
-        },
-        {
-            name: "Descripción",
-            selector: (row) => (row.description ? row.description : ""),
-            sortField: "description",
-            sortable: false,
-            cell: (row) => {
-                const full = row.fullDescription || "";
-                const display = row.description || "";
-                const maxWidth = 220; // px, adjust column width
-                return (
-                    <OverlayTrigger
-                        placement="top"
-                        overlay={
-                            <Tooltip
-                                id={`tooltip-desc-${row.id}`}
-                                style={{
-                                    background: "rgba(0,0,0,0.45)",
-                                    color: "#fff",
-                                    maxWidth: "60vw",
-                                    whiteSpace: "pre-wrap",
-                                    borderRadius: 6,
-                                    padding: "0.6rem",
-                                }}
-                            >
-                                {full || "-"}
-                            </Tooltip>
-                        }
-                    >
-                        <div
-                            style={{
-                                maxWidth: maxWidth,
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "normal",
-                                overflowWrap: "break-word",
-                                wordBreak: "break-word",
-                                cursor: full ? "pointer" : "default",
-                            }}
-                        >
-                            {display}
-                        </div>
-                    </OverlayTrigger>
-                );
-            },
-        },
-        {
-            name: getFormattedMessage(
-                "globally.react-table.column.created-date.label"
-            ),
-            selector: (row) => row.date,
-            sortField: "created_at",
-            sortable: true,
-            cell: (row) => {
-                return (
-                    <span className="badge bg-light-info">
-                        <div className="mb-1">{row.time}</div>
-                        {row.date}
+            {
+                name: getFormattedMessage("product.input.code.label"),
+                selector: (row) => (
+                    <span className="badge bg-light-danger">
+                        <span>{row.code}</span>
                     </span>
-                );
+                ),
+                sortField: "code",
+                sortable: true,
             },
-        },
-        {
-            name: getFormattedMessage("react-data-table.action.column.label"),
-            right: true,
-            ignoreRowClick: true,
-            allowOverflow: true,
-            button: true,
-            width: "120px",
-            cell: (row) => (
-                <ActionButton
-                    isViewIcon={true}
-                    goToDetailScreen={goToProductDetailPage}
-                    item={row}
-                    goToEditProduct={goToEditProduct}
-                    isEditMode={true}
-                    onClickDeleteModel={onClickDeleteModel}
-                />
-            ),
-        },
-    ];
+            {
+                name: getFormattedMessage("product.input.brand.label"),
+                selector: (row) => row.brand_name,
+                sortField: "brand_name",
+                sortable: false,
+            },
+            {
+                name: getFormattedMessage("product.table.price.column.label"),
+                selector: (row) => row.product_price,
+            },
+            {
+                name: getFormattedMessage("product.input.product-unit.label"),
+                sortField: "product_unit",
+                sortable: true,
+                cell: (row) => {
+                    return (
+                        row.product_unit && (
+                            <span className="badge bg-light-success">
+                                <span>{row.product_unit}</span>
+                            </span>
+                        )
+                    );
+                },
+            },
+            {
+                name: getFormattedMessage("product.product-in-stock.label"),
+                selector: (row) => row.in_stock,
+                sortField: "in_stock",
+                sortable: false,
+            },
+            {
+                name: "Descripcion",
+                selector: (row) => (row.description ? row.description : ""),
+                sortField: "description",
+                sortable: false,
+                cell: (row) => <ProductDescriptionCell row={row} />,
+            },
+            {
+                name: getFormattedMessage(
+                    "globally.react-table.column.created-date.label"
+                ),
+                selector: (row) => row.date,
+                sortField: "created_at",
+                sortable: true,
+                cell: (row) => {
+                    return (
+                        <span className="badge bg-light-info">
+                            <div className="mb-1">{row.time}</div>
+                            {row.date}
+                        </span>
+                    );
+                },
+            },
+            {
+                name: getFormattedMessage("react-data-table.action.column.label"),
+                right: true,
+                ignoreRowClick: true,
+                allowOverflow: true,
+                button: true,
+                width: "120px",
+                cell: (row) => (
+                    <ProductActionCell
+                        row={row}
+                        onView={goToProductDetailPage}
+                        onEdit={goToEditProduct}
+                        onDelete={onClickDeleteModel}
+                    />
+                ),
+            },
+        ],
+        [goToEditProduct, goToProductDetailPage, onClickDeleteModel, onPreviewImage]
+    );
+
+    const productTableStyles = useMemo(
+        () => ({
+            rows: {
+                style: {
+                    minHeight: "74px",
+                    height: "74px",
+                    maxHeight: "74px",
+                },
+            },
+            cells: {
+                style: {
+                    alignItems: "center",
+                },
+            },
+        }),
+        []
+    );
 
     return (
         <MasterLayout>
@@ -330,6 +399,9 @@ const Product = (props) => {
                 items={itemsValue}
                 onChange={onChange}
                 isLoading={isLoading}
+                customStyles={productTableStyles}
+                defaultLimit={20}
+                paginationRowsPerPageOptions={[20, 50]}
                 ButtonValue={getFormattedMessage("product.create.title")}
                 totalRows={totalRecord}
                 to="#/app/products/create"
@@ -362,10 +434,7 @@ const Product = (props) => {
                 />
             )}
             {importProduct && (
-                <ImportProductModel
-                    handleClose={handleClose}
-                    show={importProduct}
-                />
+                <ImportProductModel handleClose={handleClose} show={importProduct} />
             )}
         </MasterLayout>
     );

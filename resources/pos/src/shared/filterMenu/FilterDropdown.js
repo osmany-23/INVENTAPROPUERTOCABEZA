@@ -72,9 +72,19 @@ const FilterDropdown = (props) => {
 
     useEffect(() => {
         fetchAllBaseUnits();
-        fetchAllBrands();
-        fetchAllProductCategories();
-    }, [fetchAllBaseUnits, fetchAllBrands, fetchAllProductCategories]);
+    }, [fetchAllBaseUnits]);
+
+    useEffect(() => {
+        if (!Array.isArray(brands) || brands.length === 0) {
+            fetchAllBrands();
+        }
+    }, [brands, fetchAllBrands]);
+
+    useEffect(() => {
+        if (!Array.isArray(productCategories) || productCategories.length === 0) {
+            fetchAllProductCategories();
+        }
+    }, [productCategories, fetchAllProductCategories]);
 
     const transferStatusFilterOptions = getFormattedOptions(
         transferStatusOptions
