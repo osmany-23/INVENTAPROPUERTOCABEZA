@@ -358,6 +358,7 @@ const ReactDataTable = (props) => {
         if (perPage !== recordPerPage) {
             setPerPages(recordPerPage);
             setPageSize(recordPerPage);
+            setCurrentPage(1);
         }
     };
 
@@ -385,6 +386,7 @@ const ReactDataTable = (props) => {
                 data={items}
                 customStyles={customStyles}
                 paginationRowsPerPageOptions={paginationRowsPerPageOptions}
+                paginationPerPage={pageSize}
                 pagination={true}
                 onChangePage={handlePageChange}
                 paginationServer={true}

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { connect, useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import { useIntl } from "react-intl";
 import Form from "react-bootstrap/Form";
 import { InputGroup, Button } from "react-bootstrap-v5";
 import MultipleImage from "./MultipleImage";
@@ -16,7 +17,6 @@ import {
     decimalValidate,
     getFormattedMessage,
     getFormattedOptions,
-    placeholderText,
 } from "../../shared/sharedMethod";
 import taxes from "../../shared/option-lists/taxType.json";
 import barcodes from "../../shared/option-lists/barcode.json";
@@ -63,6 +63,11 @@ const ProductForm = (props) => {
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
+    const intl = useIntl();
+    const formatPlaceholder = (label) =>
+        intl.formatMessage({
+            id: label,
+        });
     const variations = useSelector((state) => state.variations);
     const [productValue, setProductValue] = useState({
         date: new Date(),
@@ -147,42 +152,54 @@ const ProductForm = (props) => {
             label: variationType.name,
         }));
 
-    const newTax =
-        singleProduct &&
-        taxes.filter((tax) => singleProduct[0].tax_type === tax.value);
+    const singleProductItem = singleProduct?.[0] ?? null;
 
-    const newBarcode =
-        singleProduct &&
-        barcodes.filter(
-            (barcode) =>
-                singleProduct[0].barcode_symbol.toString() === barcode.value
-        );
+    const newTax = singleProductItem
+        ? taxes.filter((tax) => singleProductItem.tax_type === tax.value)
+        : [];
+
+    const singleProductBarcodeSymbol =
+        singleProductItem?.barcode_symbol !== undefined &&
+        singleProductItem?.barcode_symbol !== null
+            ? String(singleProductItem.barcode_symbol)
+            : "";
+
+    const selectedBarcodeValue =
+        productValue?.barcode_symbol?.[0]?.value ??
+        productValue?.barcode_symbol?.value ??
+        "";
+
+    const newBarcode = singleProductItem
+        ? barcodes.filter(
+              (barcode) =>
+                  singleProductBarcodeSymbol === String(barcode?.value ?? "")
+          )
+        : [];
     const disabled =
         multipleFiles.length !== 0
             ? false
-            : singleProduct &&
+            : singleProductItem &&
               productValue.product_unit[0] &&
               productValue.product_unit[0].value ===
-                  singleProduct[0].product_unit &&
-              productValue.barcode_symbol[0] &&
-              productValue.barcode_symbol[0].value ===
-                  singleProduct[0].barcode_symbol.toString() &&
-              singleProduct[0].name === productValue.name &&
-              singleProduct[0].notes === productValue.notes &&
-              singleProduct[0].product_price === productValue.product_price &&
-              singleProduct[0]?.stock_alert?.toString() ===
+              singleProductItem.product_unit &&
+              selectedBarcodeValue !== "" &&
+              String(selectedBarcodeValue) === singleProductBarcodeSymbol &&
+              singleProductItem.name === productValue.name &&
+              singleProductItem.notes === productValue.notes &&
+              singleProductItem.product_price === productValue.product_price &&
+              singleProductItem?.stock_alert?.toString() ===
                   productValue.stock_alert &&
-              singleProduct[0].product_cost === productValue.product_cost &&
-              singleProduct[0].code === productValue.code &&
-              JSON.stringify(singleProduct[0].order_tax) ===
+              singleProductItem.product_cost === productValue.product_cost &&
+              singleProductItem.code === productValue.code &&
+              JSON.stringify(singleProductItem.order_tax) ===
                   productValue.order_tax &&
-              singleProduct[0].quantity_limit ===
+              singleProductItem.quantity_limit ===
                   productValue.sale_quantity_limit &&
-              singleProduct[0].brand_id.value === productValue.brand_id.value &&
+              singleProductItem.brand_id.value === productValue.brand_id.value &&
               newTax.length === productValue.tax_type.length &&
-              singleProduct[0].product_category_id.value ===
+              singleProductItem.product_category_id.value ===
                   productValue.product_category_id.value &&
-              JSON.stringify(singleProduct[0].images.imageUrls) ===
+              JSON.stringify(singleProductItem.images.imageUrls) ===
                   JSON.stringify(removedImage);
 
 
@@ -192,36 +209,66 @@ const ProductForm = (props) => {
 
     useEffect(() => {
         if (singleProduct && singleProduct[0]) {
-            setSelectedBrand([
+            const nextBrand = [
                 {
                     label: singleProduct[0].brand_id.label,
                     value: singleProduct[0].brand_id.value,
                 },
-            ]);
-            setSelectedProductCategory([
+            ];
+            const nextCategory = [
                 {
                     label: singleProduct[0].product_category_id.label,
                     value: singleProduct[0].product_category_id.value,
                 },
-            ]);
+            ];
+
+            setSelectedBrand((prev) => {
+                if (
+                    prev?.[0]?.value === nextBrand[0].value &&
+                    prev?.[0]?.label === nextBrand[0].label
+                ) {
+                    return prev;
+                }
+                return nextBrand;
+            });
+
+            setSelectedProductCategory((prev) => {
+                if (
+                    prev?.[0]?.value === nextCategory[0].value &&
+                    prev?.[0]?.label === nextCategory[0].label
+                ) {
+                    return prev;
+                }
+                return nextCategory;
+            });
         } else {
-            setSelectedBrand(null);
-            setSelectedProductCategory(null);
+            setSelectedBrand((prev) => (prev === null ? prev : null));
+            setSelectedProductCategory((prev) => (prev === null ? prev : null));
         }
     }, [singleProduct]);
 
     useEffect(() => {
         if (newBarcode && newBarcode[0]) {
-            setSelectedBarcode([
+            const nextBarcode = [
                 {
                     label: newBarcode[0].label,
                     value: newBarcode[0].value,
                 },
-            ]);
+            ];
+
+            setSelectedBarcode((prev) => {
+                if (
+                    prev?.[0]?.value === nextBarcode[0].value &&
+                    prev?.[0]?.label === nextBarcode[0].label
+                ) {
+                    return prev;
+                }
+                return nextBarcode;
+            });
         } else {
-            setSelectedBarcode(null);
+            setSelectedBarcode((prev) => (prev === null ? prev : null));
         }
-    }, [newBarcode]);
+    }, [singleProduct]);
 
     const saleUnitOption =
         productUnits &&
@@ -898,7 +945,7 @@ const ProductForm = (props) => {
                                             type="text"
                                             name="name"
                                             value={productValue.name}
-                                            placeholder={placeholderText(
+                                            placeholder={formatPlaceholder(
                                                 "globally.input.name.placeholder.label"
                                             )}
                                             className="form-control"
@@ -920,7 +967,7 @@ const ProductForm = (props) => {
                                             type="text"
                                             name="code"
                                             className=" form-control"
-                                            placeholder={placeholderText(
+                                            placeholder={formatPlaceholder(
                                                 "product.input.code.placeholder.label"
                                             )}
                                             onChange={(e) => onChangeInput(e)}
@@ -937,7 +984,7 @@ const ProductForm = (props) => {
                                             title={getFormattedMessage(
                                                 "product.input.product-category.label"
                                             )}
-                                            placeholder={placeholderText(
+                                            placeholder={formatPlaceholder(
                                                 "product.input.product-category.placeholder.label"
                                             )}
                                             defaultValue={
@@ -958,7 +1005,7 @@ const ProductForm = (props) => {
                                             title={getFormattedMessage(
                                                 "product.input.brand.label"
                                             )}
-                                            placeholder={placeholderText(
+                                            placeholder={formatPlaceholder(
                                                 "product.input.brand.placeholder.label"
                                             )}
                                             defaultValue={selectedBrand}
@@ -973,7 +1020,7 @@ const ProductForm = (props) => {
                                             title={getFormattedMessage(
                                                 "product.input.barcode-symbology.label"
                                             )}
-                                            placeholder={placeholderText(
+                                            placeholder={formatPlaceholder(
                                                 "product.input.barcode-symbology.placeholder.label"
                                             )}
                                             defaultValue={selectedBarcode}
@@ -990,7 +1037,7 @@ const ProductForm = (props) => {
                                                 title={getFormattedMessage(
                                                     "product.input.product-unit.label"
                                                 )}
-                                                placeholder={placeholderText(
+                                                placeholder={formatPlaceholder(
                                                     "product.input.product-unit.placeholder.label"
                                                 )}
                                                 defaultValue={
@@ -1023,7 +1070,7 @@ const ProductForm = (props) => {
                                             title={getFormattedMessage(
                                                 "product.input.sale-unit.label"
                                             )}
-                                            placeholder={placeholderText(
+                                            placeholder={formatPlaceholder(
                                                 "product.input.sale-unit.placeholder.label"
                                             )}
                                             value={
@@ -1042,7 +1089,7 @@ const ProductForm = (props) => {
                                             title={getFormattedMessage(
                                                 "product.input.purchase-unit.label"
                                             )}
-                                            placeholder={placeholderText(
+                                            placeholder={formatPlaceholder(
                                                 "product.input.purchase-unit.placeholder.label"
                                             )}
                                             value={
@@ -1066,7 +1113,7 @@ const ProductForm = (props) => {
                                             type="number"
                                             name="sale_quantity_limit"
                                             className="form-control"
-                                            placeholder={placeholderText(
+                                            placeholder={formatPlaceholder(
                                                 "product.input.quantity-limitation.placeholder"
                                             )}
                                             onKeyPress={(event) =>
@@ -1095,7 +1142,7 @@ const ProductForm = (props) => {
                                         className="form-control"
                                         name="notes"
                                         rows={3}
-                                        placeholder={placeholderText(
+                                        placeholder={formatPlaceholder(
                                             "globally.input.notes.placeholder.label"
                                         )}
                                         onChange={onChangeInput}
@@ -1148,7 +1195,7 @@ const ProductForm = (props) => {
                                                 "warehouse.title"
                                             )}
                                             errors={errors["warehouse_id"]}
-                                            placeholder={placeholderText(
+                                            placeholder={formatPlaceholder(
                                                 "purchase.select.warehouse.placeholder.label"
                                             )}
                                         />
@@ -1164,7 +1211,7 @@ const ProductForm = (props) => {
                                                 "supplier.title"
                                             )}
                                             errors={errors["supplier_id"]}
-                                            placeholder={placeholderText(
+                                            placeholder={formatPlaceholder(
                                                 "purchase.select.supplier.placeholder.label"
                                             )}
                                         />
@@ -1205,7 +1252,7 @@ const ProductForm = (props) => {
                                             onChange={onProductTypeChange}
                                             value={productValue.product_type}
                                             errors={errors["product_type"]}
-                                            placeholder={placeholderText(
+                                            placeholder={formatPlaceholder(
                                                 "product.type.placeholder.label"
                                             )}
                                         />
@@ -1305,7 +1352,7 @@ const ProductForm = (props) => {
                                             name="product_cost"
                                             min={0}
                                             className="form-control"
-                                            placeholder={placeholderText(
+                                            placeholder={formatPlaceholder(
                                                 "product.input.product-cost.placeholder.label"
                                             )}
                                             onKeyPress={(event) =>
@@ -1344,7 +1391,7 @@ const ProductForm = (props) => {
                                             name="product_price"
                                             min={0}
                                             className="form-control"
-                                            placeholder={placeholderText(
+                                            placeholder={formatPlaceholder(
                                                 "product.input.product-price.placeholder.label"
                                             )}
                                             onKeyPress={(event) =>
@@ -1380,7 +1427,7 @@ const ProductForm = (props) => {
                                         type="number"
                                         name="stock_alert"
                                         className="form-control"
-                                        placeholder={placeholderText(
+                                        placeholder={formatPlaceholder(
                                             "product.input.stock-alert.placeholder.label"
                                         )}
                                         onKeyPress={(event) =>
@@ -1407,7 +1454,7 @@ const ProductForm = (props) => {
                                             type="text"
                                             name="order_tax"
                                             className="form-control"
-                                            placeholder={placeholderText(
+                                            placeholder={formatPlaceholder(
                                                 "product.input.order-tax.placeholder.label"
                                             )}
                                             onKeyPress={(event) =>
@@ -1444,7 +1491,7 @@ const ProductForm = (props) => {
                                         }
                                         errors={errors["tax_type"]}
                                         defaultValue={defaultTaxType}
-                                        placeholder={placeholderText(
+                                        placeholder={formatPlaceholder(
                                             "product.input.tax-type.placeholder.label"
                                         )}
                                     />
@@ -1462,7 +1509,7 @@ const ProductForm = (props) => {
                                             type="number"
                                             name="add_stock"
                                             className="form-control"
-                                            placeholder={placeholderText(
+                                            placeholder={formatPlaceholder(
                                                 "product-quantity.add.title"
                                             )}
                                             onKeyPress={(event) =>
@@ -1523,7 +1570,7 @@ const ProductForm = (props) => {
                                                 name="product_cost"
                                                 min={0}
                                                 className="form-control"
-                                                placeholder={placeholderText(
+                                                placeholder={formatPlaceholder(
                                                     "product.input.product-cost.placeholder.label"
                                                 )}
                                                 onKeyPress={(event) =>
@@ -1562,7 +1609,7 @@ const ProductForm = (props) => {
                                             type="text"
                                             name="product_variation_code"
                                             className=" form-control"
-                                            placeholder={placeholderText(
+                                            placeholder={formatPlaceholder(
                                                 "product.input.code.placeholder.label"
                                             )}
                                             onChange={(e) =>
@@ -1599,7 +1646,7 @@ const ProductForm = (props) => {
                                                 name="product_price"
                                                 min={0}
                                                 className="form-control"
-                                                placeholder={placeholderText(
+                                                placeholder={formatPlaceholder(
                                                     "product.input.product-price.placeholder.label"
                                                 )}
                                                 onKeyPress={(event) =>
@@ -1640,7 +1687,7 @@ const ProductForm = (props) => {
                                             type="number"
                                             name="stock_alert"
                                             className="form-control"
-                                            placeholder={placeholderText(
+                                            placeholder={formatPlaceholder(
                                                 "product.input.stock-alert.placeholder.label"
                                             )}
                                             onKeyPress={(event) =>
@@ -1668,7 +1715,7 @@ const ProductForm = (props) => {
                                                 type="text"
                                                 name="order_tax"
                                                 className="form-control"
-                                                placeholder={placeholderText(
+                                                placeholder={formatPlaceholder(
                                                     "product.input.order-tax.placeholder.label"
                                                 )}
                                                 onKeyPress={(event) =>
@@ -1717,7 +1764,7 @@ const ProductForm = (props) => {
                                                 ]
                                             }
                                             defaultValue={defaultTaxType}
-                                            placeholder={placeholderText(
+                                            placeholder={formatPlaceholder(
                                                 "product.input.tax-type.placeholder.label"
                                             )}
                                         />
@@ -1735,7 +1782,7 @@ const ProductForm = (props) => {
                                                 type="number"
                                                 name="add_stock"
                                                 className="form-control"
-                                                placeholder={placeholderText(
+                                                placeholder={formatPlaceholder(
                                                     "product-quantity.add.title"
                                                 )}
                                                 onKeyPress={(event) =>
@@ -1821,3 +1868,4 @@ export default connect(mapStateToProps, {
     fetchAllSuppliers,
     addUnit,
 })(ProductForm);
+

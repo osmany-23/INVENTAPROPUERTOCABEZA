@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { connect } from "react-redux";
 import { Button, Image, Table } from "react-bootstrap-v5";
 import { useParams } from "react-router-dom";
+import { useIntl } from "react-intl";
 import Carousel from "react-elastic-carousel";
 import MasterLayout from "../MasterLayout";
 import TabTitle from "../../shared/tab-title/TabTitle";
@@ -10,7 +11,6 @@ import HeaderTitle from "../header/HeaderTitle";
 import user from "../../assets/images/brand_logo.png";
 import {
     getFormattedMessage,
-    placeholderText,
     currencySymbolHandling,
 } from "../../shared/sharedMethod";
 import Spinner from "../../shared/components/loaders/Spinner";
@@ -26,6 +26,7 @@ import { can } from "../../shared/can";
 const ProductDetail = (props) => {
     const { products, fetchMainProduct, isLoading, frontSetting, allConfigData } =
         props;
+    const intl = useIntl();
     const canCreateProduct = can("products.create", { strict: true });
     const canUpdateProduct = can("products.update", { strict: true });
     const canDeleteProduct = can("products.delete", { strict: true });
@@ -41,6 +42,15 @@ const ProductDetail = (props) => {
     const [productData, setProductData] = useState({});
     const [deleteModel, setDeleteModel] = useState(false);
     const [isDelete, setIsDelete] = useState(null);
+    const productDetailsTitle = intl.formatMessage({
+        id: "product.product-details.title",
+    });
+    const viewTooltipLabel = intl.formatMessage({
+        id: "globally.view.tooltip.label",
+    });
+    const deleteTooltipLabel = intl.formatMessage({
+        id: "globally.delete.tooltip.label",
+    });
 
    const sliderImage =
         product &&
@@ -98,9 +108,7 @@ const ProductDetail = (props) => {
                 title={getFormattedMessage("product.product-details.title")}
                 to="/app/products"
             />
-            <TabTitle
-                title={placeholderText("product.product-details.title")}
-            />
+            <TabTitle title={productDetailsTitle} />
             <div className="card card-body">
                 <div className="row">
                     {isLoading ? (
@@ -318,7 +326,7 @@ const ProductDetail = (props) => {
                                     </td>
                                     <td className="py-4">
                                         <div className="text-center">
-                                            <button title={placeholderText('globally.view.tooltip.label')}
+                                            <button title={viewTooltipLabel}
                                                 className='btn text-success px-2 fs-3 ps-0 border-0'
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -327,7 +335,7 @@ const ProductDetail = (props) => {
                                                 <FontAwesomeIcon icon={faEye} />
                                             </button>
                                             {canUpdateProduct && (
-                                                <button title={placeholderText('globally.view.tooltip.label')}
+                                                <button title={viewTooltipLabel}
                                                     className='btn text-primary px-2 fs-3 ps-0 border-0'
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -337,7 +345,7 @@ const ProductDetail = (props) => {
                                                 </button>
                                             )}
                                             {canDeleteProduct && product.attributes.product_type == 2 && allProducts.length > 1 &&
-                                                <button title={placeholderText('globally.delete.tooltip.label')}
+                                                <button title={deleteTooltipLabel}
                                                     className='btn text-danger px-2 fs-3 ps-0 border-0'
                                                     onClick={(e) => {
                                                         e.stopPropagation();

@@ -9,23 +9,43 @@ const ProductImageLightBox = ({ isOpen, setIsOpen, lightBoxImage }) => {
         if (!Array.isArray(lightBoxImage)) {
             return [];
         }
-        // Filtrar imágenes vacías o nulas
+
         return lightBoxImage.filter(Boolean);
     }, [lightBoxImage]);
 
     const totalImages = images.length;
+    const hasMultipleImages = totalImages > 1;
 
     useEffect(() => {
         if (isOpen) {
             setPhotoIndex(0);
         }
-    }, [isOpen]);
+    }, [isOpen, totalImages]);
 
-    useEffect(() => {
-        if (photoIndex >= totalImages && totalImages > 0) {
-            setPhotoIndex(0);
+    const appElement = useMemo(() => {
+        if (typeof document === "undefined") {
+            return null;
         }
-    }, [photoIndex, totalImages]);
+
+        return (
+            document.getElementById("root") ||
+            document.getElementById("app") ||
+            null
+        );
+    }, []);
+
+    const reactModalProps = useMemo(() => {
+        if (appElement) {
+            return {
+                appElement,
+                ariaHideApp: true,
+            };
+        }
+
+        return {
+            ariaHideApp: false,
+        };
+    }, [appElement]);
 
     const onCloseRequest = useCallback(() => {
         setPhotoIndex(0);
@@ -33,36 +53,47 @@ const ProductImageLightBox = ({ isOpen, setIsOpen, lightBoxImage }) => {
     }, [setIsOpen]);
 
     const onMovePrevRequest = useCallback(() => {
-        if (totalImages <= 1) return;
-        setPhotoIndex((previousIndex) =>
-            previousIndex === 0 ? totalImages - 1 : previousIndex - 1
-        );
-    }, [totalImages]);
+        if (!hasMultipleImages) {
+            return;
+        }
+
+        setPhotoIndex((previousIndex) => {
+            return (previousIndex + totalImages - 1) % totalImages;
+        });
+    }, [hasMultipleImages, totalImages]);
 
     const onMoveNextRequest = useCallback(() => {
-        if (totalImages <= 1) return;
-        setPhotoIndex((previousIndex) =>
-            previousIndex === totalImages - 1 ? 0 : previousIndex + 1
-        );
-    }, [totalImages]);
+        if (!hasMultipleImages) {
+            return;
+        }
+
+        setPhotoIndex((previousIndex) => {
+            return (previousIndex + 1) % totalImages;
+        });
+    }, [hasMultipleImages, totalImages]);
 
     if (!isOpen || totalImages === 0 || !images[photoIndex]) {
         return null;
     }
 
-    // Log visual para depuración
-    console.log('Lightbox abierto:', { photoIndex, totalImages, images });
-
     return (
         <Lightbox
             mainSrc={images[photoIndex]}
-            nextSrc={images.length > 1 ? images[(photoIndex + 1) % totalImages] : undefined}
-            prevSrc={images.length > 1 ? images[(photoIndex + totalImages - 1) % totalImages] : undefined}
+            nextSrc={
+                hasMultipleImages
+                    ? images[(photoIndex + 1) % totalImages]
+                    : undefined
+            }
+            prevSrc={
+                hasMultipleImages
+                    ? images[(photoIndex + totalImages - 1) % totalImages]
+                    : undefined
+            }
             onCloseRequest={onCloseRequest}
             onMovePrevRequest={onMovePrevRequest}
             onMoveNextRequest={onMoveNextRequest}
-            enableZoom={true}
-            imageTitle={`Imagen ${photoIndex + 1} de ${totalImages}`}
+            reactModalProps={reactModalProps}
+            enableKeyboardInput={true}
         />
     );
 };

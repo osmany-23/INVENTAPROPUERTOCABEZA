@@ -322,14 +322,47 @@ const Product = (props) => {
     }, []);
 
     const onPreviewImage = useCallback((images) => {
-        if (!Array.isArray(images) || images.length === 0) {
+        const normalizeImages = (value) => {
+            if (Array.isArray(value)) {
+                return value.flatMap(normalizeImages);
+            }
+
+            if (typeof value === "string") {
+                const normalizedValue = value.trim();
+                if (!normalizedValue) {
+                    return [];
+                }
+
+                if (
+                    normalizedValue.startsWith("[") &&
+                    normalizedValue.endsWith("]")
+                ) {
+                    try {
+                        return normalizeImages(JSON.parse(normalizedValue));
+                    } catch (error) {
+                        // If parsing fails, continue with plain string fallback.
+                    }
+                }
+
+                if (normalizedValue.includes(",")) {
+                    return normalizedValue
+                        .split(",")
+                        .map((image) => image.trim())
+                        .filter(Boolean);
+                }
+
+                return [normalizedValue];
+            }
+
+            return [];
+        };
+
+        const normalizedImages = normalizeImages(images).filter(Boolean);
+        if (normalizedImages.length === 0) {
             return;
         }
-        // Log para depuración
-        if (images.length > 1) {
-            console.log('Imágenes enviadas al lightbox:', images);
-        }
-        setLightBoxImage(images);
+
+        setLightBoxImage(normalizedImages);
         setIsOpen(true);
     }, []);
 
@@ -641,3 +674,4 @@ export default connect(mapStateToProps, {
     fetchFrontSetting,
     productExcelAction,
 })(Product);
+

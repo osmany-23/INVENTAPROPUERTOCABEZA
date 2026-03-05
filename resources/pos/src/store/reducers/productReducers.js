@@ -27,7 +27,7 @@ export default (state = [], action) => {
         case productActionType.DELETE_MAIN_PRODUCT:
             return state.filter(item => item.id !== action.payload);
         case productActionType.ADD_MAIN_PRODUCT:
-            return action.payload;
+            return Array.isArray(state) ? [action.payload, ...state] : [action.payload];
         case productActionType.EDIT_MAIN_PRODUCT:
             return state.map(item => item.id === +action.payload.id ? action.payload : item);
         default:

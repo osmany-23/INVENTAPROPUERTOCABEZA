@@ -30,13 +30,23 @@ import {
 import { Dropdown, Row } from "react-bootstrap";
 import StockAlertModal from '../../frontend/components/stock/StockAlertModal';
 import { productQuantityReportAction } from '../../store/action/paymentQuantityReport';
+import { fetchStockAlert } from '../../store/action/stockAlertAction';
 import { Filters } from '../../constants';
 import LanguageModel from "../user-profile/LanguageModel";
 import PosRegisterModel from '../posRegister/PosRegisterModel.js';
 import { can } from "../../shared/can";
 
 const Header = (props) => {
-    const { logoutAction, newRoutes, updateLanguage, selectedLanguage, productQuantityReportAction, productQuantityReport, stockAlertDetails } = props;
+    const {
+        logoutAction,
+        newRoutes,
+        updateLanguage,
+        selectedLanguage,
+        productQuantityReportAction,
+        productQuantityReport,
+        stockAlertDetails,
+        fetchStockAlert
+    } = props;
     const navigate = useNavigate();
     const users = localStorage.getItem(Tokens.USER);
     const firstName = localStorage.getItem(Tokens.FIRST_NAME);
@@ -60,12 +70,21 @@ const Header = (props) => {
 
     useEffect(() => {
         if (!canViewStockAlerts) {
-            return;
+            return undefined;
         }
 
-        let isLoading
-        productQuantityReportAction(warehouseValue.value, Filters.OBJ, isLoading = false, setTotalRecords)
-    }, [canViewStockAlerts])
+        const syncAlerts = () => {
+            productQuantityReportAction(warehouseValue.value, Filters.OBJ, false, setTotalRecords);
+            fetchStockAlert(false);
+        };
+
+        syncAlerts();
+        const intervalId = setInterval(syncAlerts, 30000);
+
+        return () => {
+            clearInterval(intervalId);
+        };
+    }, [canViewStockAlerts, fetchStockAlert, productQuantityReportAction, warehouseValue.value]);
     const onClickDeleteModel = () => {
         setDeleteModel(!deleteModel);
     };
@@ -366,4 +385,9 @@ const mapStateToProps = (state) => {
     return { selectedLanguage, productQuantityReport, stockAlertDetails }
 };
 
-export default connect(mapStateToProps, { logoutAction, updateLanguage, productQuantityReportAction })(Header);
+export default connect(mapStateToProps, {
+    logoutAction,
+    updateLanguage,
+    productQuantityReportAction,
+    fetchStockAlert,
+})(Header);

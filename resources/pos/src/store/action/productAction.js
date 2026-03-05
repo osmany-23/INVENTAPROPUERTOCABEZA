@@ -11,6 +11,7 @@ import { setLoading } from "./loadingAction";
 import { getFormattedMessage } from "../../shared/sharedMethod";
 import { setSavingButton } from "./saveButtonAction";
 import { callImportProductApi } from "./importProductApiAction";
+import { fetchStockAlert } from "./stockAlertAction";
 
 export const fetchProducts =
     (filter = {}, isLoading = true) =>
@@ -91,6 +92,7 @@ export const addProduct = (product, navigate) => async (dispatch) => {
         .post(apiBaseURL.PRODUCTS, product)
         .then((response) => {
             dispatch(fetchMainProduct(product.get('main_product_id'), false));
+            dispatch(fetchStockAlert(false));
             dispatch(
                 addToast({
                     text: getFormattedMessage("product.success.create.message"),
@@ -114,6 +116,7 @@ export const editProduct =
             .then((response) => {
 
                 dispatch(fetchMainProduct(product.get('main_product_id'), false));
+                dispatch(fetchStockAlert(false));
                 dispatch(
                     addToast({
                         text: getFormattedMessage(
@@ -139,6 +142,7 @@ export const deleteProduct = (productId, mainProductId) => async (dispatch) => {
         .delete(apiBaseURL.PRODUCTS + "/" + productId)
         .then((response) => {
             dispatch(fetchMainProduct(mainProductId, false));
+            dispatch(fetchStockAlert(false));
             // dispatch({
             //     type: productActionType.DELETE_PRODUCT,
             //     payload: productId,
@@ -194,6 +198,7 @@ export const addImportProduct = (importProduct) => async (dispatch) => {
         .then((response) => {
             dispatch(setLoading(false));
             dispatch(callImportProductApi(true));
+            dispatch(fetchStockAlert(false));
             // dispatch({type: productActionType.ADD_IMPORT_PRODUCT, payload: response.data.data});
             dispatch(addToast({ text: "Product Import Create Success " }));
             dispatch(addInToTotalRecord(1));
@@ -283,6 +288,7 @@ export const deleteMainProduct = (productId) => async (dispatch) => {
                 type: productActionType.DELETE_MAIN_PRODUCT,
                 payload: productId,
             });
+            dispatch(fetchStockAlert(false));
             dispatch(
                 addToast({
                     text: getFormattedMessage("product.success.delete.message"),
@@ -332,6 +338,8 @@ export const addMainProduct = (product, navigate) => async (dispatch) => {
                 type: productActionType.ADD_MAIN_PRODUCT,
                 payload: response.data.data,
             });
+            dispatch(fetchAllMainProducts({}, false));
+            dispatch(fetchStockAlert(false));
             dispatch(
                 addToast({
                     text: getFormattedMessage("product.success.create.message"),
@@ -354,6 +362,12 @@ export const editMainProduct = (productId, product, navigate) => async (dispatch
     apiConfig
         .post(apiBaseURL.MAIN_PRODUCTS + "/" + productId, product)
         .then((response) => {
+            dispatch({
+                type: productActionType.EDIT_MAIN_PRODUCT,
+                payload: response.data.data,
+            });
+            dispatch(fetchAllMainProducts({}, false));
+            dispatch(fetchStockAlert(false));
             navigate("/app/products");
             dispatch(
                 addToast({
@@ -373,4 +387,4 @@ export const editMainProduct = (productId, product, navigate) => async (dispatch
                 })
             );
         });
-}
+};

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import moment from "moment";
 import { connect } from "react-redux";
 import MasterLayout from "../MasterLayout";
@@ -138,6 +138,8 @@ const Adjustments = (props) => {
             ignoreRowClick: true,
             allowOverflow: true,
             button: true,
+            width: "120px",
+            minWidth: "120px",
             cell: (row) => (
                 <ActionButton
                     isViewIcon={true}
@@ -150,6 +152,24 @@ const Adjustments = (props) => {
             ),
         },
     ];
+
+    const adjustmentsTableStyles = useMemo(
+        () => ({
+            rows: {
+                style: {
+                    minHeight: "74px",
+                    height: "74px",
+                    maxHeight: "74px",
+                },
+            },
+            cells: {
+                style: {
+                    alignItems: "center",
+                },
+            },
+        }),
+        []
+    );
 
     const array = warehouses;
     const newFirstElement = {
@@ -166,6 +186,9 @@ const Adjustments = (props) => {
                 <ReactDataTable
                     columns={columns}
                     items={itemsValue}
+                    customStyles={adjustmentsTableStyles}
+                    defaultLimit={20}
+                    paginationRowsPerPageOptions={[20, 50]}
                     to="#/app/adjustments/create"
                     ButtonValue={getFormattedMessage(
                         "adjustments.create.title"

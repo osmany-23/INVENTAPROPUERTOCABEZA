@@ -11,6 +11,11 @@ import { setLoading } from "./loadingAction";
 import { getFormattedMessage } from "../../shared/sharedMethod";
 import { callUpdateBrandApi } from "./updateBrand";
 
+const toggleBrandRefresh = (dispatch, getState) => {
+    const shouldRefresh = !getState()?.isCallBrandApi;
+    dispatch(callUpdateBrandApi(shouldRefresh));
+};
+
 export const fetchBrands =
     (filter = {}, isLoading = true) =>
     async (dispatch) => {
@@ -73,7 +78,7 @@ export const fetchBrand = (brandsId, singleUser) => async (dispatch) => {
         });
 };
 
-export const addBrand = (brands) => async (dispatch) => {
+export const addBrand = (brands) => async (dispatch, getState) => {
     await apiConfig
         .post(apiBaseURL.BRANDS, brands)
         .then((response) => {
@@ -81,6 +86,7 @@ export const addBrand = (brands) => async (dispatch) => {
                 type: brandsActionType.ADD_BRANDS,
                 payload: response.data.data,
             });
+            toggleBrandRefresh(dispatch, getState);
             dispatch(
                 addToast({
                     text: getFormattedMessage("brand.success.create.message"),
@@ -96,19 +102,23 @@ export const addBrand = (brands) => async (dispatch) => {
 };
 
 export const editBrand =
-    (brandsId, brands, handleClose) => async (dispatch) => {
+    (brandsId, brands, handleClose) => async (dispatch, getState) => {
         apiConfig
             .post(apiBaseURL.BRANDS + "/" + brandsId, brands)
             .then((response) => {
-                dispatch(callUpdateBrandApi(true));
-                // dispatch({type: productActionType.ADD_IMPORT_PRODUCT, payload: response.data.data});
-                handleClose(false);
+                dispatch({
+                    type: brandsActionType.EDIT_BRANDS,
+                    payload: response.data.data,
+                });
+                toggleBrandRefresh(dispatch, getState);
+                if (typeof handleClose === "function") {
+                    handleClose(false);
+                }
                 dispatch(
                     addToast({
                         text: getFormattedMessage("brand.success.edit.message"),
                     })
                 );
-                dispatch(addInToTotalRecord(1));
             })
             .catch(({ response }) => {
                 dispatch(
@@ -120,7 +130,7 @@ export const editBrand =
             });
     };
 
-export const deleteBrand = (brandsId) => async (dispatch) => {
+export const deleteBrand = (brandsId) => async (dispatch, getState) => {
     apiConfig
         .delete(apiBaseURL.BRANDS + "/" + brandsId)
         .then((response) => {
@@ -129,6 +139,7 @@ export const deleteBrand = (brandsId) => async (dispatch) => {
                 type: brandsActionType.DELETE_BRANDS,
                 payload: brandsId,
             });
+            toggleBrandRefresh(dispatch, getState);
             dispatch(
                 addToast({
                     text: getFormattedMessage("brand.success.delete.message"),
