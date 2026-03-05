@@ -130,7 +130,9 @@ const VariationForm = (props) => {
             keyboard={true}
             onShow={() =>
                 setTimeout(() => {
-                    innerRef.current.focus();
+                    if (innerRef.current) {
+                        innerRef.current.focus();
+                    }
                 }, 1)
             }
         >

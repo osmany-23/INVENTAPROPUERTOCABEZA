@@ -20,7 +20,7 @@ const ReactDataTable = (props) => {
         items,
         ButtonValue,
         to,
-        defaultLimit = Filters.OBJ.page,
+        defaultLimit = Filters.OBJ.pageSize,
         onChange,
         totalRows,
         isCallSaleApi,
@@ -53,6 +53,7 @@ const ReactDataTable = (props) => {
         goToImportProduct,
         isExportDropdown,
         isImportDropdown,
+        isModernFilterModal,
         isProductCategoryFilter,
         isBrandFilter,
         brandFilterTitle,
@@ -182,6 +183,7 @@ const ReactDataTable = (props) => {
                             onResetClick={onResetClick}
                             isExportDropdown={isExportDropdown}
                             isImportDropdown={isImportDropdown}
+                            isModernFilterModal={isModernFilterModal}
                             isProductCategoryFilter={isProductCategoryFilter}
                             isBrandFilter={isBrandFilter}
                             productCategory={productCategory}
@@ -291,6 +293,7 @@ const ReactDataTable = (props) => {
         isExport,
         isExportDropdown,
         isImportDropdown,
+        isModernFilterModal,
         isPaymentStatus,
         isPaymentType,
         isPdf,

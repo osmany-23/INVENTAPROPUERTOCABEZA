@@ -14,23 +14,25 @@ import { fetchAllBaseUnits } from "../../store/action/baseUnitsAction";
 const EditProduct = (props) => {
     const { fetchMainProduct, products, fetchAllBaseUnits, base } = props;
     const { id } = useParams();
-    const [singleProduct, setSingleProduct] = useState({});
+    const [singleProduct, setSingleProduct] = useState([]);
     useEffect(() => {
         fetchAllBaseUnits();
         fetchMainProduct(id);
     }, []);
 
     useEffect(() => {
-        if (products.length == 1) {
+        if (Array.isArray(products) && products.length === 1) {
             setSingleProduct(products);
+        } else {
+            setSingleProduct([]);
         }
     }, [products]);
 
-    const subProduct = singleProduct.length >= 1 && singleProduct[0]?.attributes?.products[0];
+    const subProduct = Array.isArray(singleProduct) && singleProduct.length >= 1 && singleProduct[0]?.attributes?.products?.[0];
     const getSaleUnit = subProduct && subProduct.sale_unit_name ? { label: subProduct.sale_unit_name.name, value: subProduct.sale_unit_name.id } : ''
     const getPurchaseUnit = subProduct && subProduct.purchase_unit_name ? { label: subProduct.purchase_unit_name.name, value: subProduct.purchase_unit_name.id } : ''
 
-    const mainProductItemsValue = singleProduct.length >= 1 && singleProduct.map(product => ({
+    const mainProductItemsValue = Array.isArray(singleProduct) && singleProduct.length >= 1 ? singleProduct.map(product => ({
         name: product?.attributes.name,
         code: product?.attributes.code,
         product_type: product?.attributes.product_type,
@@ -55,15 +57,15 @@ const EditProduct = (props) => {
         },
         isEdit: true,
         id: product.id,
-    }));
+    })) : [];
 
-    const getProductUnit = mainProductItemsValue && base.filter((fill) => Number(fill?.id) === Number(mainProductItemsValue[0]?.product_unit))
+    const getProductUnit = Array.isArray(mainProductItemsValue) && mainProductItemsValue.length > 0 && base ? base.filter((fill) => Number(fill?.id) === Number(mainProductItemsValue[0]?.product_unit)) : [];
 
     return (
         <MasterLayout>
             <TopProgressBar />
             <HeaderTitle title={getFormattedMessage('product.edit.title')} to='/app/products' />
-            {mainProductItemsValue.length >= 1 && <ProductForm singleProduct={mainProductItemsValue} productUnit={getProductUnit} baseUnits={base} id={id} />}
+            {Array.isArray(mainProductItemsValue) && mainProductItemsValue.length >= 1 && <ProductForm singleProduct={mainProductItemsValue} productUnit={getProductUnit} baseUnits={base} id={id} />}
         </MasterLayout>
     )
 };

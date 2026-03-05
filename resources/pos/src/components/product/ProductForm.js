@@ -185,38 +185,43 @@ const ProductForm = (props) => {
               JSON.stringify(singleProduct[0].images.imageUrls) ===
                   JSON.stringify(removedImage);
 
-    const [selectedBrand] = useState(
-        singleProduct && singleProduct[0]
-            ? [
-                  {
-                      label: singleProduct[0].brand_id.label,
-                      value: singleProduct[0].brand_id.value,
-                  },
-              ]
-            : null
-    );
 
-    const [selectedBarcode] = useState(
-        newBarcode && newBarcode[0]
-            ? [
-                  {
-                      label: newBarcode[0].label,
-                      value: newBarcode[0].value,
-                  },
-              ]
-            : null
-    );
+    const [selectedBrand, setSelectedBrand] = useState(null);
+    const [selectedBarcode, setSelectedBarcode] = useState(null);
+    const [selectedProductCategory, setSelectedProductCategory] = useState(null);
 
-    const [selectedProductCategory] = useState(
-        singleProduct && singleProduct[0]
-            ? [
-                  {
-                      label: singleProduct[0].product_category_id.label,
-                      value: singleProduct[0].product_category_id.value,
-                  },
-              ]
-            : null
-    );
+    useEffect(() => {
+        if (singleProduct && singleProduct[0]) {
+            setSelectedBrand([
+                {
+                    label: singleProduct[0].brand_id.label,
+                    value: singleProduct[0].brand_id.value,
+                },
+            ]);
+            setSelectedProductCategory([
+                {
+                    label: singleProduct[0].product_category_id.label,
+                    value: singleProduct[0].product_category_id.value,
+                },
+            ]);
+        } else {
+            setSelectedBrand(null);
+            setSelectedProductCategory(null);
+        }
+    }, [singleProduct]);
+
+    useEffect(() => {
+        if (newBarcode && newBarcode[0]) {
+            setSelectedBarcode([
+                {
+                    label: newBarcode[0].label,
+                    value: newBarcode[0].value,
+                },
+            ]);
+        } else {
+            setSelectedBarcode(null);
+        }
+    }, [newBarcode]);
 
     const saleUnitOption =
         productUnits &&
@@ -688,14 +693,15 @@ const ProductForm = (props) => {
 
     const onChangeInput = (e) => {
         e.preventDefault();
-        const { value } = e.target;
-        if (value.match(/\./g) && e.target.name !== "name") {
+        const { value, name } = e.target;
+        // Solo aplicar la restricción de decimales a los campos numéricos, no a 'notes'
+        if (name !== "name" && name !== "notes" && value.match(/\./g)) {
             const [, decimal] = value.split(".");
             if (decimal?.length > 2) {
                 return;
             }
         }
-        setProductValue((inputs) => ({ ...inputs, [e.target.name]: value }));
+        setProductValue((inputs) => ({ ...inputs, [name]: value }));
         setErrors({});
     };
 

@@ -16,7 +16,6 @@ export const fetchRoles =
         if (isLoading) {
             dispatch(setLoading(true));
         }
-        const admin = true;
         let url = apiBaseURL.ROLES;
         if (
             !_.isEmpty(filter) &&
@@ -26,7 +25,7 @@ export const fetchRoles =
                 filter.order_By ||
                 filter.created_at)
         ) {
-            url += requestParam(filter, admin, null, null, url);
+            url += requestParam(filter, null, null, null, url);
         }
         apiConfig
             .get(url)

@@ -1,0 +1,150 @@
+/* Product filter modal styles */
+.product-filter-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 24, 38, 0.58);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.product-filter-modal {
+  position: relative;
+  width: min(540px, calc(100vw - 32px));
+  min-width: 450px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #eef1f7;
+  border-radius: 16px;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.24);
+  padding: 28px 26px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: productFilterModalFadeIn 0.22s ease-out;
+}
+
+@keyframes productFilterModalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.product-filter-modal .filter-field {
+  width: 100%;
+  margin: 0;
+}
+
+.product-filter-modal .filter-field .form-group {
+  margin-bottom: 0;
+}
+
+.product-filter-modal .filter-field .form-label {
+  color: #495057;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.product-filter-modal .filter-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 6px;
+  width: 100%;
+}
+
+.product-filter-modal .filter-buttons .filter-action-btn {
+  min-height: 50px;
+  font-size: 0.98rem;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.25;
+}
+
+.product-filter-modal .filter-main-actions {
+  width: 100%;
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.product-filter-modal .filter-main-actions .filter-main-btn {
+  flex: 1 1 0;
+  width: 0;
+}
+
+.product-filter-modal .filter-reset-action {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.product-filter-modal .filter-reset-action .btn-reset {
+  min-width: 220px;
+  background: #f6f7fb;
+  border: 1px solid #d9deea;
+  color: #4f566b;
+}
+
+.filter-modal-select__menu {
+  max-height: 220px !important;
+  overflow: hidden !important;
+}
+
+.filter-modal-select__menu-list {
+  max-height: 220px !important;
+  overflow-y: auto !important;
+}
+
+.product-filter-modal .filter-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #6c757d;
+  font-size: 1.75rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.product-filter-modal .filter-modal-close:hover {
+  background: #f2f4fa;
+  color: #212529;
+}
+
+@media (max-width: 576px) {
+  .product-filter-modal {
+    min-width: 0;
+    padding: 24px 18px 20px;
+    gap: 16px;
+  }
+
+  .product-filter-modal .filter-main-actions {
+    gap: 10px;
+  }
+
+  .product-filter-modal .filter-reset-action .btn-reset {
+    width: 100%;
+    min-width: 0;
+  }
+}

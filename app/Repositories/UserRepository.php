@@ -2,6 +2,7 @@
 
 namespace App\Repositories;
 
+use App\Models\Role;
 use App\Models\User;
 use Exception;
 use Illuminate\Support\Facades\Auth;
@@ -135,8 +136,10 @@ class UserRepository extends BaseRepository
     public function getUsers($perPage)
     {
         $loginUserId = Auth::id();
+        $user = Auth::user();
+        $isAdmin = $user && $user->hasRole(Role::ADMIN);
 
-        if (request()->get('returnAll') == 'true') {
+        if (request()->boolean('returnAll') || $isAdmin) {
             return $this->paginate($perPage);
         }
 
