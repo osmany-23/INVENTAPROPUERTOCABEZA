@@ -604,6 +604,10 @@
                 li {
                     position: relative !important;
                     padding: 12px 21px !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    cursor: pointer !important;
+                    transition: background-color 0.18s ease, color 0.18s ease !important;
 
                     &:before {
                         content: "\f52a" !important;
@@ -620,6 +624,21 @@
                         text-transform: none !important;
                         vertical-align: -0.125em !important;
                         font-size: 20px !important;
+                    }
+
+                    &:hover {
+                        background-color: #e6f7ff !important;
+
+                        &:before {
+                            color: #212529 !important;
+                        }
+
+                        .search-result-row,
+                        .search-result-code,
+                        .search-result-separator,
+                        .search-result-name {
+                            color: #212529 !important;
+                        }
                     }
                 }
 
@@ -643,8 +662,32 @@
                 }
             }
 
+            .search-result-row {
+                display: flex !important;
+                align-items: center !important;
+                width: 100% !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+
+                .search-result-code {
+                    color: #495057 !important;
+                    font-weight: 600 !important;
+                }
+
+                .search-result-separator {
+                    color: #adb5bd !important;
+                }
+
+                .search-result-name {
+                    color: #6c757d !important;
+                    overflow: hidden !important;
+                    text-overflow: ellipsis !important;
+                }
+            }
+
             .selected {
-                background-color: $primary !important;
+                background-color: #e6f7ff !important;
 
                 &:first-child {
                     border-top-left-radius: $border-radius-lg !important;
@@ -657,8 +700,12 @@
                 }
 
                 &:before,
-                .ellipsis span {
-                    color: $white !important;
+                .ellipsis span,
+                .search-result-row,
+                .search-result-code,
+                .search-result-separator,
+                .search-result-name {
+                    color: #212529 !important;
                 }
             }
         }
@@ -690,9 +737,12 @@
 
     .react-search-icon {
         left: 13px !important;
-        top: 2px !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
         z-index: 99 !important;
+        bottom: auto !important;
         right: auto !important;
+        pointer-events: none !important;
     }
 }
 

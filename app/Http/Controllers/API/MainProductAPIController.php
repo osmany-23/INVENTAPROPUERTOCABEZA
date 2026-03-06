@@ -38,7 +38,7 @@ class MainProductAPIController extends AppBaseController
         abort_unless(hasPermissionStrict('products.view'), 403);
 
         $perPage = (int) $request->input('page.size', 20);
-        $perPage = max(min($perPage, 50), 1);
+        $perPage = max(min($perPage, 100), 1);
         $currentPage = max((int) $request->input('page.number', 1), 1);
 
         $filters = $request->input('filter', []);
@@ -88,15 +88,6 @@ class MainProductAPIController extends AppBaseController
             )
             ->groupBy('products_for_meta.main_product_id');
 
-        $mainProductImageSubQuery = DB::table('media')
-            ->select(
-                'model_id as main_product_id',
-                DB::raw('MIN(id) as media_id')
-            )
-            ->where('model_type', MainProduct::class)
-            ->where('collection_name', MainProduct::PATH)
-            ->groupBy('model_id');
-
         $query = DB::table('main_products')
             ->leftJoinSub($metaSubQuery, 'meta', function ($join) {
                 $join->on('meta.main_product_id', '=', 'main_products.id');
@@ -106,10 +97,6 @@ class MainProductAPIController extends AppBaseController
             })
             ->leftJoin('brands', 'brands.id', '=', 'meta.brand_id')
             ->leftJoin('base_units', 'base_units.id', '=', 'main_products.product_unit')
-            ->leftJoinSub($mainProductImageSubQuery, 'main_product_image', function ($join) {
-                $join->on('main_product_image.main_product_id', '=', 'main_products.id');
-            })
-            ->leftJoin('media as product_media', 'product_media.id', '=', 'main_product_image.media_id')
             ->select([
                 'main_products.id',
                 'main_products.name',
@@ -121,9 +108,6 @@ class MainProductAPIController extends AppBaseController
                 DB::raw('COALESCE(stock.in_stock, 0) as in_stock'),
                 DB::raw('COALESCE(brands.name, "") as brand_name'),
                 DB::raw('COALESCE(base_units.name, "") as product_unit_name'),
-                'product_media.id as image_media_id',
-                'product_media.file_name as image_file_name',
-                'product_media.disk as image_disk',
                 'meta.product_category_id',
             ]);
 
@@ -167,18 +151,93 @@ class MainProductAPIController extends AppBaseController
 
         $paginator = $query
             ->orderBy($sortColumn, $sortDirection)
+            // Keep pagination stable when many rows share the same primary sort value.
+            ->when(
+                $sortColumn !== 'main_products.id',
+                fn ($builder) => $builder->orderBy('main_products.id', $sortDirection)
+            )
             ->paginate($perPage, ['*'], 'page[number]', $currentPage);
 
-        $data = collect($paginator->items())
-            ->map(function ($item) {
-                $imageUrl = '';
-                if (! empty($item->image_media_id) && ! empty($item->image_file_name)) {
-                    $imagePath = MainProduct::PATH.'/'.$item->image_media_id.'/'.$item->image_file_name;
-                    $imageDisk = $item->image_disk ?: config('app.media_disc');
-                    $resolvedImageUrl = Storage::disk($imageDisk)->url($imagePath);
-                    $imageUrl = str_starts_with($resolvedImageUrl, 'http') ? $resolvedImageUrl : url($resolvedImageUrl);
-                }
+        $pageItems = collect($paginator->items());
+        $productIds = $pageItems
+            ->pluck('id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
 
+        $imageUrlsByProductId = collect();
+        if (! empty($productIds)) {
+            $mediaRows = DB::table('media')
+                ->select([
+                    'model_id',
+                    'id',
+                    'file_name',
+                    'disk',
+                ])
+                ->where('model_type', MainProduct::class)
+                ->where('collection_name', MainProduct::PATH)
+                ->whereIn('model_id', $productIds)
+                ->orderBy('model_id')
+                ->orderBy('id')
+                ->get();
+
+            $imageUrlsByProductId = $mediaRows
+                ->groupBy(fn ($mediaRow) => (string) $mediaRow->model_id)
+                ->map(function ($rows) {
+                    $allValidUrls = $rows
+                        ->map(function ($mediaRow) {
+                            $imagePath = MainProduct::PATH.'/'.$mediaRow->id.'/'.$mediaRow->file_name;
+                            $imageDisk = $mediaRow->disk ?: config('app.media_disc');
+
+                            // Skip broken media rows that reference missing files.
+                            if (! Storage::disk($imageDisk)->exists($imagePath)) {
+                                return null;
+                            }
+
+                            $resolvedImageUrl = Storage::disk($imageDisk)->url($imagePath);
+
+                            $imageUrl = str_starts_with($resolvedImageUrl, 'http')
+                                ? $resolvedImageUrl
+                                : url($resolvedImageUrl);
+
+                            return [
+                                'url' => $imageUrl,
+                                'file_name' => mb_strtolower((string) $mediaRow->file_name),
+                            ];
+                        })
+                        ->filter()
+                        ->values();
+
+                    if ($allValidUrls->isEmpty()) {
+                        return [];
+                    }
+
+                    // Prefer real images and drop placeholder files when possible.
+                    $realImageUrls = $allValidUrls
+                        ->reject(function ($media) {
+                            return str_contains($media['file_name'], 'placeholder') ||
+                                str_contains($media['file_name'], 'no-image') ||
+                                str_contains($media['file_name'], 'no_image');
+                        })
+                        ->pluck('url')
+                        ->values()
+                        ->all();
+
+                    if (! empty($realImageUrls)) {
+                        return $realImageUrls;
+                    }
+
+                    return $allValidUrls
+                        ->pluck('url')
+                        ->values()
+                        ->all();
+                });
+        }
+
+        $data = collect($paginator->items())
+            ->map(function ($item) use ($imageUrlsByProductId) {
+                $imageUrls = $imageUrlsByProductId->get((string) $item->id, []);
                 $fullDescription = trim((string) $item->latest_notes);
                 $shortDescription = $fullDescription;
                 if (mb_strlen($shortDescription) > 140) {
@@ -202,7 +261,7 @@ class MainProductAPIController extends AppBaseController
                             'name' => $item->product_unit_name,
                         ],
                         'images' => [
-                            'imageUrls' => $imageUrl ? [$imageUrl] : [],
+                            'imageUrls' => $imageUrls,
                         ],
                     ],
                     'links' => [

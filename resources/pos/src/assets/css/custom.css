@@ -1462,10 +1462,8 @@ div .rdt_Pagination div:first-of-type svg {
 
 .custom-search {
   font-family: Poppins, Helvetica, "sans-serif";
-}
-.custom-search:nth-child(1) {
   position: relative !important;
-  height: 46px !important;
+  min-height: 46px !important;
 }
 .custom-search .wrapper {
   z-index: 11 !important;
@@ -1486,6 +1484,10 @@ div .rdt_Pagination div:first-of-type svg {
   background: #FFFFFF !important;
   border: 1px solid #ced4da !important;
   border-radius: 0.475rem !important;
+  max-height: 18rem !important;
+  overflow-y: auto !important;
+  animation: custom-search-dropdown-in 0.18s ease !important;
+  transform-origin: top center !important;
 }
 .custom-search .wrapper div:nth-child(2) > .line {
   display: none !important;
@@ -1498,11 +1500,18 @@ div .rdt_Pagination div:first-of-type svg {
 }
 .custom-search .wrapper div:nth-child(2) ul {
   padding-bottom: 0 !important;
+  margin: 0 !important;
+  padding-left: 0 !important;
+  list-style: none !important;
   font-family: Poppins, Helvetica, "sans-serif" !important;
 }
 .custom-search .wrapper div:nth-child(2) ul li {
   position: relative !important;
   padding: 0.688rem 0.938rem !important;
+  display: flex !important;
+  align-items: center !important;
+  transition: background-color 0.18s ease, color 0.18s ease !important;
+  cursor: pointer !important;
 }
 .custom-search .wrapper div:nth-child(2) ul li:before {
   content: "\f002" !important;
@@ -1515,6 +1524,41 @@ div .rdt_Pagination div:first-of-type svg {
   text-rendering: auto !important;
   line-height: 1 !important;
   color: #6C757D !important;
+}
+.custom-search .wrapper div:nth-child(2) ul li:hover {
+  background-color: #E6F7FF !important;
+}
+.custom-search .wrapper div:nth-child(2) ul li:hover:before {
+  color: #212529 !important;
+}
+.custom-search .wrapper div:nth-child(2) ul li:hover .search-result-row, .custom-search .wrapper div:nth-child(2) ul li:hover .search-result-code, .custom-search .wrapper div:nth-child(2) ul li:hover .search-result-separator, .custom-search .wrapper div:nth-child(2) ul li:hover .search-result-name {
+  color: #212529 !important;
+}
+.custom-search .wrapper div:nth-child(2) .search-result-row {
+  display: flex !important;
+  align-items: center !important;
+  width: calc(100% - 16px) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  color: #6C757D !important;
+}
+.custom-search .wrapper div:nth-child(2) .search-result-code {
+  color: #495057 !important;
+  font-weight: 600 !important;
+}
+.custom-search .wrapper div:nth-child(2) .search-result-separator {
+  color: #ADB5BD !important;
+}
+.custom-search .wrapper div:nth-child(2) .search-result-name {
+  color: #6C757D !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.custom-search .wrapper div:nth-child(2) .custom-search-status {
+  padding: 0.688rem 0.938rem !important;
+  color: #6C757D !important;
+  font-size: 0.875rem !important;
 }
 .custom-search .wrapper div:nth-child(2) .ellipsis {
   display: flex !important;
@@ -1542,6 +1586,18 @@ div .rdt_Pagination div:first-of-type svg {
 .custom-search .wrapper div:nth-child(2) .selected:before, .custom-search .wrapper div:nth-child(2) .selected .ellipsis span {
   color: #FFFFFF !important;
 }
+.custom-search .wrapper div:nth-child(2) .selected .search-result-row, .custom-search .wrapper div:nth-child(2) .selected .search-result-code, .custom-search .wrapper div:nth-child(2) .selected .search-result-separator, .custom-search .wrapper div:nth-child(2) .selected .search-result-name {
+  color: #FFFFFF !important;
+}
+.custom-search.custom-search-fast .wrapper div:nth-child(2) .selected {
+  background-color: #E6F7FF !important;
+}
+.custom-search.custom-search-fast .wrapper div:nth-child(2) .selected:before, .custom-search.custom-search-fast .wrapper div:nth-child(2) .selected .ellipsis span {
+  color: #212529 !important;
+}
+.custom-search.custom-search-fast .wrapper div:nth-child(2) .selected .search-result-row, .custom-search.custom-search-fast .wrapper div:nth-child(2) .selected .search-result-code, .custom-search.custom-search-fast .wrapper div:nth-child(2) .selected .search-result-separator, .custom-search.custom-search-fast .wrapper div:nth-child(2) .selected .search-result-name {
+  color: #212529 !important;
+}
 .custom-search input {
   display: block !important;
   width: 100% !important;
@@ -1565,9 +1621,23 @@ div .rdt_Pagination div:first-of-type svg {
 
 .react-search-icon {
   left: 13px !important;
-  top: 15px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
   z-index: 99 !important;
+  bottom: auto !important;
   right: auto !important;
+  pointer-events: none !important;
+}
+
+@keyframes custom-search-dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .sweet-alert {

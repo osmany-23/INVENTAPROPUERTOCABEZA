@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import moment from "moment";
 import { connect, useDispatch } from "react-redux";
-import { fetchProductsByWarehouse } from "../../store/action/productAction";
 import { editAdjustment } from "../../store/action/adjustMentAction";
 import ProductSearch from "../../shared/components/product-cart/search/ProductSearch";
 import AdjustmentRowTable from "../../shared/components/adjustments/AdjustmentRowTable";
@@ -27,7 +26,6 @@ const AdjustmentForm = (props) => {
         singleAdjustMent,
         customProducts,
         products,
-        fetchProductsByWarehouse,
         fetchFrontSetting,
         frontSetting,
     } = props;
@@ -61,11 +59,6 @@ const AdjustmentForm = (props) => {
     useEffect(() => {
         fetchFrontSetting();
     }, []);
-
-    useEffect(() => {
-        adjustMentValue.warehouse_id.value &&
-            fetchProductsByWarehouse(adjustMentValue?.warehouse_id?.value);
-    }, [adjustMentValue.warehouse_id.value]);
 
     useEffect(() => {
         if (singleAdjustMent) {
@@ -220,6 +213,11 @@ const AdjustmentForm = (props) => {
                             isAllProducts={true}
                             setUpdateProducts={setUpdateProducts}
                             customProducts={customProducts}
+                            enableWarehouseFastSearch={true}
+                            fastSearchMinChars={1}
+                            fastSearchDebounceMs={250}
+                            fastSearchLimit={25}
+                            resultDisplayMode="code-name-dash"
                         />
                     </div>
                     <div className="custom-responsive">
@@ -262,6 +260,5 @@ const mapStateToProps = (state) => {
 
 export default connect(mapStateToProps, {
     editAdjustment,
-    fetchProductsByWarehouse,
     fetchFrontSetting,
 })(AdjustmentForm);

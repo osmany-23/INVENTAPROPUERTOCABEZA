@@ -22,6 +22,26 @@ const AdjustmentTableBody = (props) => {
         products,
     } = props;
 
+    const getAvailableStockQuantity = () => {
+        const productFromStore = Array.isArray(products)
+            ? products.find((product) => Number(product?.id) === Number(singleProduct?.id))
+            : null;
+        const storeStock = Number(productFromStore?.attributes?.stock?.quantity);
+        if (Number.isFinite(storeStock)) {
+            return storeStock;
+        }
+
+        if (Array.isArray(singleProduct?.stock)) {
+            const editStock = Number(singleProduct?.stock?.[0]?.quantity);
+            if (Number.isFinite(editStock)) {
+                return editStock;
+            }
+        }
+
+        const fallbackStock = Number(singleProduct?.stock);
+        return Number.isFinite(fallbackStock) ? fallbackStock : 0;
+    };
+
     const onDeleteCartItem = (id) => {
         const newProduct = updateProducts.filter((item) => item.id !== id);
         setUpdateProducts(newProduct);
@@ -42,15 +62,13 @@ const AdjustmentTableBody = (props) => {
         setUpdateProducts((updateProducts) =>
             updateProducts.map((item) => {
                 if (item.id === singleProduct.id) {
-                    const compareQty = products
-                        .filter((pro) => pro.id === singleProduct.id)
-                        .map((pro) => pro.attributes.stock.quantity);
+                    const compareQty = getAvailableStockQuantity();
                     return item.adjustMethod === 2
                         ? {
                               ...item,
                               quantity:
-                                  compareQty[0] < Number(e.target.value)
-                                      ? compareQty[0]
+                                  compareQty < Number(e.target.value)
+                                      ? compareQty
                                       : Number(e.target.value),
                           }
                         : { ...item, quantity: Number(e.target.value) };
@@ -65,9 +83,7 @@ const AdjustmentTableBody = (props) => {
         setUpdateProducts((updateProducts) =>
             updateProducts.map((item) => {
                 if (item.id === singleProduct.id) {
-                    const compareQty = products
-                        .filter((pro) => pro.id === singleProduct.id)
-                        .map((pro) => pro.attributes.stock.quantity)[0];
+                    const compareQty = getAvailableStockQuantity();
                     return {
                         ...item,
                         quantity:
@@ -106,16 +122,14 @@ const AdjustmentTableBody = (props) => {
         setUpdateProducts((updateProducts) =>
             updateProducts.map((item) => {
                 if (item.id === singleProduct.id) {
-                    const compareQty = products
-                        .filter((pro) => pro.id === singleProduct.id)
-                        .map((pro) => pro.attributes.stock.quantity);
+                    const compareQty = getAvailableStockQuantity();
                     return {
                         ...item,
                         quantity:
                             item.adjustMethod === 2
-                                ? compareQty[0] > item.quantity
+                                ? compareQty > item.quantity
                                     ? item.quantity++ + 0
-                                    : compareQty[0]
+                                    : compareQty
                                 : item.quantity++,
                     };
                 } else {

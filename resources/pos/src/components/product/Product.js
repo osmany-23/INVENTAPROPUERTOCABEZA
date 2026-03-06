@@ -6,10 +6,10 @@ import React, {
     useRef,
     useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { connect } from "react-redux";
 import moment from "moment";
 import { Image } from "react-bootstrap-v5";
-import { OverlayTrigger, Popover } from "react-bootstrap";
 import MasterLayout from "../MasterLayout";
 import { fetchAllMainProducts } from "../../store/action/productAction";
 import ReactDataTable from "../../shared/table/ReactDataTable";
@@ -29,8 +29,13 @@ import ImportProductModel from "./ImportProductModel";
 import { productExcelAction } from "../../store/action/productExcelAction";
 
 const PRODUCT_NOTE_PREVIEW_LIMIT = 50;
+const PRODUCT_NOTE_TOOLTIP_WIDTH = 320;
+const PRODUCT_NOTE_TOOLTIP_MAX_HEIGHT = 220;
+const PRODUCT_NOTE_TOOLTIP_OFFSET = 10;
+const PRODUCT_NOTE_TOOLTIP_HIDE_DELAY = 100;
+const PRODUCT_NOTE_TOOLTIP_UNMOUNT_DELAY = 160;
 const PRODUCT_NOTE_PREVIEW_STYLE = {
-    maxWidth: 280,
+    maxWidth: 300,
     lineHeight: "1.3rem",
     minHeight: "2.6rem",
     maxHeight: "2.6rem",
@@ -43,22 +48,37 @@ const PRODUCT_NOTE_PREVIEW_STYLE = {
     overflow: "hidden",
     textOverflow: "ellipsis",
 };
-const PRODUCT_NOTE_POPOVER_STYLE = {
-    "--bs-popover-max-width": "400px",
-    "--bs-popover-border-color": "rgba(101, 113, 255, 0.28)",
-    "--bs-popover-bg": "#ffffff",
-    "--bs-popover-body-color": "#4f566b",
-    borderRadius: "12px",
-    boxShadow:
-        "0 12px 28px rgba(101, 113, 255, 0.16), 0 2px 8px rgba(15, 23, 42, 0.08)",
-    transition: "opacity 160ms ease, transform 160ms ease",
+const PRODUCT_NOTE_PREVIEW_WRAPPER_STYLE = {
+    display: "inline-flex",
+    alignItems: "center",
+    maxWidth: "100%",
+    cursor: "pointer",
 };
-const PRODUCT_NOTE_POPOVER_BODY_STYLE = {
-    padding: "12px 14px",
+const PRODUCT_NOTE_TOOLTIP_STYLE = {
+    position: "fixed",
+    zIndex: 1100,
+    backgroundColor: "#ffffff",
     color: "#495057",
+    border: "1px solid rgba(101, 113, 255, 0.24)",
+    borderRadius: "12px",
+    padding: "10px 12px",
+    lineHeight: "1.35rem",
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
     overflowWrap: "anywhere",
+    maxHeight: PRODUCT_NOTE_TOOLTIP_MAX_HEIGHT,
+    overflowY: "auto",
+    scrollbarWidth: "thin",
+    boxShadow:
+        "0 10px 26px rgba(16, 24, 40, 0.12), 0 2px 8px rgba(16, 24, 40, 0.08)",
+    transition: "opacity 160ms ease, transform 160ms ease",
+    opacity: 0,
+    transform: "translateY(4px)",
+    pointerEvents: "auto",
+};
+const PRODUCT_NOTE_TOOLTIP_VISIBLE_STYLE = {
+    opacity: 1,
+    transform: "translateY(0)",
 };
 const PRODUCT_IMAGE_WRAPPER_STYLE = {
     width: 50,
@@ -118,6 +138,40 @@ const PRODUCT_NAME_TEXT_STYLE = {
     alignItems: "center",
     width: "100%",
 };
+const PRODUCT_IMAGE_URL_PROTOCOL_REGEX = /^[a-z][a-z\d+\-.]*:\/\//i;
+const PRODUCT_IMAGE_PATH_PREFIXES = ["//", "/", "data:", "blob:"];
+
+const isProductImagePathLike = (value) => {
+    const normalizedValue = String(value || "").trim().toLowerCase();
+    if (!normalizedValue) {
+        return false;
+    }
+
+    if (PRODUCT_IMAGE_URL_PROTOCOL_REGEX.test(normalizedValue)) {
+        return true;
+    }
+
+    return PRODUCT_IMAGE_PATH_PREFIXES.some((prefix) =>
+        normalizedValue.startsWith(prefix)
+    );
+};
+
+const shouldSplitProductImageValue = (value) => {
+    if (!value.includes(",")) {
+        return false;
+    }
+
+    const parts = value
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+    if (parts.length <= 1) {
+        return false;
+    }
+
+    return parts.every(isProductImagePathLike);
+};
 
 const ProductImageCell = memo(function ProductImageCell({
     imageUrl,
@@ -164,6 +218,18 @@ const ProductDescriptionCell = memo(function ProductDescriptionCell({
     rowId,
     description,
 }) {
+    const triggerRef = useRef(null);
+    const hideTimeoutRef = useRef(null);
+    const unmountTimeoutRef = useRef(null);
+    const animationFrameRef = useRef(null);
+    const [isTooltipMounted, setIsTooltipMounted] = useState(false);
+    const [isTooltipVisible, setIsTooltipVisible] = useState(false);
+    const [tooltipPosition, setTooltipPosition] = useState({
+        top: 0,
+        left: 0,
+        width: PRODUCT_NOTE_TOOLTIP_WIDTH,
+    });
+
     const fullDescription = useMemo(() => {
         if (description === null || description === undefined) {
             return "";
@@ -190,41 +256,157 @@ const ProductDescriptionCell = memo(function ProductDescriptionCell({
         };
     }, [fullDescription]);
 
+    const clearTooltipTimers = useCallback(() => {
+        if (hideTimeoutRef.current) {
+            clearTimeout(hideTimeoutRef.current);
+            hideTimeoutRef.current = null;
+        }
+
+        if (unmountTimeoutRef.current) {
+            clearTimeout(unmountTimeoutRef.current);
+            unmountTimeoutRef.current = null;
+        }
+
+        if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+            animationFrameRef.current = null;
+        }
+    }, []);
+
+    const updateTooltipPosition = useCallback(() => {
+        if (!triggerRef.current || typeof window === "undefined") {
+            return;
+        }
+
+        const rect = triggerRef.current.getBoundingClientRect();
+        const viewportPadding = 8;
+        const tooltipWidth = Math.min(
+            PRODUCT_NOTE_TOOLTIP_WIDTH,
+            Math.max(220, window.innerWidth - viewportPadding * 2)
+        );
+
+        let left = rect.left;
+        if (left + tooltipWidth > window.innerWidth - viewportPadding) {
+            left = window.innerWidth - tooltipWidth - viewportPadding;
+        }
+        left = Math.max(viewportPadding, left);
+
+        let top = rect.bottom + PRODUCT_NOTE_TOOLTIP_OFFSET;
+        const estimatedHeight = PRODUCT_NOTE_TOOLTIP_MAX_HEIGHT + 24;
+        if (top + estimatedHeight > window.innerHeight - viewportPadding) {
+            top = Math.max(
+                viewportPadding,
+                rect.top - estimatedHeight - PRODUCT_NOTE_TOOLTIP_OFFSET
+            );
+        }
+
+        setTooltipPosition((previousPosition) => {
+            if (
+                previousPosition.top === top &&
+                previousPosition.left === left &&
+                previousPosition.width === tooltipWidth
+            ) {
+                return previousPosition;
+            }
+
+            return { top, left, width: tooltipWidth };
+        });
+    }, []);
+
+    const showTooltip = useCallback(() => {
+        if (!isTruncated) {
+            return;
+        }
+
+        clearTooltipTimers();
+        updateTooltipPosition();
+        setIsTooltipMounted(true);
+        animationFrameRef.current = requestAnimationFrame(() => {
+            setIsTooltipVisible(true);
+        });
+    }, [clearTooltipTimers, isTruncated, updateTooltipPosition]);
+
+    const hideTooltip = useCallback(() => {
+        clearTooltipTimers();
+        hideTimeoutRef.current = setTimeout(() => {
+            setIsTooltipVisible(false);
+            unmountTimeoutRef.current = setTimeout(() => {
+                setIsTooltipMounted(false);
+            }, PRODUCT_NOTE_TOOLTIP_UNMOUNT_DELAY);
+        }, PRODUCT_NOTE_TOOLTIP_HIDE_DELAY);
+    }, [clearTooltipTimers]);
+
+    useEffect(() => {
+        if (!isTooltipMounted) {
+            return undefined;
+        }
+
+        const handlePositionUpdate = () => {
+            updateTooltipPosition();
+        };
+
+        window.addEventListener("scroll", handlePositionUpdate, true);
+        window.addEventListener("resize", handlePositionUpdate);
+
+        return () => {
+            window.removeEventListener("scroll", handlePositionUpdate, true);
+            window.removeEventListener("resize", handlePositionUpdate);
+        };
+    }, [isTooltipMounted, updateTooltipPosition]);
+
+    useEffect(() => {
+        return () => {
+            clearTooltipTimers();
+        };
+    }, [clearTooltipTimers]);
+
     const descriptionPreview = (
-        <span style={PRODUCT_NOTE_PREVIEW_STYLE}>{displayDescription}</span>
+        <span
+            ref={triggerRef}
+            style={PRODUCT_NOTE_PREVIEW_WRAPPER_STYLE}
+            onMouseEnter={showTooltip}
+            onMouseLeave={hideTooltip}
+            onFocus={showTooltip}
+            onBlur={hideTooltip}
+            tabIndex={isTruncated ? 0 : -1}
+        >
+            <span style={PRODUCT_NOTE_PREVIEW_STYLE}>{displayDescription}</span>
+        </span>
     );
 
     if (!isTruncated) {
         return descriptionPreview;
     }
 
+    const tooltipPortal =
+        isTooltipMounted && typeof document !== "undefined"
+            ? createPortal(
+                  <div
+                      role="tooltip"
+                      id={`product-note-popover-${rowId}`}
+                      onMouseEnter={showTooltip}
+                      onMouseLeave={hideTooltip}
+                      style={{
+                          ...PRODUCT_NOTE_TOOLTIP_STYLE,
+                          ...(isTooltipVisible
+                              ? PRODUCT_NOTE_TOOLTIP_VISIBLE_STYLE
+                              : null),
+                          top: tooltipPosition.top,
+                          left: tooltipPosition.left,
+                          width: tooltipPosition.width,
+                      }}
+                  >
+                      {fullDescription}
+                  </div>,
+                  document.body
+              )
+            : null;
+
     return (
-        <OverlayTrigger
-            trigger={["hover", "focus"]}
-            placement="auto"
-            delay={{ show: 180, hide: 100 }}
-            popperConfig={{
-                modifiers: [
-                    { name: "offset", options: { offset: [0, 10] } },
-                    {
-                        name: "preventOverflow",
-                        options: { boundary: "viewport", padding: 8 },
-                    },
-                ],
-            }}
-            overlay={
-                <Popover
-                    id={`product-note-popover-${rowId}`}
-                    style={PRODUCT_NOTE_POPOVER_STYLE}
-                >
-                    <Popover.Body style={PRODUCT_NOTE_POPOVER_BODY_STYLE}>
-                        {fullDescription}
-                    </Popover.Body>
-                </Popover>
-            }
-        >
+        <>
             {descriptionPreview}
-        </OverlayTrigger>
+            {tooltipPortal}
+        </>
     );
 });
 
@@ -344,7 +526,7 @@ const Product = (props) => {
                     }
                 }
 
-                if (normalizedValue.includes(",")) {
+                if (shouldSplitProductImageValue(normalizedValue)) {
                     return normalizedValue
                         .split(",")
                         .map((image) => image.trim())

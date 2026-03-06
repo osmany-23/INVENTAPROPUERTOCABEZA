@@ -1,10 +1,7 @@
 .custom-search {
     font-family: Poppins, Helvetica, "sans-serif";
-
-    &:nth-child(1) {
-        position: relative !important;
-        height: 46px !important;
-    }
+    position: relative !important;
+    min-height: 46px !important;
 
     .wrapper {
         z-index: 11 !important;
@@ -25,6 +22,10 @@
             background: $white !important;
             border: 1px solid #ced4da !important;
             border-radius: 0.475rem !important;
+            max-height: 18rem !important;
+            overflow-y: auto !important;
+            animation: custom-search-dropdown-in 0.18s ease !important;
+            transform-origin: top center !important;
 
             > .line {
                 display: none !important;
@@ -38,11 +39,18 @@
 
             ul {
                 padding-bottom: 0 !important;
+                margin: 0 !important;
+                padding-left: 0 !important;
+                list-style: none !important;
                 font-family: Poppins, Helvetica, "sans-serif" !important;
 
                 li {
                     position: relative !important;
                     padding: 0.688rem 0.938rem !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    transition: background-color 0.18s ease, color 0.18s ease !important;
+                    cursor: pointer !important;
 
                     &:before {
                         content: "\f002" !important;
@@ -56,6 +64,52 @@
                         line-height: 1 !important;
                         color: #6C757D !important;
                     }
+
+                    &:hover {
+                        background-color: #E6F7FF !important;
+
+                        &:before {
+                            color: #212529 !important;
+                        }
+
+                        .search-result-row,
+                        .search-result-code,
+                        .search-result-separator,
+                        .search-result-name {
+                            color: #212529 !important;
+                        }
+                    }
+                }
+            }
+
+            .custom-search-status {
+                padding: 0.688rem 0.938rem !important;
+                color: #6C757D !important;
+                font-size: 0.875rem !important;
+            }
+
+            .search-result-row {
+                display: flex !important;
+                align-items: center !important;
+                width: calc(100% - 16px) !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                color: #6C757D !important;
+
+                .search-result-code {
+                    color: #495057 !important;
+                    font-weight: 600 !important;
+                }
+
+                .search-result-separator {
+                    color: #ADB5BD !important;
+                }
+
+                .search-result-name {
+                    color: #6C757D !important;
+                    overflow: hidden !important;
+                    text-overflow: ellipsis !important;
                 }
             }
 
@@ -89,6 +143,34 @@
                 &:before, .ellipsis span {
                     color: $white !important;
                 }
+
+                .search-result-row,
+                .search-result-code,
+                .search-result-separator,
+                .search-result-name {
+                    color: $white !important;
+                }
+            }
+        }
+    }
+
+    &.custom-search-fast {
+        .wrapper {
+            div:nth-child(2) {
+                .selected {
+                    background-color: #E6F7FF !important;
+
+                    &:before, .ellipsis span {
+                        color: #212529 !important;
+                    }
+
+                    .search-result-row,
+                    .search-result-code,
+                    .search-result-separator,
+                    .search-result-name {
+                        color: #212529 !important;
+                    }
+                }
             }
         }
     }
@@ -118,7 +200,21 @@
 
 .react-search-icon {
     left: 13px !important;
-    top: 15px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
     z-index: 99 !important;
+    bottom: auto !important;
     right: auto !important;
+    pointer-events: none !important;
+}
+
+@keyframes custom-search-dropdown-in {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }

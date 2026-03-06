@@ -1,13 +1,31 @@
-import React, {useEffect, useState} from 'react';
-import {Modal, Button} from 'react-bootstrap';
-import {Form, InputGroup} from 'react-bootstrap-v5';
-import Select from 'react-select';
-import {connect} from 'react-redux';
-import {decimalValidate, getFormattedMessage, placeholderText, getFormattedOptions} from '../../shared/sharedMethod';
-import {productUnitDropdown} from '../../store/action/productUnitAction';
-import ReactSelect from '../../shared/select/reactSelect';
-import {calculateProductCost} from './SharedMethod';
-import { taxMethodOptions, discountMethodOptions } from '../../constants';
+import React, { useEffect, useMemo, useState } from "react";
+import { Modal, Button } from "react-bootstrap";
+import { Form, InputGroup } from "react-bootstrap-v5";
+import Select from "react-select";
+import { connect } from "react-redux";
+import {
+    decimalValidate,
+    getFormattedMessage,
+    placeholderText,
+    getFormattedOptions,
+} from "../../shared/sharedMethod";
+import { productUnitDropdown } from "../../store/action/productUnitAction";
+import ReactSelect from "../../shared/select/reactSelect";
+import { calculateProductCost } from "./SharedMethod";
+import { taxMethodOptions, discountMethodOptions } from "../../constants";
+
+const parseNumber = (value, fallback = 0) => {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue : fallback;
+};
+
+const keepTwoDecimals = (value) => {
+    if (value === "") {
+        return "";
+    }
+
+    return parseNumber(value, 0).toFixed(2);
+};
 
 const ProductDetailsModel = (props) => {
     const {
@@ -20,283 +38,402 @@ const ProductDetailsModel = (props) => {
         canEditPosSalePrice = true,
         productUnitDropdown,
         productUnits,
-        frontSetting
+        frontSetting,
     } = props;
 
     const [product, setProduct] = useState(cartProduct);
-    const [unitPrice, setUnitPrice] = useState(0);
+    const [unitPrice, setUnitPrice] = useState("0.00");
     const [saleUnitType, setSaleUnitType] = useState(null);
-    const [discount, setDiscount] = useState('0.00');
-    const [orderTax, setOrderTax] = useState(Number(product.tax_value));
+    const [discount, setDiscount] = useState("0.00");
+    const [orderTax, setOrderTax] = useState("0.00");
+    const [taxType, setTaxType] = useState({
+        value: 1,
+        label: getFormattedMessage("tax-type.filter.exclusive.label"),
+    });
+    const [discountType, setDiscountType] = useState({
+        value: 1,
+        label: getFormattedMessage("discount-type.filter.percentage.label"),
+    });
     const [errors, setErrors] = useState({
-        product_cost: '',
-        discount: '',
-        orderTax: ''
+        product_cost: "",
+        discount: "",
+        orderTax: "",
     });
 
-    const saleUnitsOption = productUnits && productUnits.length && productUnits.map((productUnit) => {
-        return {value: productUnit.id, label: productUnit.attributes.name}
-    });
+    const taxTypeFilterOptions = getFormattedOptions(taxMethodOptions);
+    const discountTypeFilterOptions = getFormattedOptions(
+        discountMethodOptions
+    );
+
+    const saleUnitsOption = useMemo(() => {
+        if (!Array.isArray(productUnits)) {
+            return [];
+        }
+
+        return productUnits.map((productUnit) => ({
+            value: productUnit.id,
+            label: productUnit.attributes.name,
+        }));
+    }, [productUnits]);
+
+    const getSaleUnitOption = (saleUnitValue) => {
+        if (saleUnitValue === null || saleUnitValue === undefined) {
+            return null;
+        }
+
+        return (
+            saleUnitsOption.find(
+                (option) => Number(option.value) === Number(saleUnitValue)
+            ) || null
+        );
+    };
+
+    useEffect(() => {
+        if (!cartProduct) {
+            return;
+        }
+
+        setProduct(cartProduct);
+        setUnitPrice(
+            keepTwoDecimals(
+                cartProduct.product_price ?? cartProduct.net_unit_cost ?? 0
+            )
+        );
+        setDiscount(keepTwoDecimals(cartProduct.discount_value ?? 0));
+        setOrderTax(keepTwoDecimals(cartProduct.tax_value ?? 0));
+        setTaxType(
+            Number(cartProduct.tax_type) === 2
+                ? {
+                      value: 2,
+                      label: getFormattedMessage(
+                          "tax-type.filter.inclusive.label"
+                      ),
+                  }
+                : {
+                      value: 1,
+                      label: getFormattedMessage(
+                          "tax-type.filter.exclusive.label"
+                      ),
+                  }
+        );
+        setDiscountType(
+            Number(cartProduct.discount_type) === 2
+                ? {
+                      value: 2,
+                      label: getFormattedMessage(
+                          "discount-type.filter.fixed.label"
+                      ),
+                  }
+                : {
+                      value: 1,
+                      label: getFormattedMessage(
+                          "discount-type.filter.percentage.label"
+                      ),
+                  }
+        );
+        setErrors({
+            product_cost: "",
+            discount: "",
+            orderTax: "",
+        });
+    }, [cartProduct]);
+
+    useEffect(() => {
+        if (!cartProduct) {
+            return;
+        }
+
+        const selectedSaleUnit =
+            cartProduct.sale_unit?.value ?? cartProduct.sale_unit;
+        setSaleUnitType(getSaleUnitOption(selectedSaleUnit));
+    }, [cartProduct, saleUnitsOption]);
+
+    useEffect(() => {
+        if (cartProduct?.product_unit) {
+            productUnitDropdown(cartProduct.product_unit);
+        }
+    }, [cartProduct?.product_unit, productUnitDropdown]);
+
     if (!cartProduct) {
-        return ''
+        return null;
     }
 
     if (!canEditPosSalePrice) {
         return null;
     }
 
-    useEffect(() => {
-        setSaleUnitType(productUnits && productUnits.length && productUnits.filter((item) =>
-            Number(item.id) === Number(product.sale_unit && product.sale_unit.value ? product.sale_unit.value : product.sale_unit)).map((item) => {
-            return ({
-                label: item.attributes.name,
-                value: item.id
-            })
-        }))
-    }, [productUnits]);
-
-    useEffect(() => {
-        productUnitDropdown(product.product_unit);
-    }, []);
-
-    useEffect(() => {
-        setProduct(cartProduct);
-        setUnitPrice(product.product_price && parseFloat(product.product_price).toFixed(2));
-        setDiscount(product.discount_value ? (product.discount_value).toFixed(2) : discount);
-        setOrderTax(parseFloat(Number(product.tax_value)).toFixed(2));
-        setTaxType(product.tax_type === 1 || product.tax_type === '1' ? {
-            value: 1, label:  getFormattedMessage("tax-type.filter.exclusive.label")
-        } : {
-            value: 2, label: getFormattedMessage("tax-type.filter.inclusive.label")
-        } || product.tax_type === 2 || product.tax_type === '2' ? {
-            value: 2, label: getFormattedMessage("tax-type.filter.inclusive.label")
-        } : {value: 1,  label: getFormattedMessage("tax-type.filter.exclusive.label")});
-
-        setDiscountType(product.discount_type === 1 ? {
-            value: 1, label: getFormattedMessage("discount-type.filter.percentage.label")
-        } : {value: 2, label: getFormattedMessage("discount-type.filter.fixed.label")} || product.discount_type === 2 ? {
-            value: 2, label: getFormattedMessage("discount-type.filter.fixed.label")
-        } : {value: 1, label: getFormattedMessage("discount-type.filter.percentage.label")});
-    }, [cartProduct]);
-
     const handleValidation = () => {
-        let errorss = {};
+        const validationErrors = {};
+        const numericUnitPrice = parseNumber(unitPrice, NaN);
+        const numericDiscount = parseNumber(discount, 0);
+        const numericTax = parseNumber(orderTax, 0);
+
         let isValid = false;
-        if (!unitPrice) {
-            errorss['product_cost'] = 'Please enter price';
-        } else if (discountType.value === 1 && discount > 100) {
-            errorss['discount'] = 'The Discount must not be greater than 100';
-        } else if (discountType.value === 2 && discount > Number(unitPrice)) {
-            errorss['discount'] = 'The Discount must not be greater than product price';
-        } else if (taxType.value === '1' && Number(orderTax) > 100) {
-            errorss['orderTax'] = 'The Tax must not be greater than 100';
+
+        if (!Number.isFinite(numericUnitPrice) || numericUnitPrice < 0) {
+            validationErrors.product_cost = "Please enter price";
+        } else if (
+            Number(discountType.value) === 1 &&
+            (numericDiscount < 0 || numericDiscount > 100)
+        ) {
+            validationErrors.discount =
+                "The Discount must not be greater than 100";
+        } else if (
+            Number(discountType.value) === 2 &&
+            (numericDiscount < 0 || numericDiscount > numericUnitPrice)
+        ) {
+            validationErrors.discount =
+                "The Discount must not be greater than product price";
+        } else if (numericTax < 0 || numericTax > 100) {
+            validationErrors.orderTax = "The Tax must not be greater than 100";
         } else {
             isValid = true;
         }
-        setErrors(errorss);
+
+        setErrors(validationErrors);
         return isValid;
     };
 
-    const onChangeUnitPrice = (e) => {
-        const {value} = e.target;
-        // check if value includes a decimal point
+    const onNumericInputChange = (setter) => (event) => {
+        const { value } = event.target;
         if (value.match(/\./g)) {
-            const [, decimal] = value.split('.');
-            // restrict value to only 2 decimal places
-            if (decimal?.length > 2) {
-                // do nothing
-                return;
-            }
-        }
-        setUnitPrice(e.target.value);
-    };
-
-    //onChange tax field
-    const onChangeTax = (e) => {
-        const {value} = e.target;
-        // check if value includes a decimal point
-        if (value.match(/\./g)) {
-            const [, decimal] = value.split('.');
-            // restrict value to only 2 decimal places
-            if (decimal?.length > 2) {
-                // do nothing
-                return;
-            }
-        }
-        setOrderTax(Number(value));
-    };
-
-    // tax type dropdown functionality
-    const taxTypeFilterOptions = getFormattedOptions(taxMethodOptions)
-    const [taxType, setTaxType] = useState(product.tax_type === 1 ? {
-        value: 1, label: getFormattedMessage("tax-type.filter.exclusive.label")
-    } : {
-        value: 2, label: getFormattedMessage("tax-type.filter.inclusive.label")
-    } || product.tax_type === 2 ? {
-        value: 2, label: getFormattedMessage("tax-type.filter.inclusive.label")
-    } : {
-        value: 1, label: getFormattedMessage("tax-type.filter.exclusive.label")
-    });
-    const onTaxTypeChange = (obj) => {
-        setTaxType(obj);
-    };
-
-    // discount type dropdown functionality
-    const discountTypeFilterOptions = getFormattedOptions(discountMethodOptions)
-    const [discountType, setDiscountType] = useState(product.discount_type === 1 ? {
-        value: 1, label: getFormattedMessage("discount-type.filter.percentage.label")
-    } : {value: 2, label: getFormattedMessage("discount-type.filter.fixed.label")} || product.discount_type === 2 ? {value: 2, label: getFormattedMessage("discount-type.filter.fixed.label")} : {
-        value: 1, label: getFormattedMessage("discount-type.filter.percentage.label")
-    });
-    const onDiscountTypeChange = (obj) => {
-        setDiscountType(obj);
-    };
-
-    const onChangeSaleUnitType = (obj) => {
-        setSaleUnitType(obj);
-    };
-
-    //onChange discount field
-    const onChangeDiscount = (e) => {
-        const {value} = e.target;
-        // check if value includes a decimal point
-        if (value.match(/\./g)) {
-            const [, decimal] = value.split('.');
-            // restrict value to only 2 decimal places
+            const [, decimal] = value.split(".");
             if (decimal?.length > 2) {
                 return;
             }
         }
-        setDiscount(value);
+
+        setter(value);
     };
 
-    //discount amount function
-    const discountAmount = (totalCost) => {
-        let dis = 0;
-        if (discount > 0 && discountType.value === '2' || discountType.value === 2) {
-            dis = Number(discount)
-        } else if (discount > 0 && discountType.value === '1' || discountType.value === 1) {
-            const percentDiscount = discountType.value === '1' || discountType.value === 1 ? parseFloat(totalCost).toFixed(2) * Number(discount) / Number(100) : 0;
-            dis = +percentDiscount;
+    const calculateDiscountAmount = (basePrice, discountValue, type) => {
+        const numericDiscountValue = parseNumber(discountValue, 0);
+        const numericBasePrice = parseNumber(basePrice, 0);
+
+        if (numericDiscountValue <= 0) {
+            return 0;
         }
-        return dis;
-    };
 
-    //tax amount function
-    const taxAmount = (totalCost) => {
-        const total = totalCost - discountAmount(product.product_price)
-        let tax = 0;
-        if (orderTax > 0 && taxType.value === '2' || taxType.value === 2) {
-            tax = +totalCost
-        } else if (orderTax > 0 && taxType.value === '1' || taxType.value === 1) {
-            let exclusiveTax = taxType.value === '1' || taxType.value === 1 ? parseFloat(total).toFixed(2) * Number(orderTax) / Number(100) : 0;
-            tax = +exclusiveTax;
+        if (Number(type) === 2) {
+            return numericDiscountValue;
         }
-        return tax;
+
+        return (numericBasePrice * numericDiscountValue) / 100;
     };
 
-    //product details save button function
+    const calculateTaxAmount = (basePriceAfterDiscount, taxValue, type) => {
+        const numericTaxValue = parseNumber(taxValue, 0);
+        const numericBasePrice = parseNumber(basePriceAfterDiscount, 0);
+
+        if (numericTaxValue <= 0 || Number(type) !== 1) {
+            return 0;
+        }
+
+        return (numericBasePrice * numericTaxValue) / 100;
+    };
+
     const onSaveDetailModal = () => {
-        const newProduct = { ...product };
-        const Valid = handleValidation();
-        if (Valid) {
-            if (productModelId === product.id) {
-                newProduct.net_unit_cost = calculateProductCost(product);
-                newProduct.product_price = Number(unitPrice);
-                newProduct.discount_amount = discountAmount(product.product_price);
-                newProduct.discount_value = Number(discount);
-                newProduct.discount_type = (discountType.value);
-                newProduct.tax_amount = taxAmount(Number(product.product_price));
-                newProduct.tax_value = Number(orderTax);
-                newProduct.tax_type = Number(taxType.value);
-                newProduct.sale_unit = saleUnitType[0] ? saleUnitType[0].value : saleUnitType || saleUnitType ? saleUnitType.value : saleUnitType;
-                onProductUpdateInCart(newProduct);
-            }
-            if (typeof updateCost === "function") {
-                updateCost(newProduct.net_unit_cost = calculateProductCost(unitPrice));
-            }
-            openProductDetailModal(false);
+        const isValid = handleValidation();
+        if (!isValid) {
+            return;
         }
+
+        if (Number(productModelId) !== Number(product.id)) {
+            return;
+        }
+
+        const nextUnitPrice = parseNumber(unitPrice, 0);
+        const nextDiscountValue = parseNumber(discount, 0);
+        const nextTaxValue = parseNumber(orderTax, 0);
+        const nextDiscountType = Number(discountType.value);
+        const nextTaxType = Number(taxType.value);
+
+        const discountAmount = calculateDiscountAmount(
+            nextUnitPrice,
+            nextDiscountValue,
+            nextDiscountType
+        );
+        const basePriceAfterDiscount = Math.max(0, nextUnitPrice - discountAmount);
+        const taxAmount = calculateTaxAmount(
+            basePriceAfterDiscount,
+            nextTaxValue,
+            nextTaxType
+        );
+
+        const updatedProduct = {
+            ...product,
+            net_unit_cost: nextUnitPrice,
+            product_price: nextUnitPrice,
+            discount_value: nextDiscountValue,
+            discount_type: nextDiscountType,
+            discount_amount: discountAmount,
+            tax_value: nextTaxValue,
+            tax_type: nextTaxType,
+            tax_amount: taxAmount,
+            sale_unit: saleUnitType?.value ?? product.sale_unit,
+        };
+
+        updatedProduct.sub_total =
+            calculateProductCost(updatedProduct) *
+            parseNumber(updatedProduct.quantity, 0);
+
+        onProductUpdateInCart(updatedProduct);
+
+        if (typeof updateCost === "function") {
+            updateCost(updatedProduct.net_unit_cost);
+        }
+
+        openProductDetailModal(false);
     };
 
     return (
-        <Modal show={isOpenCartItemUpdateModel} onHide={() => openProductDetailModal(false)} className="pos-modal">
+        <Modal
+            show={isOpenCartItemUpdateModel}
+            onHide={() => openProductDetailModal(false)}
+            className="pos-modal"
+        >
             <Modal.Header closeButton>
                 <Modal.Title className="text-capitalize">{product.name}</Modal.Title>
             </Modal.Header>
             <Modal.Body>
                 <Form>
-                    <div className='col-12'>
-                        <Form.Group className='col-md-12 mb-3' controlId='formBasicProductCost'>
-                            <Form.Label>{getFormattedMessage('product.input.product-price.label')}: </Form.Label>
+                    <div className="col-12">
+                        <Form.Group
+                            className="col-md-12 mb-3"
+                            controlId="formBasicProductCost"
+                        >
+                            <Form.Label>
+                                {getFormattedMessage("product.input.product-price.label")}:
+                            </Form.Label>
                             <InputGroup>
-                                <Form.Control type='text' name='product_cost' min='0' step='.01' placeholder='0.00'
-                                              onKeyPress={(event) => decimalValidate(event)}
-                                              className='form-control-solid' value={unitPrice}
-                                              onChange={(e) => onChangeUnitPrice(e)}
+                                <Form.Control
+                                    type="text"
+                                    name="product_cost"
+                                    min="0"
+                                    step=".01"
+                                    placeholder="0.00"
+                                    onKeyPress={(event) => decimalValidate(event)}
+                                    className="form-control-solid"
+                                    value={unitPrice}
+                                    onChange={onNumericInputChange(setUnitPrice)}
                                 />
-                                <InputGroup.Text>{frontSetting.value && frontSetting.value.currency_symbol}</InputGroup.Text>
+                                <InputGroup.Text>
+                                    {frontSetting.value &&
+                                        frontSetting.value.currency_symbol}
+                                </InputGroup.Text>
                             </InputGroup>
+                            <span className="text-danger">
+                                {errors.product_cost || null}
+                            </span>
                         </Form.Group>
-                        <div className='col-md-12 mb-3'>
-                            <ReactSelect  title={getFormattedMessage('product.input.tax-type.label')}
-                                    multiLanguageOption={taxTypeFilterOptions} onChange={onTaxTypeChange} errors={''}
-                                     defaultValue={Number(taxType)}
-                                     placeholder={placeholderText("product.input.tax-type.placeholder.label")}
-                        />
-                        </div>
-
-                        <Form.Group className='col-md-12 mb-3' controlId='formBasicOrderTax'>
-                            <Form.Label>{getFormattedMessage("product.product-details.tax.label")}: </Form.Label>
-                            <InputGroup>
-                                <Form.Control type='text' name='orderTax' className='form-control-solid'
-                                              onKeyPress={(event) => decimalValidate(event)}
-                                              onChange={onChangeTax}  value={orderTax ? orderTax === 'NaN' ? 0.00 : orderTax : 0.00}/>
-                                <InputGroup.Text>%</InputGroup.Text>
-                            </InputGroup>
-                            <span className='text-danger'>{errors['orderTax'] ? errors['orderTax'] : null}</span>
-                        </Form.Group>
-                        <div className='col-md-12 mb-3'>
-                            <ReactSelect  title={getFormattedMessage('purchase.product-modal.select.discount-type.label')}
-                                    multiLanguageOption={discountTypeFilterOptions} onChange={onDiscountTypeChange} errors={''}
-                                    defaultValue={discountType}
-                                    placeholder={placeholderText("pos-sale.select.discount-type.placeholder")}
+                        <div className="col-md-12 mb-3">
+                            <ReactSelect
+                                title={getFormattedMessage("product.input.tax-type.label")}
+                                multiLanguageOption={taxTypeFilterOptions}
+                                onChange={setTaxType}
+                                errors=""
+                                value={taxType}
+                                placeholder={placeholderText(
+                                    "product.input.tax-type.placeholder.label"
+                                )}
                             />
                         </div>
-                        <Form.Group className='col-md-12 mb-3' controlId='formBasicDiscount'>
-                            <Form.Label>{getFormattedMessage('globally.detail.discount')}: </Form.Label>
-                            <Form.Control type='text' name='discount' min='0'
-                                          onKeyPress={(event) => decimalValidate(event)}
-                                          className='form-control-solid' max='100'
-                                          onChange={onChangeDiscount} value={discount ? discount : ''}/>
-                            <span
-                                className='text-danger'>{errors['discount'] ? errors['discount'] : null}</span>
+                        <Form.Group
+                            className="col-md-12 mb-3"
+                            controlId="formBasicOrderTax"
+                        >
+                            <Form.Label>
+                                {getFormattedMessage("product.product-details.tax.label")}:
+                            </Form.Label>
+                            <InputGroup>
+                                <Form.Control
+                                    type="text"
+                                    name="orderTax"
+                                    className="form-control-solid"
+                                    onKeyPress={(event) => decimalValidate(event)}
+                                    onChange={onNumericInputChange(setOrderTax)}
+                                    value={orderTax}
+                                />
+                                <InputGroup.Text>%</InputGroup.Text>
+                            </InputGroup>
+                            <span className="text-danger">
+                                {errors.orderTax || null}
+                            </span>
                         </Form.Group>
-                        <Form.Group className='col-md-12' controlId='formBasicUnit'>
-                            <Form.Label>{getFormattedMessage('product.input.sale-unit.label')}: </Form.Label>
-                            <Select name='sale_unit' placeholder={placeholderText('pos-sale.select.sale-unit-type.placeholder')} value={saleUnitType}
-                                    onChange={onChangeSaleUnitType} options={saleUnitsOption} noOptionsMessage={() => getFormattedMessage('no-option.label')}
+                        <div className="col-md-12 mb-3">
+                            <ReactSelect
+                                title={getFormattedMessage(
+                                    "purchase.product-modal.select.discount-type.label"
+                                )}
+                                multiLanguageOption={discountTypeFilterOptions}
+                                onChange={setDiscountType}
+                                errors=""
+                                value={discountType}
+                                placeholder={placeholderText(
+                                    "pos-sale.select.discount-type.placeholder"
+                                )}
+                            />
+                        </div>
+                        <Form.Group
+                            className="col-md-12 mb-3"
+                            controlId="formBasicDiscount"
+                        >
+                            <Form.Label>
+                                {getFormattedMessage("globally.detail.discount")}:
+                            </Form.Label>
+                            <Form.Control
+                                type="text"
+                                name="discount"
+                                min="0"
+                                onKeyPress={(event) => decimalValidate(event)}
+                                className="form-control-solid"
+                                max="100"
+                                onChange={onNumericInputChange(setDiscount)}
+                                value={discount}
+                            />
+                            <span className="text-danger">{errors.discount || null}</span>
+                        </Form.Group>
+                        <Form.Group className="col-md-12" controlId="formBasicUnit">
+                            <Form.Label>
+                                {getFormattedMessage("product.input.sale-unit.label")}:
+                            </Form.Label>
+                            <Select
+                                name="sale_unit"
+                                placeholder={placeholderText(
+                                    "pos-sale.select.sale-unit-type.placeholder"
+                                )}
+                                value={saleUnitType}
+                                onChange={setSaleUnitType}
+                                options={saleUnitsOption}
+                                noOptionsMessage={() =>
+                                    getFormattedMessage("no-option.label")
+                                }
                             />
                         </Form.Group>
                     </div>
                 </Form>
             </Modal.Body>
             <Modal.Footer className="pt-0">
-                <Button variant='primary' onClick={() => onSaveDetailModal()}>
+                <Button variant="primary" onClick={onSaveDetailModal}>
                     {getFormattedMessage("globally.save-btn")}
                 </Button>
-                <Button variant='secondary' className='me-0'
-                        onClick={() => openProductDetailModal(false)}>
-                    {getFormattedMessage('globally.cancel-btn')}
+                <Button
+                    variant="secondary"
+                    className="me-0"
+                    onClick={() => openProductDetailModal(false)}
+                >
+                    {getFormattedMessage("globally.cancel-btn")}
                 </Button>
             </Modal.Footer>
         </Modal>
-    )
+    );
 };
 
 const mapStateToProps = (state) => {
-    const {productUnits} = state;
-    return {productUnits}
+    const { productUnits } = state;
+    return { productUnits };
 };
 
-export default connect(mapStateToProps, {productUnitDropdown})(ProductDetailsModel);
+export default connect(mapStateToProps, { productUnitDropdown })(
+    ProductDetailsModel
+);

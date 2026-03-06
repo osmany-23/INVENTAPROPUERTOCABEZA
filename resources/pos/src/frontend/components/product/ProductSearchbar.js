@@ -11,6 +11,7 @@ import { getFormattedMessage, placeholderText } from "../../../shared/sharedMeth
 
 const SEARCH_DEBOUNCE_MS = 250;
 const MAX_SUGGESTIONS = 15;
+const AUTO_ADD_EXACT_CODE_DELAY_MS = 120;
 
 const normalize = (value) => (value || "").toString().trim().toUpperCase();
 
@@ -122,6 +123,21 @@ const ProductSearchbar = ({
         return true;
     }, [addProductAndResetInput, posAllProducts, searchString]);
 
+    useEffect(() => {
+        const term = normalize(searchString);
+        if (!term) {
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            tryAddExactMatch();
+        }, AUTO_ADD_EXACT_CODE_DELAY_MS);
+
+        return () => {
+            clearTimeout(timer);
+        };
+    }, [searchString, tryAddExactMatch]);
+
     const handleInputChange = useCallback((event) => {
         setSearchString(event.target.value);
         setIsOpen(true);
@@ -210,8 +226,10 @@ const ProductSearchbar = ({
                                     className={index === activeIndex ? "selected" : ""}
                                     onMouseDown={() => handleSelectSuggestion(item)}
                                 >
-                                    <span className="ellipsis">
-                                        {item.code} ({item.name})
+                                    <span className="ellipsis search-result-row">
+                                        <span className="search-result-code">{item.code}</span>
+                                        <span className="search-result-separator"> - </span>
+                                        <span className="search-result-name">{item.name}</span>
                                     </span>
                                 </li>
                             ))}
@@ -230,7 +248,7 @@ const ProductSearchbar = ({
                     </div>
                 )}
             </div>
-            <i className="bi bi-search fs-2 react-search-icon position-absolute top-0 bottom-0 d-flex align-items-center ms-2" />
+            <i className="bi bi-search fs-2 react-search-icon position-absolute" />
         </Col>
     );
 };

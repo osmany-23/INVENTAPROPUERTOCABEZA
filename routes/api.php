@@ -120,6 +120,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // products route
 
     Route::get('products/pos-feed', [ProductAPIController::class, 'posFeed']);
+    Route::get('products/adjustment-fast-search', [ProductAPIController::class, 'adjustmentFastSearch']);
     Route::get('main-products-fast', [MainProductAPIController::class, 'fastList']);
     Route::resource('products', ProductAPIController::class);
     Route::post('products/{product}/quick-price-update', [ProductAPIController::class, 'quickUpdatePrice']);
