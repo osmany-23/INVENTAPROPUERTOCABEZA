@@ -609,8 +609,8 @@ const Product = (props) => {
                 onChange={onChange}
                 isLoading={isLoading}
                 customStyles={productTableStyles}
-                defaultLimit={20}
-                paginationRowsPerPageOptions={[20, 50]}
+                defaultLimit={10}
+                paginationRowsPerPageOptions={[10, 20, 50, 100]}
                 ButtonValue={getFormattedMessage("product.create.title")}
                 totalRows={totalRecord}
                 to="#/app/products/create"
