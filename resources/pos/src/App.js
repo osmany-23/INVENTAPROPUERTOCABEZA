@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import { Route, useLocation, Navigate, Routes, useNavigate } from "react-router-dom";
 import "../../pos/src/assets/sass/style.react.scss";
 import { useDispatch, useSelector } from "react-redux";
@@ -16,23 +16,44 @@ import { getFiles } from "./locales/index";
 import Cookies from "js-cookie";
 import { getDefaultRedirectRoute } from "./shared/permissionRoute";
 
+const isLocaleObject = (value) =>
+    Boolean(value && typeof value === "object" && !Array.isArray(value));
+const isPublicAuthPath = (path = "") =>
+    path.includes("/login") ||
+    path.includes("/forgot-password") ||
+    path.includes("/reset-password");
+
+const clearAuthSession = () => {
+    Cookies.remove("authToken");
+    Cookies.remove("authToken", { path: "/" });
+    localStorage.removeItem(Tokens.ADMIN);
+    localStorage.removeItem(Tokens.GET_PERMISSIONS);
+    localStorage.removeItem("user_time");
+};
+
 function App() {
     //do not remove updateLanguag
     const dispatch = useDispatch();
     const { updateLanguage } = useSelector((state) => state);
     const location = useLocation();
-    const token = Cookies.get("authToken") || localStorage.getItem(Tokens.ADMIN);
-    const navigate = useNavigate()
+    const storedToken =
+        Cookies.get("authToken") || localStorage.getItem(Tokens.ADMIN);
+    const tokenExpiry = Number(localStorage.getItem("user_time"));
+    const isSessionExpired =
+        Number.isFinite(tokenExpiry) &&
+        tokenExpiry > 0 &&
+        Date.now() > tokenExpiry;
+    const token = isSessionExpired ? null : storedToken;
+    const navigate = useNavigate();
     const updatedLanguage = localStorage.getItem(Tokens.UPDATED_LANGUAGE);
     const { selectedLanguage, config, language } = useSelector(
         (state) => state
     );
-    const [allLocales, setAllLocales] = useState({});
-    const [messages, setMessages] = useState({});
-    const [userEditedMessage, setUserEditedMessage] = useState({});
-    const updateLanguag =
-        allLocales[updatedLanguage ? updatedLanguage : selectedLanguage];
-    const [languageData, setLanguageData] = useState([]);
+    const [allLocales, setAllLocales] = useState(() => getFiles());
+    const [messages, setMessages] = useState(() => {
+        const localeFiles = getFiles();
+        return isLocaleObject(localeFiles?.en) ? localeFiles.en : {};
+    });
     const redirectTo = getDefaultRedirectRoute(config);
 
     useEffect(() => {
@@ -40,53 +61,58 @@ function App() {
         setAllLocales(getData);
     }, [language, updateLanguage?.lang_json_array]);
 
-    useEffect(() => {
-        if (updateLanguage?.iso_code === updatedLanguage && languageData) {
-            setUserEditedMessage(updateLanguage?.lang_json_array);
-        }
-    }, [language, languageData]);
-
     // updated language hendling
     useEffect(() => {
-        if (Object.values(userEditedMessage).length !== 0) {
-            setMessages(userEditedMessage);
-        } else {
-            if (updateLanguage?.iso_code === updatedLanguage) {
-                const updateLanguages = updateLanguage?.lang_json_array;
-                setMessages(updateLanguages);
-            } else {
-                if (
-                    updateLanguag === undefined ||
-                    updateLanguag === null ||
-                    updateLanguag === ""
-                ) {
-                    const defaultUpdateLanguage = allLocales["en"];
-                    setMessages(defaultUpdateLanguage);
-                } else {
-                    if (updateLanguag === undefined || updateLanguag === null) {
-                        const defaultUpdateLanguage = allLocales["en"];
-                        setMessages(defaultUpdateLanguage);
-                    } else {
-                        setMessages(updateLanguag);
-                    }
-                }
-            }
-        }
-    }, [allLocales, updateLanguage?.lang_json_array]);
+        const activeLocale = updatedLanguage ? updatedLanguage : selectedLanguage;
+        const selectedLocaleMessages = allLocales[activeLocale];
+        const defaultMessages = isLocaleObject(allLocales?.en) ? allLocales.en : {};
+        const baseMessages = isLocaleObject(selectedLocaleMessages)
+            ? selectedLocaleMessages
+            : defaultMessages;
+        const userUpdatedMessages =
+            updateLanguage?.iso_code === updatedLanguage &&
+            isLocaleObject(updateLanguage?.lang_json_array)
+                ? updateLanguage.lang_json_array
+                : {};
 
-    useEffect(() => {
+        // Merge user-edited translations over locale defaults to avoid missing keys.
+        setMessages({ ...baseMessages, ...userUpdatedMessages });
+    }, [
+        allLocales,
+        selectedLanguage,
+        updatedLanguage,
+        updateLanguage?.iso_code,
+        updateLanguage?.lang_json_array,
+    ]);
+
+    useLayoutEffect(() => {
         selectCSS();
-    }, [location.pathname]);
+    }, [updatedLanguage]);
 
     useEffect(() => {
         const currentPath = location.pathname;
+        const isPublicRoute = isPublicAuthPath(currentPath);
+
+        if (isSessionExpired) {
+            clearAuthSession();
+            if (!isPublicRoute) {
+                navigate("/login");
+            }
+            return;
+        }
+
         if (token) {
-            dispatch(fetchConfig());
-            dispatch(fetchFrontSetting());
-        } else if (!currentPath.includes("/forgot-password") && !currentPath.includes("/reset-password")) {
+            if (!isPublicRoute) {
+                dispatch(fetchConfig());
+                dispatch(fetchFrontSetting());
+            }
+            return;
+        }
+
+        if (!isPublicRoute) {
             navigate("/login");
         }
-    }, []);
+    }, [dispatch, isSessionExpired, location.pathname, navigate, token]);
 
     const selectCSS = () => {
         if (updatedLanguage === "ar") {

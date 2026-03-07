@@ -40,7 +40,9 @@ const ProductCategory = (props) => {
         fetchProductCategories(filter, true);
     };
 
-    const itemsValue = productCategories.length >= 0 && productCategories.map(product => ({
+    const categoryList = Array.isArray(productCategories) ? productCategories : [];
+
+    const itemsValue = categoryList.map(product => ({
         name: product.attributes.name,
         image: product.attributes.image,
         products_count: product.attributes.products_count,
@@ -104,4 +106,3 @@ const mapStateToProps = (state) => {
 };
 
 export default connect(mapStateToProps, {fetchProductCategories})(ProductCategory);
-

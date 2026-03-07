@@ -7,7 +7,6 @@ import { loginAction } from "../../store/action/authAction";
 import TabTitle from "../../shared/tab-title/TabTitle";
 import { fetchFrontSetting } from "../../store/action/frontSettingAction";
 import { Tokens } from "../../constants";
-import { createBrowserHistory } from "history";
 import {
     getFormattedMessage,
     placeholderText,
@@ -18,9 +17,8 @@ import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
 const Login = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
-    const history = createBrowserHistory();
     const { frontSetting } = useSelector((state) => state);
-    const [showPassword, setShowPassword] = useState(false)
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const token = localStorage.getItem(Tokens.ADMIN);
 
@@ -32,9 +30,9 @@ const Login = () => {
     useEffect(() => {
         dispatch(fetchFrontSetting());
         if (token) {
-            history.push(window.location.pathname);
+            navigate("/app/dashboard");
         }
-    }, []);
+    }, [dispatch, navigate, token]);
 
     const [errors, setErrors] = useState({
         email: "",
@@ -42,26 +40,29 @@ const Login = () => {
     });
 
     const handleValidation = () => {
-        let errorss = {};
+        const newErrors = {
+            email: "",
+            password: "",
+        };
         let isValid = false;
         if (!EmailValidator.validate(loginInputs["email"])) {
             if (!loginInputs["email"]) {
-                errorss["email"] = getFormattedMessage(
+                newErrors.email = getFormattedMessage(
                     "globally.input.email.validate.label"
                 );
             } else {
-                errorss["email"] = getFormattedMessage(
+                newErrors.email = getFormattedMessage(
                     "globally.input.email.valid.validate.label"
                 );
             }
         } else if (!loginInputs["password"]) {
-            errorss["password"] = getFormattedMessage(
+            newErrors.password = getFormattedMessage(
                 "user.input.password.validate.label"
             );
         } else {
             isValid = true;
         }
-        setErrors(errorss);
+        setErrors(newErrors);
         setLoading(false);
         return isValid;
     };
@@ -77,7 +78,7 @@ const Login = () => {
         return formData;
     };
 
-    const onLogin = async (e) => {
+    const onLogin = (e) => {
         e.preventDefault();
         const valid = handleValidation();
         if (valid) {
@@ -94,17 +95,20 @@ const Login = () => {
     };
 
     const handleChange = (e) => {
-        e.persist();
+        const { name, value } = e.target;
         setLoginInputs((inputs) => ({
             ...inputs,
-            [e.target.name]: e.target.value,
+            [name]: value,
         }));
-        setErrors("");
+        setErrors((prev) => ({
+            ...prev,
+            [name]: "",
+        }));
     };
 
-    const handleHideShowPassword = (e) => {
+    const handleHideShowPassword = () => {
         setShowPassword(!showPassword);
-    }
+    };
 
     return (
         <div className="content d-flex flex-column flex-column-fluid">
@@ -129,7 +133,7 @@ const Login = () => {
                         <h1 className="text-dark text-center mb-7">
                             {getFormattedMessage("login-form.title")}
                         </h1>
-                        <form>
+                        <form onSubmit={onLogin}>
                             <div className="mb-sm-7 mb-4">
                                 <label className="form-label">
                                     {getFormattedMessage(
@@ -205,7 +209,7 @@ const Login = () => {
                                 <button
                                     type="submit"
                                     className="btn btn-primary w-100"
-                                    onClick={(e) => onLogin(e)}
+                                    disabled={loading}
                                 >
                                     {loading ? (
                                         <span className="d-block">

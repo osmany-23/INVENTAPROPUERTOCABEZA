@@ -73,22 +73,10 @@ const SaleReturnForm = (props) => {
     });
 
     useEffect(() => {
-        setUpdateProducts(updateProducts);
-    }, [
-        updateProducts,
-        quantity,
-        newCost,
-        newDiscount,
-        newTax,
-        subTotal,
-        newSaleUnit,
-    ]);
-
-    useEffect(() => {
         updateProducts.length >= 1
             ? dispatch({ type: "DISABLE_OPTION", payload: true })
             : dispatch({ type: "DISABLE_OPTION", payload: false });
-    }, [updateProducts]);
+    }, [dispatch, updateProducts]);
 
     useEffect(() => {
         if (singleSale) {
@@ -133,18 +121,20 @@ const SaleReturnForm = (props) => {
 
     useEffect(() => {
         fetchFrontSetting();
-    }, []);
+    }, [fetchFrontSetting]);
 
     useEffect(() => {
         if (singleSale) {
             setUpdateProducts(singleSale.sale_items);
         }
-    }, []);
+    }, [singleSale]);
 
     useEffect(() => {
-        saleReturnValue.warehouse_id.value &&
-            fetchProductsByWarehouse(saleReturnValue?.warehouse_id?.value);
-    }, [saleReturnValue.warehouse_id.value]);
+        const warehouseId = saleReturnValue?.warehouse_id?.value;
+        if (warehouseId) {
+            fetchProductsByWarehouse(warehouseId);
+        }
+    }, [fetchProductsByWarehouse, saleReturnValue?.warehouse_id?.value]);
 
     const handleValidation = () => {
         let error = {};
@@ -287,7 +277,6 @@ const SaleReturnForm = (props) => {
                 addSaleData(prepareFormData(saleReturnValue), navigate);
             } else {
                 editSaleReturn(id, prepareFormData(saleReturnValue), navigate);
-                setSaleReturnValue(saleReturnValue);
             }
         }
     };

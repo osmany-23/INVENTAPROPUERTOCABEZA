@@ -85,6 +85,7 @@ export const logoutAction = (token, navigate) => async (dispatch) => {
     await apiConfig
         .post("logout", token)
         .then(() => {
+            Cookies.remove("authToken");
             localStorage.removeItem(Tokens.ADMIN);
             localStorage.removeItem(Tokens.USER);
             localStorage.removeItem(Tokens.IMAGE);

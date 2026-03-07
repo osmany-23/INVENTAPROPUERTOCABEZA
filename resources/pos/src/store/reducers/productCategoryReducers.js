@@ -6,8 +6,10 @@ export default (state = [], action) => {
             return action.payload;
         case productCategoriesActionType.FETCH_PRODUCT_CATEGORIES:
             return [action.payload];
-        case productCategoriesActionType.ADD_PRODUCT_CATEGORIES:
-            return action.payload;
+        case productCategoriesActionType.ADD_PRODUCT_CATEGORIES: {
+            const categoryList = Array.isArray(state) ? state : [];
+            return [action.payload, ...categoryList];
+        }
         case productCategoriesActionType.EDIT_PRODUCT_CATEGORIES:
             return state.map(item => item.id === +action.payload.id ? action.payload : item);
         case productCategoriesActionType.DELETE_PRODUCT_CATEGORIES:

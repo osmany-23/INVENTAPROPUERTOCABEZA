@@ -41,6 +41,7 @@ export default {
                 || message === errorMessage.TOKEN_INVALID
                 || message === errorMessage.TOKEN_INVALID_SIGNATURE
                 || message === errorMessage.TOKEN_EXPIRED) {
+                Cookies.remove('authToken');
                 localStorage.removeItem(Tokens.ADMIN);
                 localStorage.removeItem(Tokens.USER);
                 localStorage.removeItem(Tokens.GET_PERMISSIONS);
