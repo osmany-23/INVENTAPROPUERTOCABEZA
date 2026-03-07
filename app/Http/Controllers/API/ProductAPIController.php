@@ -181,6 +181,7 @@ class ProductAPIController extends AppBaseController
                     'name' => $product->name,
                     'code' => $product->code,
                     'product_code' => $product->product_code,
+                    'barcode_url' => Storage::url('product_barcode/barcode-PR_'.$product->id.'.png'),
                     'product_cost' => $canViewPurchasePrice ? (float) $product->product_cost : 0,
                     'product_price' => (float) $product->product_price,
                     'product_unit' => $product->product_unit,
@@ -219,6 +220,7 @@ class ProductAPIController extends AppBaseController
         $search = trim((string) $request->input('search', ''));
         $limit = max(min((int) $request->input('limit', 20), 100), 1);
         $exactCode = filter_var($request->input('exact_code', false), FILTER_VALIDATE_BOOLEAN);
+        $includeNoStock = filter_var($request->input('include_no_stock', false), FILTER_VALIDATE_BOOLEAN);
 
         if ($warehouseId <= 0 || $search === '') {
             return response()->json([
@@ -256,9 +258,19 @@ class ProductAPIController extends AppBaseController
                 'sale_units.short_name as sale_unit_short_name',
                 'product_units.name as product_unit_name',
             ])
-            ->joinSub($stockQuery, 'stock', function ($join) {
-                $join->on('stock.product_id', '=', 'products.id');
-            })
+            ->when(
+                $includeNoStock,
+                function ($query) use ($stockQuery) {
+                    $query->leftJoinSub($stockQuery, 'stock', function ($join) {
+                        $join->on('stock.product_id', '=', 'products.id');
+                    });
+                },
+                function ($query) use ($stockQuery) {
+                    $query->joinSub($stockQuery, 'stock', function ($join) {
+                        $join->on('stock.product_id', '=', 'products.id');
+                    });
+                }
+            )
             ->leftJoin('units as sale_units', 'sale_units.id', '=', 'products.sale_unit')
             ->leftJoin('base_units as product_units', 'product_units.id', '=', 'products.product_unit');
 
@@ -310,6 +322,7 @@ class ProductAPIController extends AppBaseController
                     'name' => $product->name,
                     'code' => $product->code,
                     'product_code' => $product->product_code,
+                    'barcode_url' => Storage::url('product_barcode/barcode-PR_'.$product->id.'.png'),
                     'product_cost' => $canViewPurchasePrice ? (float) $product->product_cost : 0,
                     'product_price' => (float) $product->product_price,
                     'product_unit' => $product->product_unit,

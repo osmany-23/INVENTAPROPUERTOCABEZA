@@ -41,6 +41,7 @@ const buildFastSearchCartItem = (product) => {
     return {
         name: attributes?.name || "",
         code: attributes?.code || "",
+        barcode_url: attributes?.barcode_url || "",
         stock: Number(attributes?.stock?.quantity || 0),
         short_name:
             attributes?.sale_unit_name?.short_name ||
@@ -91,6 +92,7 @@ const ProductSearch = (props) => {
         fastSearchLimit = DEFAULT_FAST_SEARCH_LIMIT,
         fastSearchMinChars = DEFAULT_FAST_SEARCH_MIN_CHARS,
         fastSearchDebounceMs = DEFAULT_FAST_SEARCH_DEBOUNCE_MS,
+        fastSearchIncludeNoStock = false,
         resultDisplayMode = DEFAULT_RESULT_DISPLAY_MODE,
     } = props;
 
@@ -119,6 +121,15 @@ const ProductSearch = (props) => {
             debounceTimeoutRef.current = null;
         }
     }, []);
+
+    const resetFastSearchState = useCallback(() => {
+        clearPendingFastSearch();
+        fastSearchRequestSeqRef.current += 1;
+        setRemoteItems([]);
+        setIsFastSearching(false);
+        setHasFastSearchResolved(false);
+        setIsFastDropdownOpen(false);
+    }, [clearPendingFastSearch]);
 
     useEffect(() => {
         return () => {
@@ -150,16 +161,11 @@ const ProductSearch = (props) => {
             return;
         }
 
-        clearPendingFastSearch();
-        setRemoteItems([]);
-        setIsFastSearching(false);
-        setHasFastSearchResolved(false);
-        setIsFastDropdownOpen(false);
+        resetFastSearchState();
         lastAutoAddedCodeRef.current = "";
-        fastSearchRequestSeqRef.current += 1;
         fastQueryCacheRef.current.clear();
         exactCodeCacheRef.current.clear();
-    }, [warehouseId, enableWarehouseFastSearch, clearPendingFastSearch]);
+    }, [warehouseId, enableWarehouseFastSearch, resetFastSearchState]);
 
     const filterProducts = useMemo(() => {
         if (!warehouseId || enableWarehouseFastSearch || !Array.isArray(localProducts)) {
@@ -202,6 +208,7 @@ const ProductSearch = (props) => {
                             search: normalizedQuery,
                             exact_code: exactCode ? 1 : 0,
                             limit: fastSearchLimit,
+                            include_no_stock: fastSearchIncludeNoStock ? 1 : 0,
                         },
                     }
                 );
@@ -235,7 +242,12 @@ const ProductSearch = (props) => {
                 return [];
             }
         },
-        [enableWarehouseFastSearch, fastSearchLimit, warehouseId]
+        [
+            enableWarehouseFastSearch,
+            fastSearchIncludeNoStock,
+            fastSearchLimit,
+            warehouseId,
+        ]
     );
 
     const queueFastSearch = useCallback(
@@ -378,6 +390,11 @@ const ProductSearch = (props) => {
                 return;
             }
 
+            if (enableWarehouseFastSearch) {
+                clearPendingFastSearch();
+                fastSearchRequestSeqRef.current += 1;
+            }
+
             const scannedCode = normalizeText(
                 typeof value === "string" ? value : value?.code
             );
@@ -443,19 +460,18 @@ const ProductSearch = (props) => {
             });
 
             removeSearchClass();
-            setRemoteItems([]);
             setSearchString("");
-            setIsFastSearching(false);
-            setHasFastSearchResolved(false);
-            setIsFastDropdownOpen(false);
+            resetFastSearchState();
             lastAutoAddedCodeRef.current = "";
         },
         [
+            clearPendingFastSearch,
             dispatch,
             enableWarehouseFastSearch,
             getPreparedProduct,
             handleValidation,
             incrementOnDuplicate,
+            resetFastSearchState,
             resolveProduct,
             searchPurchaseProduct,
             setUpdateProducts,
@@ -469,13 +485,8 @@ const ProductSearch = (props) => {
             const normalizedInput = normalizeKey(inputValue);
 
             if (!normalizedInput) {
-                setRemoteItems([]);
-                setIsFastSearching(false);
-                setHasFastSearchResolved(false);
-                setIsFastDropdownOpen(false);
+                resetFastSearchState();
                 lastAutoAddedCodeRef.current = "";
-                clearPendingFastSearch();
-                fastSearchRequestSeqRef.current += 1;
                 return;
             }
 
@@ -504,11 +515,7 @@ const ProductSearch = (props) => {
                 normalizeText(inputValue).length < fastSearchMinChars
             ) {
                 if (enableWarehouseFastSearch) {
-                    setRemoteItems([]);
-                    setIsFastSearching(false);
-                    setHasFastSearchResolved(false);
-                    clearPendingFastSearch();
-                    fastSearchRequestSeqRef.current += 1;
+                    resetFastSearchState();
                 }
                 return;
             }
@@ -539,12 +546,12 @@ const ProductSearch = (props) => {
             });
         },
         [
-            clearPendingFastSearch,
             enableWarehouseFastSearch,
             fastSearchMinChars,
             filterProducts,
             onProductSearch,
             queueFastSearch,
+            resetFastSearchState,
             warehouseId,
         ]
     );
@@ -561,21 +568,11 @@ const ProductSearch = (props) => {
         const name = item?.name || "";
 
         if (resultDisplayMode !== "code-name-dash") {
-            return (
-                <span
-                    className="search-result-row"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {code} ({name})
-                </span>
-            );
+            return <span className="search-result-row">{code} ({name})</span>;
         }
 
         return (
-            <span
-                className="search-result-row"
-                onClick={(e) => e.stopPropagation()}
-            >
+            <span className="search-result-row">
                 <span className="search-result-code">{code}</span>
                 {name ? (
                     <>
@@ -667,10 +664,10 @@ const ProductSearch = (props) => {
                                     {remoteItems.map((item) => (
                                         <li
                                             key={item.id}
-                                            onMouseDown={(event) =>
-                                                event.preventDefault()
-                                            }
-                                            onClick={() => handleOnSelect(item)}
+                                            onMouseDown={(event) => {
+                                                event.preventDefault();
+                                                handleOnSelect(item);
+                                            }}
                                         >
                                             {formatResult(item)}
                                         </li>

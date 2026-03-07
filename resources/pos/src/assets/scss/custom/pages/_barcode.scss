@@ -23,9 +23,61 @@
         width: 1.799in;
 
         img {
-            height: 26px;
-            max-width: 80px;
+            height: 44px;
+            width: 100%;
+            max-width: 100%;
         }
+    }
+
+    &,
+    &__barcode-item {
+        background: #ffffff;
+    }
+
+    &__barcode-item,
+    &__barcode-item * {
+        color: #000000;
+    }
+
+    &__barcode-image {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        height: 44px;
+        margin: 2px auto 0;
+        object-fit: contain;
+        background: #ffffff;
+        filter: none;
+        opacity: 1;
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
+    }
+}
+
+@media print {
+    .barcode-main,
+    .barcode-main * {
+        color: #000000 !important;
+        background: #ffffff !important;
+        opacity: 1 !important;
+        text-shadow: none !important;
+        box-shadow: none !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .barcode-main__barcode-item {
+        border-color: #000000 !important;
+    }
+
+    .barcode-main__barcode-image,
+    .barcode-main__barcode-style img {
+        filter: none !important;
+        opacity: 1 !important;
+        background: #ffffff !important;
+        image-rendering: -webkit-optimize-contrast !important;
+        image-rendering: crisp-edges !important;
+        mix-blend-mode: normal !important;
     }
 }
 
@@ -68,4 +120,3 @@
         width: 50%;
     }
 }
-

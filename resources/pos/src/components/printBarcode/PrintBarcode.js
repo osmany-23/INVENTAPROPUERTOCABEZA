@@ -8,8 +8,6 @@ import TabTitle from '../../shared/tab-title/TabTitle';
 import { getFormattedMessage, placeholderText } from '../../shared/sharedMethod';
 import ReactSelect from '../../shared/select/reactSelect';
 import { fetchAllWarehouses } from '../../store/action/warehouseAction';
-import { fetchAllProducts } from '../../store/action/productAction';
-import { preparePurchaseProductArray } from '../../shared/prepareArray/preparePurchaseArray';
 import PrintTable from './PrintTable';
 import paperSize from '../../shared/option-lists/paperSize.json'
 import { toastType } from '../../constants';
@@ -23,7 +21,7 @@ import TopProgressBar from "../../shared/components/loaders/TopProgressBar";
 import { fetchFrontSetting } from "../../store/action/frontSettingAction";
 
 const PrintBarcode = () => {
-    const { warehouses, products, purchaseProducts, frontSetting, allConfigData, customProducts = preparePurchaseProductArray( products, true ) } = useSelector( state => state )
+    const { warehouses, frontSetting, allConfigData } = useSelector( state => state )
     const [ printBarcodeValue, setPrintBarcodeValue ] = useState( {
         warehouse_id: '',
         paperSizeValue: ''
@@ -33,7 +31,6 @@ const PrintBarcode = () => {
     const [ updateProducts, setUpdateProducts ] = useState( [] );
     const [ print, setPrint ] = useState( [] );
     const [ isPrintShow, setIsPrintShow ] = useState( false );
-    const [ quantity, setQuantity ] = useState( 0 );
     const [ companyName, setCompanyName ] = useState( true )
     const [ productName, setProductName ] = useState( true )
     const [ price, setPrice ] = useState( true )
@@ -47,17 +44,16 @@ const PrintBarcode = () => {
 
     useEffect( () => {
         dispatch( fetchAllWarehouses() );
-        dispatch( fetchAllProducts() );
-    }, [ quantity, purchaseProducts ] );
+    }, [ dispatch ] );
 
     useEffect( () => {
         dispatch( fetchFrontSetting() )
-    }, [] )
+    }, [ dispatch ] )
 
     useEffect( () => {
         if ( printBarcodeValue ) {
             if ( updateProducts.length ) {
-                setPrint( preparePrint )
+                setPrint( preparePrint() )
             }
         }
     }, [ updateProducts, printBarcodeValue, printBarcodeQuantity ] )
@@ -69,10 +65,6 @@ const PrintBarcode = () => {
     const onPaperSizeChange = ( obj ) => {
         setPrintBarcodeValue( inputs => ( { ...inputs, paperSizeValue: obj } ) )
         setIsPrintShow( true );
-    };
-
-    const updatedQty = ( qty ) => {
-        setQuantity( qty );
     };
 
     const handleValidation = () => {
@@ -117,6 +109,40 @@ const PrintBarcode = () => {
 
     const handlePrint = useReactToPrint( {
         content: () => componentRef.current,
+        pageStyle: `
+            @page {
+                margin: 8mm;
+            }
+
+            body {
+                margin: 0 !important;
+                background: #ffffff !important;
+                color: #000000 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .barcode-main,
+            .barcode-main * {
+                color: #000000 !important;
+                background: #ffffff !important;
+                opacity: 1 !important;
+                text-shadow: none !important;
+                box-shadow: none !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .barcode-main__barcode-image,
+            .barcode-main__barcode-style img {
+                filter: none !important;
+                opacity: 1 !important;
+                background: #ffffff !important;
+                image-rendering: crisp-edges !important;
+                image-rendering: -webkit-optimize-contrast !important;
+                mix-blend-mode: normal !important;
+            }
+        `,
     } );
 
     const preparePrint = () => {
@@ -184,9 +210,15 @@ const PrintBarcode = () => {
                     <label className='form-label'>
                         {getFormattedMessage( 'dashboard.stockAlert.product.label' )}:
                     </label>
-                    <ProductSearch values={printBarcodeValue} products={products} isAllProducts={true}
+                    <ProductSearch values={printBarcodeValue} isAllProducts={true}
                         updateProducts={updateProducts} handleValidation={handleValidation}
-                        setUpdateProducts={setUpdateProducts} customProducts={customProducts} />
+                        setUpdateProducts={setUpdateProducts}
+                        enableWarehouseFastSearch={true}
+                        fastSearchMinChars={1}
+                        fastSearchDebounceMs={250}
+                        fastSearchLimit={30}
+                        fastSearchIncludeNoStock={true}
+                        resultDisplayMode="code-name-dash" />
                 </Col>
                 <div className='col-12 md-12'>
                     <Table responsive>
@@ -197,7 +229,7 @@ const PrintBarcode = () => {
                                 <th>{getFormattedMessage( 'react-data-table.action.column.label' )}</th>
                             </tr>
                         </thead>
-                        {<PrintTable printBarcodeValue={printBarcodeValue} updatedQty={updatedQty} updateProducts={updateProducts}
+                        {<PrintTable printBarcodeValue={printBarcodeValue} updateProducts={updateProducts}
                             setUpdateProducts={setUpdateProducts} />}
                     </Table>
                 </div>

@@ -45,14 +45,16 @@ class PrintButton extends React.PureComponent {
                                 : ""
                         } barcode-main__barcode-item barcode-main__barcode-style`}
                     >
-                        <div className="fw-bolder lh-1">
+                        <div className="fw-bolder lh-1 barcode-main__text barcode-main__text--company">
                             {barcodeOptions.companyName && companyName}
                         </div>
-                        <div className="text-capitalize">
-                            {barcodeOptions.productName && product.name}
-                        </div>
+                        {barcodeOptions.productName ? (
+                            <div className="text-capitalize barcode-main__text barcode-main__text--name">
+                                {product.name}
+                            </div>
+                        ) : null}
                         {barcodeOptions?.price && (
-                            <div className="text-capitalize">
+                            <div className="text-capitalize barcode-main__text barcode-main__text--price">
                                 <span className="fw-bolder">
                                     {getFormattedMessage(
                                         "product.table.price.column.label"
@@ -68,10 +70,10 @@ class PrintButton extends React.PureComponent {
                         )}
                         <Image
                             src={product && product.barcode_url}
-                            alt={product && product.name}
-                            className="w-100"
+                            alt={product?.code ? `Barcode ${product.code}` : "Barcode"}
+                            className="barcode-main__barcode-image"
                         />
-                        <div className="fw-bolder">
+                        <div className="fw-bolder barcode-main__text barcode-main__text--code">
                             {product && product.code}
                         </div>
                     </div>
