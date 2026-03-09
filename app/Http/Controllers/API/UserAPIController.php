@@ -145,10 +145,13 @@ class UserAPIController extends AppBaseController
             $user->getAllPermissions()->pluck('name')->toArray()
         );
 
-        $composerFile = file_get_contents('../composer.json');
-        $composerData = json_decode($composerFile, true);
-        $currentVersion = isset($composerData['version']) ? $composerData['version'] : '';
-        $dateFormat = getSettingValue('date_format');
+        $composerData = [];
+        $composerPath = base_path('composer.json');
+        if (is_readable($composerPath)) {
+            $composerData = json_decode(file_get_contents($composerPath), true) ?: [];
+        }
+        $currentVersion = $composerData['version'] ?? '';
+        $dateFormat = getSettingValue('date_format', 'Y-m-d');
 
         $openRegister = POSRegister::where('user_id', Auth::id())
             ->whereNull('closed_at')
@@ -158,8 +161,8 @@ class UserAPIController extends AppBaseController
             'permissions' => $userPermissions,
             'version' => $currentVersion,
             'date_format' => $dateFormat,
-            'is_version' => getSettingValue('show_version_on_footer'),
-            'is_currency_right' => getSettingValue('is_currency_right'),
+            'is_version' => getSettingValue('show_version_on_footer', 0),
+            'is_currency_right' => getSettingValue('is_currency_right', 0),
             'open_register' => $openRegister ? false : true,
         ], 'Config retrieved successfully.');
     }

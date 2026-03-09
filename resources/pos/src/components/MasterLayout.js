@@ -9,7 +9,6 @@ import asideConfig from "../config/asideConfig";
 import { environment } from "../config/environment";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBars } from "@fortawesome/free-solid-svg-icons";
-import { fetchConfig } from "../store/action/configAction";
 import { normalizePermissions } from "../shared/permissionRoute";
 
 const MasterLayout = (props) => {
@@ -17,7 +16,6 @@ const MasterLayout = (props) => {
         children,
         newPermissions,
         frontSetting,
-        fetchConfig,
         config,
         allConfigData,
     } = props;
@@ -27,13 +25,10 @@ const MasterLayout = (props) => {
     const token = localStorage.getItem(Tokens.ADMIN);
 
     useEffect(() => {
-        if (token) {
-            fetchConfig();
-        }
         if (!token) {
             window.location.href = environment.URL + "#" + "/login";
         }
-    }, []);
+    }, [token]);
 
     const menuClick = () => {
         setIsResponsiveMenu(!isResponsiveMenu);
@@ -132,4 +127,4 @@ const mapStateToProps = (state) => {
     return { newPermissions, settings, frontSetting, config, allConfigData };
 };
 
-export default connect(mapStateToProps, { fetchConfig })(MasterLayout);
+export default connect(mapStateToProps)(MasterLayout);

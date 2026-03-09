@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Route, useLocation, Navigate, Routes, useNavigate } from "react-router-dom";
 import "../../pos/src/assets/sass/style.react.scss";
 import { useDispatch, useSelector } from "react-redux";
@@ -55,6 +55,7 @@ function App() {
         return isLocaleObject(localeFiles?.en) ? localeFiles.en : {};
     });
     const redirectTo = getDefaultRedirectRoute(config);
+    const lastFetchedTokenRef = useRef(null);
 
     useEffect(() => {
         const getData = getFiles();
@@ -95,6 +96,7 @@ function App() {
 
         if (isSessionExpired) {
             clearAuthSession();
+            lastFetchedTokenRef.current = null;
             if (!isPublicRoute) {
                 navigate("/login");
             }
@@ -102,17 +104,27 @@ function App() {
         }
 
         if (token) {
+            if (isPublicRoute) {
+                navigate(redirectTo || "/app/dashboard");
+                return;
+            }
+
             if (!isPublicRoute) {
-                dispatch(fetchConfig());
-                dispatch(fetchFrontSetting());
+                if (lastFetchedTokenRef.current !== token) {
+                    lastFetchedTokenRef.current = token;
+                    dispatch(fetchConfig());
+                    dispatch(fetchFrontSetting());
+                }
             }
             return;
         }
 
+        lastFetchedTokenRef.current = null;
+
         if (!isPublicRoute) {
             navigate("/login");
         }
-    }, [dispatch, isSessionExpired, location.pathname, navigate, token]);
+    }, [dispatch, isSessionExpired, location.pathname, navigate, redirectTo, token]);
 
     const selectCSS = () => {
         if (updatedLanguage === "ar") {

@@ -567,21 +567,22 @@ if (! function_exists('getSettingValue')) {
     /**
      * @return mixed
      */
-    function getSettingValue($keyName)
+    function getSettingValue($keyName, $default = null)
     {
         $key = 'setting'.'-'.$keyName;
 
-        static $settingValues;
+        static $settingValues = [];
 
-        if (isset($settingValues[$key])) {
+        if (array_key_exists($key, $settingValues)) {
             return $settingValues[$key];
         }
 
         /** @var Setting $setting */
         $setting = Setting::where('key', '=', $keyName)->first();
-        $settingValues[$key] = $setting->value;
+        $value = $setting ? $setting->value : $default;
+        $settingValues[$key] = $value;
 
-        return $setting->value;
+        return $value;
     }
 }
 

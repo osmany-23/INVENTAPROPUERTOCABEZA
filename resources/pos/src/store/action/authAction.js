@@ -9,6 +9,23 @@ import { fetchConfig } from "./configAction";
 import Cookies from 'js-cookie';
 import { getDefaultRedirectRoute } from "../../shared/permissionRoute";
 
+const clearLocalAuthSession = () => {
+    Cookies.remove("authToken");
+    Cookies.remove("authToken", { path: "/" });
+    localStorage.removeItem(Tokens.ADMIN);
+    localStorage.removeItem(Tokens.USER);
+    localStorage.removeItem(Tokens.IMAGE);
+    localStorage.removeItem(Tokens.FIRST_NAME);
+    localStorage.removeItem(Tokens.LAST_NAME);
+    localStorage.removeItem("loginUserArray");
+    localStorage.removeItem(Tokens.UPDATED_EMAIL);
+    localStorage.removeItem(Tokens.UPDATED_FIRST_NAME);
+    localStorage.removeItem(Tokens.UPDATED_LAST_NAME);
+    localStorage.removeItem(Tokens.USER_IMAGE_URL);
+    localStorage.removeItem(Tokens.GET_PERMISSIONS);
+    localStorage.removeItem("user_time");
+};
+
 export const loginAction = (user, navigate, setLoading) => async (dispatch) => {
     await apiConfig
         .post("login", user)
@@ -93,43 +110,31 @@ export const logoutAction = (token, navigate) => async (dispatch) => {
         localStorage.getItem(Tokens.ADMIN) ||
         Cookies.get("authToken");
 
-    // Clear local auth state first to stop new protected API requests during logout transition.
-    Cookies.remove("authToken");
-    Cookies.remove("authToken", { path: "/" });
-    localStorage.removeItem(Tokens.ADMIN);
-    localStorage.removeItem(Tokens.USER);
-    localStorage.removeItem(Tokens.IMAGE);
-    localStorage.removeItem(Tokens.FIRST_NAME);
-    localStorage.removeItem(Tokens.LAST_NAME);
-    localStorage.removeItem("loginUserArray");
-    localStorage.removeItem(Tokens.UPDATED_EMAIL);
-    localStorage.removeItem(Tokens.UPDATED_FIRST_NAME);
-    localStorage.removeItem(Tokens.UPDATED_LAST_NAME);
-    localStorage.removeItem(Tokens.USER_IMAGE_URL);
-    localStorage.removeItem(Tokens.GET_PERMISSIONS);
-    localStorage.removeItem("user_time");
+    try {
+        await apiConfig.post("logout", {}, {
+            headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+        });
 
-    navigate("/login");
-
-    await apiConfig
-        .post("logout", {}, {
-            headers: authToken
-                ? { Authorization: `Bearer ${authToken}` }
-                : undefined,
-        })
-        .then(() => {
+        dispatch(
+            addToast({
+                text: getFormattedMessage("logout.success.message"),
+            })
+        );
+    } catch ({ response }) {
+        const message = response?.data?.message;
+        if (message && message !== "Unauthenticated.") {
             dispatch(
                 addToast({
-                    text: getFormattedMessage("logout.success.message"),
+                    text: message,
+                    type: toastType.ERROR,
                 })
             );
-        })
-        .catch(({ response }) => {
-            const message = response?.data?.message;
-            if (message) {
-                dispatch(addToast({ text: message, type: toastType.ERROR }));
-            }
-        });
+        }
+    } finally {
+        clearLocalAuthSession();
+        dispatch({ type: authActionType.LOGOUT_USER });
+        navigate("/login");
+    }
 };
 
 export const forgotPassword = (user) => async (dispatch) => {

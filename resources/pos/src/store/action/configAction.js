@@ -12,7 +12,16 @@ export const fetchConfig = (navigate) => async (dispatch) => {
             navigate && navigate("/app/pos")
         })
         .catch((response) => {
+            if (response?.response?.status === 401) {
+                return;
+            }
+
+            const message = response?.response?.data?.message;
+            if (!message) {
+                return;
+            }
+
             dispatch(addToast(
-                { text: response.response?.data?.message, type: toastType.ERROR }));
+                { text: message, type: toastType.ERROR }));
         });
 };
