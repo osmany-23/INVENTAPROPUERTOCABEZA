@@ -3,7 +3,9 @@ import MasterLayout from "../../MasterLayout";
 import TabTitle from "../../../shared/tab-title/TabTitle";
 import {
     currencySymbolHandling,
+    formatNumber,
     getFormattedMessage,
+    parseNumber,
     placeholderText,
 } from "../../../shared/sharedMethod";
 import { connect } from "react-redux";
@@ -98,9 +100,13 @@ const ProfitLossReport = (props) => {
                             allConfigData={allConfigData}
                             value={
                                 profitAndLossReport.sales
-                                    ? parseFloat(
-                                          profitAndLossReport.sales
-                                      ).toFixed(2)
+                                    ? formatNumber(
+                                          parseNumber(
+                                              profitAndLossReport.sales,
+                                              0
+                                          ),
+                                          2
+                                      )
                                     : "0.00"
                             }
                         />
@@ -122,9 +128,13 @@ const ProfitLossReport = (props) => {
                             allConfigData={allConfigData}
                             value={
                                 profitAndLossReport.purchases
-                                    ? parseFloat(
-                                          profitAndLossReport.purchases
-                                      ).toFixed(2)
+                                    ? formatNumber(
+                                          parseNumber(
+                                              profitAndLossReport.purchases,
+                                              0
+                                          ),
+                                          2
+                                      )
                                     : "0.00"
                             }
                         />
@@ -146,9 +156,13 @@ const ProfitLossReport = (props) => {
                             allConfigData={allConfigData}
                             value={
                                 profitAndLossReport.sale_returns
-                                    ? parseFloat(
-                                          profitAndLossReport.sale_returns
-                                      ).toFixed(2)
+                                    ? formatNumber(
+                                          parseNumber(
+                                              profitAndLossReport.sale_returns,
+                                              0
+                                          ),
+                                          2
+                                      )
                                     : "0.00"
                             }
                         />
@@ -172,9 +186,13 @@ const ProfitLossReport = (props) => {
                             allConfigData={allConfigData}
                             value={
                                 profitAndLossReport.purchase_returns
-                                    ? parseFloat(
-                                          profitAndLossReport.purchase_returns
-                                      ).toFixed(2)
+                                    ? formatNumber(
+                                          parseNumber(
+                                              profitAndLossReport.purchase_returns,
+                                              0
+                                          ),
+                                          2
+                                      )
                                     : "0.00"
                             }
                         />
@@ -196,9 +214,13 @@ const ProfitLossReport = (props) => {
                             allConfigData={allConfigData}
                             value={
                                 profitAndLossReport.expenses
-                                    ? parseFloat(
-                                          profitAndLossReport.expenses
-                                      ).toFixed(2)
+                                    ? formatNumber(
+                                          parseNumber(
+                                              profitAndLossReport.expenses,
+                                              0
+                                          ),
+                                          2
+                                      )
                                     : "0.00"
                             }
                         />
@@ -242,9 +264,13 @@ const ProfitLossReport = (props) => {
                                         )})`}
                             value={
                                 profitAndLossReport.Revenue
-                                    ? parseFloat(
-                                          profitAndLossReport.Revenue
-                                      ).toFixed(2)
+                                    ? formatNumber(
+                                          parseNumber(
+                                              profitAndLossReport.Revenue,
+                                              0
+                                          ),
+                                          2
+                                      )
                                     : "0.00"
                             }
                         />
@@ -304,9 +330,13 @@ const ProfitLossReport = (props) => {
                                             )})`}
                             value={
                                 profitAndLossReport.gross_profit
-                                    ? parseFloat(
-                                          profitAndLossReport.gross_profit
-                                      ).toFixed(2)
+                                    ? formatNumber(
+                                          parseNumber(
+                                              profitAndLossReport.gross_profit,
+                                              0
+                                          ),
+                                          2
+                                      )
                                     : "0.00"
                             }
                         />
@@ -354,9 +384,13 @@ const ProfitLossReport = (props) => {
                                             )})`}
                             value={
                                 profitAndLossReport.payments_received
-                                    ? parseFloat(
-                                          profitAndLossReport.payments_received
-                                      ).toFixed(2)
+                                    ? formatNumber(
+                                          parseNumber(
+                                              profitAndLossReport.payments_received,
+                                              0
+                                          ),
+                                          2
+                                      )
                                     : "0.00"
                             }
                         />

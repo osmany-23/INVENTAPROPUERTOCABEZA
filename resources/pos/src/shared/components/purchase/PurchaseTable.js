@@ -10,7 +10,12 @@ import {
     amountBeforeTax,
 } from "../../calculation/calculation";
 import { productUnitDropdown } from "../../../store/action/productUnitAction";
-import { currencySymbolHandling, decimalValidate, getFormattedMessage } from "../../sharedMethod";
+import {
+    currencySymbolHandling,
+    decimalValidate,
+    formatQuantityAuto,
+    getFormattedMessage
+} from "../../sharedMethod";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPencil, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { addToast } from "../../../store/action/toastAction";
@@ -231,7 +236,7 @@ const PurchaseTable = (props) => {
                         singleProduct.stocks.map((item) => (
                             <span className="badge bg-light-warning" key={`${singleProduct.id}-${item.id ?? item.warehouse_id}`}>
                                 <span>
-                                    {item.quantity}&nbsp;
+                                    {formatQuantityAuto(item.quantity)}&nbsp;
                                     {singleProduct.short_name}
                                 </span>
                             </span>
@@ -239,13 +244,13 @@ const PurchaseTable = (props) => {
                     ) : singleProduct.stock > 0 ? (
                         <span className="badge bg-light-warning">
                             <span>
-                                {singleProduct.stock}&nbsp;
+                                {formatQuantityAuto(singleProduct.stock)}&nbsp;
                                 {singleProduct.short_name}
                             </span>
                         </span>
                     ) : (
                         <span className="badge bg-light-warning">
-                            <span>0 &nbsp;{singleProduct.short_name}</span>
+                            <span>{formatQuantityAuto(0)} &nbsp;{singleProduct.short_name}</span>
                         </span>
                     )}
                 </td>

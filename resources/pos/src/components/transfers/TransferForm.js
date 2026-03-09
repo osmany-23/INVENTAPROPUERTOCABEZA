@@ -6,7 +6,16 @@ import { InputGroup, Table } from 'react-bootstrap-v5';
 import { editTransfer } from '../../store/action/transfersAction';
 import TransfersTable from '../../shared/components/transfers/TransfersTable';
 import { prepareTransferArray } from '../../shared/prepareArray/prepareTransferArray';
-import { decimalValidate, getFormattedMessage, placeholderText, onFocusInput, getFormattedOptions } from '../../shared/sharedMethod';
+import {
+    decimalValidate,
+    getFormattedMessage,
+    placeholderText,
+    onFocusInput,
+    getFormattedOptions,
+    formatNumericInputOnBlur,
+    normalizeNumericValue,
+    parseNumber,
+} from '../../shared/sharedMethod';
 import { calculateCartTotalAmount, calculateCartTotalTaxAmount } from '../../shared/calculation/calculation';
 import ModelFooter from '../../shared/components/modelFooter';
 import ProductSearch from '../../shared/components/product-cart/search/ProductSearch';
@@ -44,10 +53,10 @@ const TransferForm = ( props ) => {
         to_warehouse_id: singleTransfer ? singleTransfer.to_warehouse_id : '',
         warehouse_id: undefined,
         supplier_id: singleTransfer ? singleTransfer.supplier_id : '',
-        tax_rate: singleTransfer ? singleTransfer.tax_rate.toFixed( 2 ) : '0.00',
-        tax_amount: singleTransfer ? singleTransfer.tax_amount.toFixed( 2 ) : '0.00',
-        discount: singleTransfer ? singleTransfer.discount.toFixed( 2 ) : '0.00',
-        shipping: singleTransfer ? singleTransfer.shipping.toFixed( 2 ) : '0.00',
+        tax_rate: singleTransfer ? formatNumericInputOnBlur( singleTransfer.tax_rate, 2 ) : '0.00',
+        tax_amount: singleTransfer ? formatNumericInputOnBlur( singleTransfer.tax_amount, 2 ) : '0.00',
+        discount: singleTransfer ? formatNumericInputOnBlur( singleTransfer.discount, 2 ) : '0.00',
+        shipping: singleTransfer ? formatNumericInputOnBlur( singleTransfer.shipping, 2 ) : '0.00',
         grand_total: singleTransfer ? singleTransfer.grand_total : '0.00',
         notes: singleTransfer ? singleTransfer.notes : '',
         status_id: singleTransfer ? singleTransfer.status_id : {
@@ -146,7 +155,7 @@ const TransferForm = ( props ) => {
 
     const onChangeInput = ( e ) => {
         e.preventDefault();
-        const { value } = e.target;
+        const value = normalizeNumericValue( e.target.value );
         // check if value includes a decimal point
         if ( value.match( /\./g ) ) {
             const [ , decimal ] = value.split( '.' );
@@ -192,10 +201,10 @@ const TransferForm = ( props ) => {
             date: moment( prepareData.date ).toDate(),
             transfer_items: updateProducts,
             note: prepareData.notes,
-            discount: prepareData.discount,
-            tax_rate: prepareData.tax_rate,
+            discount: parseNumber( prepareData.discount, 0 ).toFixed( 2 ),
+            tax_rate: parseNumber( prepareData.tax_rate, 0 ).toFixed( 2 ),
             tax_amount: calculateCartTotalTaxAmount( updateProducts, transferValue ),
-            shipping: prepareData.shipping,
+            shipping: parseNumber( prepareData.shipping, 0 ).toFixed( 2 ),
             grand_total: calculateCartTotalAmount( updateProducts, transferValue ),
             received_amount: 0,
             paid_amount: 0,
@@ -218,16 +227,11 @@ const TransferForm = ( props ) => {
     };
 
     const onBlurInput = ( el ) => {
-        if ( el.target.value === '' ) {
-            if ( el.target.name === 'shipping' ) {
-                setTransferValue( { ...transferValue, shipping: '0.00' } )
-            }
-            if ( el.target.name === 'discount' ) {
-                setTransferValue( { ...transferValue, discount: '0.00' } )
-            }
-            if ( el.target.name === 'tax_rate' ) {
-                setTransferValue( { ...transferValue, tax_rate: '0.00' } )
-            }
+        if ( [ "shipping", "discount", "tax_rate" ].includes( el.target.name ) ) {
+            setTransferValue( ( prev ) => ( {
+                ...prev,
+                [ el.target.name ]: formatNumericInputOnBlur( prev[ el.target.name ], 2 ),
+            } ) );
         }
     }
 

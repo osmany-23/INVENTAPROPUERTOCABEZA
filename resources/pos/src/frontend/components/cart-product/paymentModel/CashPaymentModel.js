@@ -2,10 +2,13 @@ import React, { useEffect, useState } from "react";
 import { Modal, Form, Table } from "react-bootstrap";
 import {
     currencySymbolHandling,
+    formatNumber,
+    formatQuantityAuto,
     getFormattedMessage,
     getFormattedOptions,
     numFloatValidate,
     numValidate,
+    parseNumber,
     placeholderText,
 } from "../../../../shared/sharedMethod";
 import ReactSelect from "../../../../shared/select/reactSelect";
@@ -125,7 +128,7 @@ const CashPaymentModel = (props) => {
                                     autoComplete="off"
                                     readOnly={true}
                                     className="form-control-solid"
-                                    value={Number(summation).toFixed(2)}
+                                    value={formatNumber(summation, 2)}
                                 />
                             </Form.Group>
                             {cashPaymentValue?.payment_status?.value === 1 &&<Form.Group
@@ -217,7 +220,7 @@ const CashPaymentModel = (props) => {
                                             </td>
                                             <td className="px-3">
                                                 <span className="btn btn-primary cursor-default rounded-circle total-qty-text d-flex align-items-center justify-content-center p-2">
-                                                    {totalQty}
+                                                    {formatQuantityAuto(totalQty)}
                                                 </span>
                                             </td>
                                         </tr>
@@ -253,9 +256,13 @@ const CashPaymentModel = (props) => {
                                                 )}{" "}
                                                 (
                                                 {cartItemValue.tax
-                                                    ? parseFloat(
-                                                          cartItemValue.tax
-                                                      ).toFixed(2)
+                                                    ? formatNumber(
+                                                          parseNumber(
+                                                              cartItemValue.tax,
+                                                              0
+                                                          ),
+                                                          2
+                                                      )
                                                     : "0.00"}{" "}
                                                 %)
                                             </td>
@@ -326,8 +333,8 @@ const CashPaymentModel = (props) => {
                     onClick={(event) => {
                         if (cashPaymentValue.received_amount !== undefined) {
                             if (
-                                parseInt(cashPaymentValue.received_amount) <
-                                parseInt(grandTotal)
+                                parseNumber(cashPaymentValue.received_amount, 0) <
+                                parseNumber(grandTotal, 0)
                             ) {
                                 dispatch(
                                     addToast({
@@ -353,8 +360,8 @@ const CashPaymentModel = (props) => {
                     onClick={(event) => {
                         if (cashPaymentValue.received_amount !== undefined) {
                             if (
-                                parseInt(cashPaymentValue.received_amount) <
-                                parseInt(grandTotal)
+                                parseNumber(cashPaymentValue.received_amount, 0) <
+                                parseNumber(grandTotal, 0)
                             ) {
                                 dispatch(
                                     addToast({

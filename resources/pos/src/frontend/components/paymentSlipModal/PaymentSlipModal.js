@@ -3,8 +3,11 @@ import { Modal, Table, Image } from "react-bootstrap";
 import { calculateProductCost } from "../../shared/SharedMethod";
 import {
     currencySymbolHandling,
+    formatNumber,
+    formatQuantityAuto,
     getFormattedDate,
     getFormattedMessage,
+    parseNumber,
 } from "../../../shared/sharedMethod";
 
 const PaymentSlipModal = (props) => {
@@ -164,7 +167,7 @@ const PaymentSlipModal = (props) => {
                                 <div className="product-border">
                                     <div className="border-0 d-flex justify-content-between">
                                         <span className="">
-                                            {productName.quantity.toFixed(2)}{" "}
+                                            {formatQuantityAuto(productName.quantity)}{" "}
                                             {(productName.product_unit ===
                                                 "3" &&
                                                 "Kg") ||
@@ -175,9 +178,12 @@ const PaymentSlipModal = (props) => {
                                                     "2" &&
                                                     "M")}{" "}
                                             X{" "}
-                                            {calculateProductCost(
-                                                productName
-                                            ).toFixed(2)}
+                                            {formatNumber(
+                                                calculateProductCost(
+                                                    productName
+                                                ),
+                                                2
+                                            )}
                                         </span>
                                         <span className="text-end">
                                             {currencySymbolHandling(
@@ -226,7 +232,10 @@ const PaymentSlipModal = (props) => {
                             )}{" "}
                             (
                             {updateProducts
-                                ? parseFloat(updateProducts.tax).toFixed(2)
+                                ? formatNumber(
+                                      parseNumber(updateProducts.tax, 0),
+                                      2
+                                  )
                                 : "0.00"}{" "}
                             %)
                         </div>

@@ -2,7 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Row, Tab, Tabs } from 'react-bootstrap';
 import MasterLayout from '../../MasterLayout';
 import TabTitle from '../../../shared/tab-title/TabTitle';
-import { getFormattedMessage, placeholderText } from '../../../shared/sharedMethod';
+import {
+    formatNumber,
+    getFormattedMessage,
+    parseNumber,
+    placeholderText
+} from '../../../shared/sharedMethod';
 import { useParams } from 'react-router-dom';
 import PurchaseTab from "./supplier-tab/PurchaseTabs";
 import PurchaseReturnTabs from "./supplier-tab/PurchaseReturnTabs";
@@ -36,22 +41,22 @@ const SupplierReportDetails = () => {
                 <Widget title={getFormattedMessage( 'purchases.title' )}
                     className='bg-success' iconClass='bg-green-300'
                     icon={<FontAwesomeIcon icon={faCartPlus} className='fs-1-xl text-white' />} currency={''}
-                    value={supplierReportWidgetData?.purchases_count ? parseFloat( supplierReportWidgetData?.purchases_count ).toFixed( 2 ) : '0.00'} />
+                    value={supplierReportWidgetData?.purchases_count ? formatNumber( parseNumber( supplierReportWidgetData?.purchases_count, 0 ), 2 ) : '0.00'} />
                 <Widget title={getFormattedMessage( 'dashboard.purchaseReturn.title' )}
                     className='bg-warning' iconClass='bg-yellow-300'
                     icon={<FontAwesomeIcon icon={faArrowLeft} className='fs-1-xl text-white' />}
                     currency={''}
-                    value={supplierReportWidgetData?.purchases_returns_count ? parseFloat( supplierReportWidgetData?.purchases_returns_count ).toFixed( 2 ) : '0.00'} />
+                    value={supplierReportWidgetData?.purchases_returns_count ? formatNumber( parseNumber( supplierReportWidgetData?.purchases_returns_count, 0 ), 2 ) : '0.00'} />
                 <Widget title={getFormattedMessage( 'purchases.total.amount.title' )}
                     className='bg-info' iconClass='bg-blue-300'
                     icon={<FontAwesomeIcon icon={faArrowRight} className='fs-1-xl text-white' />}
                     currency={currencySymbol}
-                    value={supplierReportWidgetData?.purchases_total_amount ? parseFloat( supplierReportWidgetData?.purchases_total_amount ).toFixed( 2 ) : '0.00'} />
+                    value={supplierReportWidgetData?.purchases_total_amount ? formatNumber( parseNumber( supplierReportWidgetData?.purchases_total_amount, 0 ), 2 ) : '0.00'} />
                 <Widget title={getFormattedMessage( 'purchases-return.total.amount.title' )}
                     className='bg-info' iconClass='bg-blue-300'
                     icon={<FontAwesomeIcon icon={faArrowRight} className='fs-1-xl text-white' />}
                     currency={currencySymbol}
-                    value={supplierReportWidgetData?.purchases_returns_total_amount ? parseFloat( supplierReportWidgetData?.purchases_returns_total_amount ).toFixed( 2 ) : '0.00'} />
+                    value={supplierReportWidgetData?.purchases_returns_total_amount ? formatNumber( parseNumber( supplierReportWidgetData?.purchases_returns_total_amount, 0 ), 2 ) : '0.00'} />
             </Row>
             <Tabs defaultActiveKey='purchase' id='uncontrolled-tab-example' onSelect={( k ) => setKey( k )}
                 className='mt-7 mb-5'>

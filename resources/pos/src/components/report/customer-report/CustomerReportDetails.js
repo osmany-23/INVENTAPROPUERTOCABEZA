@@ -2,7 +2,12 @@ import React, {useEffect, useState} from 'react';
 import {Row, Tab, Tabs} from 'react-bootstrap';
 import MasterLayout from '../../MasterLayout';
 import TabTitle from '../../../shared/tab-title/TabTitle';
-import {getFormattedMessage, placeholderText} from '../../../shared/sharedMethod';
+import {
+    formatNumber,
+    getFormattedMessage,
+    parseNumber,
+    placeholderText
+} from '../../../shared/sharedMethod';
 import {useParams} from 'react-router-dom';
 import HeaderTitle from '../../header/HeaderTitle';
 import {useDispatch, useSelector} from 'react-redux';
@@ -38,22 +43,22 @@ const CustomerReportDetails = (props) => {
                 <Widget title={getFormattedMessage('sale.title')}
                         className='bg-success' iconClass='bg-green-300'
                         icon={<FontAwesomeIcon icon={faCartPlus} className='fs-1-xl text-white'/>}   currency={''}
-                        value={customerReportWidgetData?.totalSale ? parseFloat(customerReportWidgetData?.totalSale).toFixed(2) : '0.00'}/>
+                        value={customerReportWidgetData?.totalSale ? formatNumber(parseNumber(customerReportWidgetData?.totalSale, 0), 2) : '0.00'}/>
                 <Widget title={getFormattedMessage('pos-total-amount.title')}
                         className='bg-info' iconClass='bg-blue-300' allConfigData={allConfigData}
                         icon={<FontAwesomeIcon icon={faArrowRight} className='fs-1-xl text-white'/>}
                         currency={currencySymbol}
-                        value={customerReportWidgetData?.totalAmount ? parseFloat(customerReportWidgetData?.totalAmount).toFixed(2) : '0.00'}/>
+                        value={customerReportWidgetData?.totalAmount ? formatNumber(parseNumber(customerReportWidgetData?.totalAmount, 0), 2) : '0.00'}/>
                 <Widget title={getFormattedMessage('sale-paid.total.amount.title')}
                         className='bg-warning' iconClass='bg-yellow-300' allConfigData={allConfigData}
                         icon={<FontAwesomeIcon icon={faArrowLeft} className='fs-1-xl text-white'/>}
                         currency={currencySymbol}
-                        value={customerReportWidgetData?.totalPaid ? parseFloat(customerReportWidgetData?.totalPaid).toFixed(2) : '0.00'}/>
+                        value={customerReportWidgetData?.totalPaid ? formatNumber(parseNumber(customerReportWidgetData?.totalPaid, 0), 2) : '0.00'}/>
                 <Widget title={getFormattedMessage('sale-Due.total.amount.title')}
                         className='bg-info' iconClass='bg-blue-300' allConfigData={allConfigData}
                         icon={<FontAwesomeIcon icon={faArrowRight} className='fs-1-xl text-white'/>}
                         currency={currencySymbol}
-                        value={customerReportWidgetData?.totalSalesDue ? parseFloat(customerReportWidgetData?.totalSalesDue).toFixed(2) : '0.00'}/>
+                        value={customerReportWidgetData?.totalSalesDue ? formatNumber(parseNumber(customerReportWidgetData?.totalSalesDue, 0), 2) : '0.00'}/>
             </Row>
             <Tabs defaultActiveKey='sale' id='uncontrolled-tab-example' onSelect={(k) => setKey(k)}
                   className='mt-7 mb-5'>

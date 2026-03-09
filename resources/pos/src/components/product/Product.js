@@ -18,6 +18,7 @@ import TabTitle from "../../shared/tab-title/TabTitle";
 import ProductImageLightBox from "./ProductImageLightBox";
 import user from "../../assets/images/brand_logo.png";
 import {
+    formatQuantity,
     getFormattedDate,
     getFormattedMessage,
     placeholderText,
@@ -697,7 +698,7 @@ const Product = (props) => {
             },
             {
                 name: getFormattedMessage("product.product-in-stock.label"),
-                selector: (row) => row.in_stock,
+                selector: (row) => formatQuantity(row.in_stock, 0),
                 sortField: "in_stock",
                 sortable: false,
             },

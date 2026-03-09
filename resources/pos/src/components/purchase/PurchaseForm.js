@@ -8,7 +8,16 @@ import { editPurchase } from '../../store/action/purchaseAction';
 import { fetchAllProducts } from '../../store/action/productAction';
 import PurchaseTable from '../../shared/components/purchase/PurchaseTable';
 import { preparePurchaseProductArray } from '../../shared/prepareArray/preparePurchaseArray';
-import { decimalValidate, getFormattedMessage, placeholderText, onFocusInput, getFormattedOptions } from '../../shared/sharedMethod';
+import {
+    decimalValidate,
+    getFormattedMessage,
+    placeholderText,
+    onFocusInput,
+    getFormattedOptions,
+    formatNumericInputOnBlur,
+    normalizeNumericValue,
+    parseNumber,
+} from '../../shared/sharedMethod';
 import { calculateCartTotalAmount, calculateCartTotalTaxAmount } from '../../shared/calculation/calculation';
 import ModelFooter from '../../shared/components/modelFooter';
 import ProductSearch from '../../shared/components/product-cart/search/ProductSearch';
@@ -44,10 +53,10 @@ const PurchaseForm = ( props ) => {
         date: singlePurchase ? moment( singlePurchase.date ).toDate() : new Date(),
         warehouse_id: singlePurchase ? singlePurchase.warehouse_id : '',
         supplier_id: singlePurchase ? singlePurchase.supplier_id : '',
-        tax_rate: singlePurchase ? singlePurchase.tax_rate.toFixed( 2 ) : '0.00',
-        tax_amount: singlePurchase ? singlePurchase.tax_amount.toFixed( 2 ) : '0.00',
-        discount: singlePurchase ? singlePurchase.discount.toFixed( 2 ) : '0.00',
-        shipping: singlePurchase ? singlePurchase.shipping.toFixed( 2 ) : '0.00',
+        tax_rate: singlePurchase ? formatNumericInputOnBlur( singlePurchase.tax_rate, 2 ) : '0.00',
+        tax_amount: singlePurchase ? formatNumericInputOnBlur( singlePurchase.tax_amount, 2 ) : '0.00',
+        discount: singlePurchase ? formatNumericInputOnBlur( singlePurchase.discount, 2 ) : '0.00',
+        shipping: singlePurchase ? formatNumericInputOnBlur( singlePurchase.shipping, 2 ) : '0.00',
         grand_total: singlePurchase ? singlePurchase.grand_total : '0.00',
         notes: singlePurchase ? ( singlePurchase.notes ?? '' ) : '',
         status_id: singlePurchase ? singlePurchase.status_id : { label: getFormattedMessage( "status.filter.received.label" ), value: 1 },
@@ -139,7 +148,7 @@ const PurchaseForm = ( props ) => {
 
     const onChangeInput = ( e ) => {
         e.preventDefault();
-        const { value } = e.target;
+        const value = normalizeNumericValue( e.target.value );
         // check if value includes a decimal point
         if ( value.match( /\./g ) ) {
             const [ , decimal ] = value.split( '.' );
@@ -189,11 +198,11 @@ const PurchaseForm = ( props ) => {
             date: moment( prepareData.date ).toDate(),
             warehouse_id: prepareData.warehouse_id.value ? prepareData.warehouse_id.value : prepareData.warehouse_id,
             supplier_id: prepareData.supplier_id.value ? prepareData.supplier_id.value : prepareData.supplier_id,
-            discount: prepareData.discount,
-            tax_rate: prepareData.tax_rate,
+            discount: parseNumber( prepareData.discount, 0 ).toFixed( 2 ),
+            tax_rate: parseNumber( prepareData.tax_rate, 0 ).toFixed( 2 ),
             tax_amount: calculateCartTotalTaxAmount( updateProducts, purchaseValue ),
             purchase_items: updateProducts,
-            shipping: prepareData.shipping,
+            shipping: parseNumber( prepareData.shipping, 0 ).toFixed( 2 ),
             grand_total: calculateCartTotalAmount( updateProducts, purchaseValue ),
             received_amount: '',
             paid_amount: '',
@@ -219,16 +228,11 @@ const PurchaseForm = ( props ) => {
     };
 
     const onBlurInput = ( el ) => {
-        if ( el.target.value === '' ) {
-            if ( el.target.name === 'shipping' ) {
-                setPurchaseValue( { ...purchaseValue, shipping: '0.00' } )
-            }
-            if ( el.target.name === 'discount' ) {
-                setPurchaseValue( { ...purchaseValue, discount: '0.00' } )
-            }
-            if ( el.target.name === 'tax_rate' ) {
-                setPurchaseValue( { ...purchaseValue, tax_rate: '0.00' } )
-            }
+        if ( [ "shipping", "discount", "tax_rate" ].includes( el.target.name ) ) {
+            setPurchaseValue( ( prev ) => ( {
+                ...prev,
+                [ el.target.name ]: formatNumericInputOnBlur( prev[ el.target.name ], 2 ),
+            } ) );
         }
     }
 

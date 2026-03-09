@@ -10,7 +10,11 @@ import {
     amountBeforeTax,
 } from "../../calculation/calculation";
 import { productUnitDropdown } from "../../../store/action/productUnitAction";
-import { currencySymbolHandling, decimalValidate } from "../../sharedMethod";
+import {
+    currencySymbolHandling,
+    decimalValidate,
+    formatQuantityAuto
+} from "../../sharedMethod";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPencil, faTrash } from "@fortawesome/free-solid-svg-icons";
 
@@ -137,7 +141,7 @@ const TransfersTable = (props) => {
                             return (
                                 <span className="badge bg-light-warning">
                                     <span>
-                                        {item.quantity}&nbsp;
+                                        {formatQuantityAuto(item.quantity)}&nbsp;
                                         {singleProduct.short_name}
                                     </span>
                                 </span>
@@ -146,7 +150,7 @@ const TransfersTable = (props) => {
                     ) : singleProduct.stock >= 0 ? (
                         <span className="badge bg-light-warning">
                             <span>
-                                {singleProduct.stock}&nbsp;
+                                {formatQuantityAuto(singleProduct.stock)}&nbsp;
                                 {singleProduct.short_name}
                             </span>
                         </span>

@@ -13,6 +13,7 @@ import { productSalesDropdown } from "../../../store/action/productSaleUnitActio
 import {
     currencySymbolHandling,
     decimalValidate,
+    formatQuantityAuto,
     getFormattedMessage,
     numValidate,
 } from "../../sharedMethod";
@@ -198,7 +199,7 @@ const ProductTableBody = (props) => {
                         allConfigData,
                         frontSetting.value &&
                             frontSetting.value.currency_symbol,
-                        amountBeforeTax(singleProduct).toFixed(2)
+                        amountBeforeTax(singleProduct)
                     )}
                 </td>
                 <td>
@@ -211,7 +212,7 @@ const ProductTableBody = (props) => {
                                         className="badge bg-light-warning"
                                     >
                                         <span>
-                                            {item.quantity}&nbsp;
+                                            {formatQuantityAuto(item.quantity)}&nbsp;
                                             {singleProduct?.short_name}
                                         </span>
                                     </span>
@@ -220,7 +221,7 @@ const ProductTableBody = (props) => {
                         ) : singleProduct.stock === "" ? (
                             <span className="badge bg-light-warning">
                                 <span>
-                                    {singleProduct.sold_quantity}&nbsp;
+                                    {formatQuantityAuto(singleProduct.sold_quantity)}&nbsp;
                                     {singleProduct?.short_name}
                                 </span>
                             </span>
@@ -228,7 +229,7 @@ const ProductTableBody = (props) => {
                     ) : singleProduct.stock >= 0 ? (
                         <span className="badge bg-light-warning">
                             <span>
-                                {singleProduct.stock}&nbsp;
+                                {formatQuantityAuto(singleProduct.stock)}&nbsp;
                                 {singleProduct?.short_name}
                             </span>
                         </span>

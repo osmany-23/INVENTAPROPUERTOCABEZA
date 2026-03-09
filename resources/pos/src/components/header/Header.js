@@ -95,7 +95,6 @@ const Header = (props) => {
 
     const onLogOut = () => {
         logoutAction(token, navigate);
-        navigate('/login');
     };
 
     const onProfileClick = () => {

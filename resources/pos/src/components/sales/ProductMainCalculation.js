@@ -5,15 +5,17 @@ import {
 } from "../../shared/calculation/calculation";
 import {
     currencySymbolHandling,
+    formatNumber,
     getFormattedMessage,
+    parseNumber,
 } from "../../shared/sharedMethod";
 
 const ProductMainCalculation = (props) => {
     const { inputValues, updateProducts, frontSetting, allConfigData } = props;
     let totalAmountAfterDiscount =
-        calculateSubTotal(updateProducts) - inputValues.discount;
+        calculateSubTotal(updateProducts) - parseNumber(inputValues.discount, 0);
     let taxCal = (
-        (totalAmountAfterDiscount * inputValues.tax_rate) /
+        (totalAmountAfterDiscount * parseNumber(inputValues.tax_rate, 0)) /
         100
     ).toFixed(2);
 
@@ -39,11 +41,10 @@ const ProductMainCalculation = (props) => {
                                             taxCal
                                         )}{" "}
                                         (
-                                        {parseFloat(
-                                            inputValues.tax_rate
-                                                ? inputValues.tax_rate
-                                                : 0
-                                        ).toFixed(2)}
+                                        {formatNumber(
+                                            parseNumber(inputValues.tax_rate, 0),
+                                            2
+                                        )}
                                         ) %
                                     </td>
                                 </tr>

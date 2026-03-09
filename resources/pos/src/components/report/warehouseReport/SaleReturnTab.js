@@ -4,6 +4,7 @@ import ReactDataTable from "../../../shared/table/ReactDataTable";
 import {
     currencySymbolHandling,
     getFormattedMessage,
+    parseNumber,
 } from "../../../shared/sharedMethod";
 import { fetchSalesReturn } from "../../../store/action/salesReturnAction";
 import { fetchFrontSetting } from "../../../store/action/frontSettingAction";
@@ -87,7 +88,11 @@ const SaleReturnTab = (props) => {
         {
             name: getFormattedMessage("dashboard.recentSales.due.label"),
             selector: (row) =>
-                currencySymbolHandling(allConfigData, row.currency, parseFloat(row?.due_amount)),
+                currencySymbolHandling(
+                    allConfigData,
+                    row.currency,
+                    parseNumber(row?.due_amount, 0)
+                ),
             sortField: "due",
             // sortable: true,
         },

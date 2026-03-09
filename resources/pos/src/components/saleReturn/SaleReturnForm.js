@@ -7,7 +7,10 @@ import { fetchProductsByWarehouse } from "../../store/action/productAction";
 import ProductRowTable from "../../shared/components/sales/ProductRowTable";
 import {
     decimalValidate,
+    formatNumericInputOnBlur,
     getFormattedMessage,
+    normalizeNumericValue,
+    parseNumber,
     placeholderText,
     onFocusInput,
     getFormattedOptions,
@@ -84,12 +87,18 @@ const SaleReturnForm = (props) => {
                 date: singleSale ? moment(singleSale.date).toDate() : "",
                 customer_id: singleSale ? singleSale.customer_id : "",
                 warehouse_id: singleSale ? singleSale.warehouse_id : "",
-                tax_rate: singleSale ? singleSale.tax_rate.toFixed(2) : "0.00",
-                tax_amount: singleSale
-                    ? singleSale.tax_amount.toFixed(2)
+                tax_rate: singleSale
+                    ? formatNumericInputOnBlur(singleSale.tax_rate, 2)
                     : "0.00",
-                discount: singleSale ? singleSale.discount.toFixed(2) : "0.00",
-                shipping: singleSale ? singleSale.shipping.toFixed(2) : "0.00",
+                tax_amount: singleSale
+                    ? formatNumericInputOnBlur(singleSale.tax_amount, 2)
+                    : "0.00",
+                discount: singleSale
+                    ? formatNumericInputOnBlur(singleSale.discount, 2)
+                    : "0.00",
+                shipping: singleSale
+                    ? formatNumericInputOnBlur(singleSale.shipping, 2)
+                    : "0.00",
                 grand_total: Number(
                     singleSale ? singleSale.grand_total : "0.00"
                 ),
@@ -218,7 +227,7 @@ const SaleReturnForm = (props) => {
 
     const onChangeInput = (e) => {
         e.preventDefault();
-        const { value } = e.target;
+        const value = normalizeNumericValue(e.target.value);
         // check if value includes a decimal point
         if (value.match(/\./g)) {
             const [, decimal] = value.split(".");
@@ -247,14 +256,14 @@ const SaleReturnForm = (props) => {
             warehouse_id: prepareData.warehouse_id.value
                 ? prepareData.warehouse_id.value
                 : prepareData.warehouse_id,
-            discount: prepareData.discount,
-            tax_rate: prepareData.tax_rate,
+            discount: parseNumber(prepareData.discount, 0).toFixed(2),
+            tax_rate: parseNumber(prepareData.tax_rate, 0).toFixed(2),
             tax_amount: calculateCartTotalTaxAmount(
                 updateProducts,
                 saleReturnValue
             ),
             sale_return_items: updateProducts,
-            shipping: prepareData.shipping,
+            shipping: parseNumber(prepareData.shipping, 0).toFixed(2),
             grand_total: Number(
                 calculateCartTotalAmount(updateProducts, saleReturnValue)
             ),
@@ -287,16 +296,14 @@ const SaleReturnForm = (props) => {
     };
 
     const onBlurInput = (el) => {
-        if (el.target.value === "") {
-            if (el.target.name === "shipping") {
-                setSaleReturnValue({ ...saleReturnValue, shipping: "0.00" });
-            }
-            if (el.target.name === "discount") {
-                setSaleReturnValue({ ...saleReturnValue, discount: "0.00" });
-            }
-            if (el.target.name === "tax_rate") {
-                setSaleReturnValue({ ...saleReturnValue, tax_rate: "0.00" });
-            }
+        if (["shipping", "discount", "tax_rate"].includes(el.target.name)) {
+            setSaleReturnValue((prev) => ({
+                ...prev,
+                [el.target.name]: formatNumericInputOnBlur(
+                    prev[el.target.name],
+                    2
+                ),
+            }));
         }
     };
 

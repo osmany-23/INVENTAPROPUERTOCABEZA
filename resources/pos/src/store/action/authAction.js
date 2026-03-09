@@ -13,7 +13,9 @@ export const loginAction = (user, navigate, setLoading) => async (dispatch) => {
     await apiConfig
         .post("login", user)
         .then((response) => {
-            localStorage.setItem(Tokens.ADMIN, response.data.data.token);
+            const authToken = response?.data?.data?.token || "";
+
+            localStorage.setItem(Tokens.ADMIN, authToken);
             localStorage.setItem(
                 Tokens.GET_PERMISSIONS,
                 response.data.data.permissions
@@ -47,8 +49,12 @@ export const loginAction = (user, navigate, setLoading) => async (dispatch) => {
                 "user_time",
                 String(Date.now() + expiresAtInMinutes * 60 * 1000)
             );
-            Cookies.set("authToken", response.data.data.token, {
+            Cookies.remove("authToken");
+            Cookies.remove("authToken", { path: "/" });
+            Cookies.set("authToken", authToken, {
                 expires: new Date(Date.now() + expiresAtInMinutes * 60 * 1000),
+                path: "/",
+                sameSite: "Lax",
             });
             dispatch({
                 type: authActionType.LOGIN_USER,
@@ -82,21 +88,36 @@ export const loginAction = (user, navigate, setLoading) => async (dispatch) => {
 };
 
 export const logoutAction = (token, navigate) => async (dispatch) => {
+    const authToken =
+        token ||
+        localStorage.getItem(Tokens.ADMIN) ||
+        Cookies.get("authToken");
+
+    // Clear local auth state first to stop new protected API requests during logout transition.
+    Cookies.remove("authToken");
+    Cookies.remove("authToken", { path: "/" });
+    localStorage.removeItem(Tokens.ADMIN);
+    localStorage.removeItem(Tokens.USER);
+    localStorage.removeItem(Tokens.IMAGE);
+    localStorage.removeItem(Tokens.FIRST_NAME);
+    localStorage.removeItem(Tokens.LAST_NAME);
+    localStorage.removeItem("loginUserArray");
+    localStorage.removeItem(Tokens.UPDATED_EMAIL);
+    localStorage.removeItem(Tokens.UPDATED_FIRST_NAME);
+    localStorage.removeItem(Tokens.UPDATED_LAST_NAME);
+    localStorage.removeItem(Tokens.USER_IMAGE_URL);
+    localStorage.removeItem(Tokens.GET_PERMISSIONS);
+    localStorage.removeItem("user_time");
+
+    navigate("/login");
+
     await apiConfig
-        .post("logout", token)
+        .post("logout", {}, {
+            headers: authToken
+                ? { Authorization: `Bearer ${authToken}` }
+                : undefined,
+        })
         .then(() => {
-            Cookies.remove("authToken");
-            localStorage.removeItem(Tokens.ADMIN);
-            localStorage.removeItem(Tokens.USER);
-            localStorage.removeItem(Tokens.IMAGE);
-            localStorage.removeItem(Tokens.FIRST_NAME);
-            localStorage.removeItem(Tokens.LAST_NAME);
-            localStorage.removeItem("loginUserArray");
-            localStorage.removeItem(Tokens.UPDATED_EMAIL);
-            localStorage.removeItem(Tokens.UPDATED_FIRST_NAME);
-            localStorage.removeItem(Tokens.UPDATED_LAST_NAME);
-            localStorage.removeItem(Tokens.USER_IMAGE_URL);
-            navigate("/login");
             dispatch(
                 addToast({
                     text: getFormattedMessage("logout.success.message"),
@@ -104,9 +125,10 @@ export const logoutAction = (token, navigate) => async (dispatch) => {
             );
         })
         .catch(({ response }) => {
-            dispatch(
-                addToast({ text: response.data.message, type: toastType.ERROR })
-            );
+            const message = response?.data?.message;
+            if (message) {
+                dispatch(addToast({ text: message, type: toastType.ERROR }));
+            }
         });
 };
 

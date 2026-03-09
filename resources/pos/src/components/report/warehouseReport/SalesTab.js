@@ -5,6 +5,7 @@ import ReactDataTable from "../../../shared/table/ReactDataTable";
 import {
     currencySymbolHandling,
     getFormattedMessage,
+    parseNumber,
 } from "../../../shared/sharedMethod";
 import { fetchSales } from "../../../store/action/salesAction";
 import { fetchFrontSetting } from "../../../store/action/frontSettingAction";
@@ -146,7 +147,7 @@ const SalesTab = (props) => {
                 currencySymbolHandling(
                     allConfigData,
                     row.currency,
-                    parseFloat(row.due_amount)
+                    parseNumber(row.due_amount, 0)
                 ),
             sortField: "due",
             // sortable: true,

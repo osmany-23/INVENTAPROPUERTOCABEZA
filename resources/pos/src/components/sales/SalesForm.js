@@ -7,7 +7,16 @@ import { fetchProductsByWarehouse } from '../../store/action/productAction';
 import { editSale } from '../../store/action/salesAction';
 import ProductSearch from '../../shared/components/product-cart/search/ProductSearch';
 import ProductRowTable from '../../shared/components/sales/ProductRowTable';
-import { placeholderText, getFormattedMessage, decimalValidate, onFocusInput, getFormattedOptions } from '../../shared/sharedMethod';
+import {
+    placeholderText,
+    getFormattedMessage,
+    decimalValidate,
+    onFocusInput,
+    getFormattedOptions,
+    formatNumericInputOnBlur,
+    normalizeNumericValue,
+    parseNumber,
+} from '../../shared/sharedMethod';
 import ReactDatePicker from '../../shared/datepicker/ReactDatePicker';
 import ProductMainCalculation from './ProductMainCalculation';
 import { calculateCartTotalAmount, calculateCartTotalTaxAmount } from '../../shared/calculation/calculation';
@@ -89,10 +98,10 @@ const SalesForm = ( props ) => {
                 customer_id: singleSale ? singleSale.customer_id : '',
                 quotation_id: singleSale ? singleSale.quotation_id : '',
                 warehouse_id: singleSale ? singleSale.warehouse_id : '',
-                tax_rate: singleSale ? singleSale.tax_rate.toFixed( 2 ) : '0.00',
-                tax_amount: singleSale ? singleSale.tax_amount.toFixed( 2 ) : '0.00',
-                discount: singleSale ? singleSale.discount.toFixed( 2 ) : '0.00',
-                shipping: singleSale ? singleSale.shipping.toFixed( 2 ) : '0.00',
+                tax_rate: singleSale ? formatNumericInputOnBlur( singleSale.tax_rate, 2 ) : '0.00',
+                tax_amount: singleSale ? formatNumericInputOnBlur( singleSale.tax_amount, 2 ) : '0.00',
+                discount: singleSale ? formatNumericInputOnBlur( singleSale.discount, 2 ) : '0.00',
+                shipping: singleSale ? formatNumericInputOnBlur( singleSale.shipping, 2 ) : '0.00',
                 grand_total: singleSale ? singleSale.grand_total : '0.00',
                 notes: singleSale ? ( singleSale.notes ?? '' ) : '',
                 status_id: singleSale ? singleSale.status_id : '',
@@ -106,10 +115,10 @@ const SalesForm = ( props ) => {
                 quotation_id: singleSale ? singleSale.quotation_id : '',
                 customer_id: singleSale ? singleSale.customer_id : '',
                 warehouse_id: singleSale ? singleSale.warehouse_id : '',
-                tax_rate: singleSale ? singleSale.tax_rate.toFixed( 2 ) : '0.00',
-                tax_amount: singleSale ? singleSale.tax_amount.toFixed( 2 ) : '0.00',
-                discount: singleSale ? singleSale.discount.toFixed( 2 ) : '0.00',
-                shipping: singleSale ? singleSale.shipping.toFixed( 2 ) : '0.00',
+                tax_rate: singleSale ? formatNumericInputOnBlur( singleSale.tax_rate, 2 ) : '0.00',
+                tax_amount: singleSale ? formatNumericInputOnBlur( singleSale.tax_amount, 2 ) : '0.00',
+                discount: singleSale ? formatNumericInputOnBlur( singleSale.discount, 2 ) : '0.00',
+                shipping: singleSale ? formatNumericInputOnBlur( singleSale.shipping, 2 ) : '0.00',
                 grand_total: singleSale ? singleSale.grand_total : '0.00',
                 notes: singleSale ? ( singleSale.notes ?? '' ) : '',
                 status_id: singleSale ? singleSale.status_id : '',
@@ -168,7 +177,7 @@ const SalesForm = ( props ) => {
 
     const onChangeInput = ( e ) => {
         e.preventDefault();
-        const { value } = e.target;
+        const value = normalizeNumericValue( e.target.value );
         // check if value includes a decimal point
         if ( value.match( /\./g ) ) {
             const [ , decimal ] = value.split( '.' );
@@ -262,11 +271,11 @@ const SalesForm = ( props ) => {
             quotation_id: prepareData ? prepareData.quotation_id : '',
             customer_id: prepareData.customer_id.value ? prepareData.customer_id.value : prepareData.customer_id,
             warehouse_id: prepareData.warehouse_id.value ? prepareData.warehouse_id.value : prepareData.warehouse_id,
-            discount: prepareData.discount,
-            tax_rate: prepareData.tax_rate,
+            discount: parseNumber( prepareData.discount, 0 ).toFixed( 2 ),
+            tax_rate: parseNumber( prepareData.tax_rate, 0 ).toFixed( 2 ),
             tax_amount: calculateCartTotalTaxAmount( updateProducts, saleValue ),
             sale_items: updateProducts,
-            shipping: prepareData.shipping,
+            shipping: parseNumber( prepareData.shipping, 0 ).toFixed( 2 ),
             grand_total: calculateCartTotalAmount( updateProducts, saleValue ),
             received_amount: 0,
             paid_amount: 0,
@@ -292,16 +301,11 @@ const SalesForm = ( props ) => {
     };
 
     const onBlurInput = ( el ) => {
-        if ( el.target.value === '' ) {
-            if ( el.target.name === "shipping" ) {
-                setSaleValue( { ...saleValue, shipping: "0.00" } );
-            }
-            if ( el.target.name === "discount" ) {
-                setSaleValue( { ...saleValue, discount: "0.00" } );
-            }
-            if ( el.target.name === "tax_rate" ) {
-                setSaleValue( { ...saleValue, tax_rate: "0.00" } );
-            }
+        if ( [ "shipping", "discount", "tax_rate" ].includes( el.target.name ) ) {
+            setSaleValue( ( prev ) => ( {
+                ...prev,
+                [ el.target.name ]: formatNumericInputOnBlur( prev[ el.target.name ], 2 ),
+            } ) );
         }
     }
 

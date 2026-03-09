@@ -4,7 +4,9 @@ import { Col, Row, Tab, Tabs } from "react-bootstrap";
 import MasterLayout from "../../MasterLayout";
 import TabTitle from "../../../shared/tab-title/TabTitle";
 import {
+    formatNumber,
     getFormattedMessage,
+    parseNumber,
     placeholderText,
 } from "../../../shared/sharedMethod";
 import ReactSelect from "../../../shared/select/reactSelect";
@@ -97,9 +99,13 @@ const WarehouseReport = (props) => {
                     iconClass="bg-cyan-300"
                     value={
                         warehouseReportData?.sale_count
-                            ? parseFloat(
-                                  warehouseReportData?.sale_count
-                              ).toFixed(2)
+                            ? formatNumber(
+                                  parseNumber(
+                                      warehouseReportData?.sale_count,
+                                      0
+                                  ),
+                                  2
+                              )
                             : "0.00"
                     }
                 />
@@ -117,9 +123,13 @@ const WarehouseReport = (props) => {
                     currency={""}
                     value={
                         warehouseReportData?.purchase_count
-                            ? parseFloat(
-                                  warehouseReportData?.purchase_count
-                              ).toFixed(2)
+                            ? formatNumber(
+                                  parseNumber(
+                                      warehouseReportData?.purchase_count,
+                                      0
+                                  ),
+                                  2
+                              )
                             : "0.00"
                     }
                 />
@@ -137,9 +147,13 @@ const WarehouseReport = (props) => {
                     currency={""}
                     value={
                         warehouseReportData?.sale_return_count
-                            ? parseFloat(
-                                  warehouseReportData?.sale_return_count
-                              ).toFixed(2)
+                            ? formatNumber(
+                                  parseNumber(
+                                      warehouseReportData?.sale_return_count,
+                                      0
+                                  ),
+                                  2
+                              )
                             : "0.00"
                     }
                 />
@@ -159,9 +173,13 @@ const WarehouseReport = (props) => {
                     currency={""}
                     value={
                         warehouseReportData?.purchase_return_count
-                            ? parseFloat(
-                                  warehouseReportData?.purchase_return_count
-                              ).toFixed(2)
+                            ? formatNumber(
+                                  parseNumber(
+                                      warehouseReportData?.purchase_return_count,
+                                      0
+                                  ),
+                                  2
+                              )
                             : "0.00"
                     }
                 />

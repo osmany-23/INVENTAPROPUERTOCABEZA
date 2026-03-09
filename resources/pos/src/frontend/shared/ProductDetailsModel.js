@@ -5,7 +5,10 @@ import Select from "react-select";
 import { connect } from "react-redux";
 import {
     decimalValidate,
+    formatNumericInputOnBlur,
     getFormattedMessage,
+    normalizeNumericValue,
+    parseNumber,
     placeholderText,
     getFormattedOptions,
 } from "../../shared/sharedMethod";
@@ -14,17 +17,12 @@ import ReactSelect from "../../shared/select/reactSelect";
 import { calculateProductCost } from "./SharedMethod";
 import { taxMethodOptions, discountMethodOptions } from "../../constants";
 
-const parseNumber = (value, fallback = 0) => {
-    const numericValue = Number(value);
-    return Number.isFinite(numericValue) ? numericValue : fallback;
-};
-
 const keepTwoDecimals = (value) => {
     if (value === "") {
         return "";
     }
 
-    return parseNumber(value, 0).toFixed(2);
+    return formatNumericInputOnBlur(value, 2);
 };
 
 const ProductDetailsModel = (props) => {
@@ -195,7 +193,7 @@ const ProductDetailsModel = (props) => {
     };
 
     const onNumericInputChange = (setter) => (event) => {
-        const { value } = event.target;
+        const value = normalizeNumericValue(event.target.value);
         if (value.match(/\./g)) {
             const [, decimal] = value.split(".");
             if (decimal?.length > 2) {
@@ -316,6 +314,11 @@ const ProductDetailsModel = (props) => {
                                     className="form-control-solid"
                                     value={unitPrice}
                                     onChange={onNumericInputChange(setUnitPrice)}
+                                    onBlur={() =>
+                                        setUnitPrice((previous) =>
+                                            formatNumericInputOnBlur(previous, 2)
+                                        )
+                                    }
                                 />
                                 <InputGroup.Text>
                                     {frontSetting.value &&
@@ -353,6 +356,11 @@ const ProductDetailsModel = (props) => {
                                     onKeyPress={(event) => decimalValidate(event)}
                                     onChange={onNumericInputChange(setOrderTax)}
                                     value={orderTax}
+                                    onBlur={() =>
+                                        setOrderTax((previous) =>
+                                            formatNumericInputOnBlur(previous, 2)
+                                        )
+                                    }
                                 />
                                 <InputGroup.Text>%</InputGroup.Text>
                             </InputGroup>
@@ -390,6 +398,11 @@ const ProductDetailsModel = (props) => {
                                 max="100"
                                 onChange={onNumericInputChange(setDiscount)}
                                 value={discount}
+                                onBlur={() =>
+                                    setDiscount((previous) =>
+                                        formatNumericInputOnBlur(previous, 2)
+                                    )
+                                }
                             />
                             <span className="text-danger">{errors.discount || null}</span>
                         </Form.Group>

@@ -4,6 +4,7 @@ import { Row } from "react-bootstrap";
 import {
     currencySymbolHandling,
     decimalValidate,
+    formatQuantityAuto,
     getFormattedMessage,
     numValidate,
     placeholderText,
@@ -157,7 +158,7 @@ const CartItemMainCalculation = (props) => {
                 <div className="col-6 d-flex flex-column justify-content-center text-end align-items-end mb-2">
                     <h4 className="fs-3 mb-2 custom-big-content text-gray-600">
                         {getFormattedMessage("pos-total-qty.title")} :{" "}
-                        {totalQty ? totalQty : "0"}
+                        {formatQuantityAuto(totalQty ? totalQty : 0)}
                     </h4>
                     <h4 className="fs-3 mb-2 text-gray-600">
                         {getFormattedMessage("pos.subtotal.small.title")} :{" "}

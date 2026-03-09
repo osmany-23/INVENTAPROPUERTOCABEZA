@@ -16,7 +16,6 @@ const ShowLogoutModal = ({
     const token = localStorage.getItem(Tokens.ADMIN);
     const onClickLogout = () => {
         dispatch(logoutAction(token, navigate));
-        navigate("/login");
     };
     return (
         <>

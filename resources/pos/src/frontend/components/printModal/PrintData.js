@@ -4,8 +4,11 @@ import { calculateProductCost } from "../../shared/SharedMethod";
 import "../../../assets/scss/frontend/pdf.scss";
 import {
     currencySymbolHandling,
+    formatNumber,
+    formatQuantityAuto,
     getFormattedDate,
     getFormattedMessage,
+    parseNumber,
 } from "../../../shared/sharedMethod";
 class PrintData extends React.PureComponent {
     render() {
@@ -240,8 +243,8 @@ class PrintData extends React.PureComponent {
                                     <div className="product-border">
                                         <div className="border-0 d-flex justify-content-between">
                                             <span className="text-black">
-                                                {productName.quantity.toFixed(
-                                                    2
+                                                {formatQuantityAuto(
+                                                    productName.quantity
                                                 )}{" "}
                                                 {(productName.product_unit ===
                                                     "3" &&
@@ -253,9 +256,12 @@ class PrintData extends React.PureComponent {
                                                         "2" &&
                                                         "M")}{" "}
                                                 X{" "}
-                                                {calculateProductCost(
-                                                    productName
-                                                ).toFixed(2)}
+                                                {formatNumber(
+                                                    calculateProductCost(
+                                                        productName
+                                                    ),
+                                                    2
+                                                )}
                                             </span>
                                             <span className="text-end">
                                                 {currencySymbolHandling(
@@ -312,9 +318,13 @@ class PrintData extends React.PureComponent {
                                     :{" "}
                                     {Number(paymentPrint.tax) > 0
                                         ? paymentPrint
-                                            ? `(${Number(
-                                                  paymentPrint.tax
-                                              ).toFixed(2)}%)`
+                                            ? `(${formatNumber(
+                                                  parseNumber(
+                                                      paymentPrint.tax,
+                                                      0
+                                                  ),
+                                                  2
+                                              )}%)`
                                             : "(0.00%)"
                                         : null}
                                 </div>
@@ -362,7 +372,7 @@ class PrintData extends React.PureComponent {
                             paymentPrint.settings.attributes
                                 .show_tax_discount_shipping
                         ) === 1 &&
-                        parseFloat(paymentPrint.shipping) !== 0.0 && (
+                        parseNumber(paymentPrint.shipping, 0) !== 0.0 && (
                             <div className="d-flex">
                                 <div
                                     style={{

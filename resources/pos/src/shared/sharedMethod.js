@@ -4,6 +4,60 @@ import { Navigate } from "react-router-dom";
 import { Tokens } from "../constants";
 import moment from "moment";
 
+const NUMBER_FORMAT_LOCALE = "en-US";
+
+export const normalizeNumericValue = (value) => {
+    if (value === null || value === undefined) {
+        return "";
+    }
+
+    if (typeof value === "number") {
+        return Number.isFinite(value) ? String(value) : "";
+    }
+
+    return String(value)
+        .trim()
+        .replace(/,/g, "")
+        .replace(/[^\d.-]/g, "");
+};
+
+export const parseNumber = (value, fallback = 0) => {
+    const numericValue = Number(normalizeNumericValue(value));
+    return Number.isFinite(numericValue) ? numericValue : fallback;
+};
+
+export const formatNumber = (value, decimals = 2) => {
+    const numericValue = parseNumber(value, NaN);
+    const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
+    return safeValue.toLocaleString(NUMBER_FORMAT_LOCALE, {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+    });
+};
+
+export const formatMoney = (value) => {
+    return formatNumber(value, 2);
+};
+
+export const formatQuantity = (value, decimals = 0) => {
+    return formatNumber(value, decimals);
+};
+
+export const formatQuantityAuto = (value) => {
+    const numericValue = parseNumber(value, 0);
+    const decimals = Number.isInteger(numericValue) ? 0 : 2;
+    return formatNumber(numericValue, decimals);
+};
+
+export const formatNumericInputOnBlur = (value, decimals = 2) => {
+    const normalizedValue = normalizeNumericValue(value);
+    if (normalizedValue === "") {
+        return formatNumber(0, decimals);
+    }
+
+    return formatNumber(normalizedValue, decimals);
+};
+
 export const getAvatarName = (name) => {
     if (name) {
         return name
@@ -81,9 +135,13 @@ export const addRTLSupport = (rtlLang) => {
 };
 
 export const onFocusInput = (el) => {
-    if (el.target.value === "0.00") {
+    const normalizedValue = normalizeNumericValue(el.target.value);
+    if (normalizedValue === "0.00" || normalizedValue === "0") {
         el.target.value = "";
+        return;
     }
+
+    el.target.value = normalizedValue;
 };
 
 export const ProtectedRoute = (props) => {
@@ -124,9 +182,8 @@ export const currencySymbolHandling = (
     value,
     is_forment
 ) => {
-    const num = Number(value);
-    const safeNum = Number.isFinite(num) ? num : 0;
-    const formattedNumber = safeNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const safeNum = parseNumber(value, 0);
+    const formattedNumber = formatMoney(safeNum);
     if (isRightside?.is_currency_right === "true") {
         if (is_forment) {
             return formatAmount(safeNum) + " " + currency;
@@ -144,9 +201,8 @@ export const currencySymbolHandling = (
 
 // Enforce consistent NIO-style formatting (thousands comma, decimal point)
 export const formatCurrency = (isRightside, currency, value, is_forment) => {
-    const num = Number(value);
-    const safeNum = Number.isFinite(num) ? num : 0;
-    const formattedNumber = safeNum.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const safeNum = parseNumber(value, 0);
+    const formattedNumber = formatMoney(safeNum);
     if (isRightside?.is_currency_right === "true") {
         if (is_forment) {
             return formatAmount(safeNum) + " " + currency;

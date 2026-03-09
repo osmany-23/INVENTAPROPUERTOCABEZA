@@ -15,7 +15,10 @@ import HeaderTitle from "../header/HeaderTitle";
 import TabTitle from "../../shared/tab-title/TabTitle";
 import {
     currencySymbolHandling,
+    formatNumber,
+    formatQuantityAuto,
     getFormattedMessage,
+    parseNumber,
     placeholderText,
 } from "../../shared/sharedMethod";
 import { fetchSaleReturnDetails } from "../../store/action/salesReturnDetailAction";
@@ -298,7 +301,7 @@ const SaleReturnDetails = (props) => {
                                                             )}
                                                         </td>
                                                         <td>
-                                                            {details.quantity}
+                                                            {formatQuantityAuto(details.quantity)}
                                                         </td>
                                                         <td>
                                                             {currencySymbolHandling(
@@ -374,9 +377,13 @@ const SaleReturnDetails = (props) => {
                                                         )}{" "}
                                                         (
                                                         {saleReturnDetails &&
-                                                            parseFloat(
-                                                                saleReturnDetails.tax_rate
-                                                            ).toFixed(2)}
+                                                            formatNumber(
+                                                                parseNumber(
+                                                                    saleReturnDetails.tax_rate,
+                                                                    0
+                                                                ),
+                                                                2
+                                                            )}
                                                         %)
                                                     </td>
                                                 </tr>

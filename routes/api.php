@@ -125,6 +125,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::resource('products', ProductAPIController::class);
     Route::post('products/{product}/quick-price-update', [ProductAPIController::class, 'quickUpdatePrice']);
     Route::resource('main-products', MainProductAPIController::class);
+    Route::post('main-products/generate-barcode', [MainProductAPIController::class, 'generateBarcode']);
     Route::post(
         'products/{product}',
         [ProductAPIController::class, 'update']

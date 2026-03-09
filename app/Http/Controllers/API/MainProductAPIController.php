@@ -21,6 +21,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 class MainProductAPIController extends AppBaseController
@@ -488,6 +489,27 @@ class MainProductAPIController extends AppBaseController
         return new MainProductResource($product);
     }
 
+    public function generateBarcode(Request $request): JsonResponse
+    {
+        abort_unless(
+            hasPermissionStrict('products.create') || hasPermissionStrict('products.update'),
+            403
+        );
+
+        $validated = $request->validate([
+            'barcode_symbol' => 'required|in:1,2',
+            'min_length' => 'nullable|integer|min:6|max:32',
+        ]);
+
+        $barcodeSymbol = (int) $validated['barcode_symbol'];
+        $minLength = (int) ($validated['min_length'] ?? 10);
+        $code = $this->generateUniqueProductBarcode($barcodeSymbol, $minLength);
+
+        return $this->sendResponse([
+            'code' => $code,
+        ], 'Barcode generated successfully.');
+    }
+
     public function destroy($id): JsonResponse
     {
         abort_unless(hasPermissionStrict('products.delete'), 403);
@@ -528,5 +550,54 @@ class MainProductAPIController extends AppBaseController
         }
 
         return $this->sendSuccess('Product deleted successfully');
+    }
+
+    private function generateUniqueProductBarcode(int $barcodeSymbol, int $minLength = 10): string
+    {
+        $length = max(6, min(32, $minLength));
+        $maxAttempts = 60;
+
+        for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+            $candidate = $this->buildBarcodeCandidate($barcodeSymbol, $length);
+
+            if (! $this->barcodeCodeExists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        throw new UnprocessableEntityHttpException(
+            'Unable to generate a unique barcode. Please try again.'
+        );
+    }
+
+    private function buildBarcodeCandidate(int $barcodeSymbol, int $length): string
+    {
+        $timePart = strtoupper(base_convert((string) now()->format('Uu'), 10, 36));
+        $randomPart = strtoupper(Str::random($length + 6));
+
+        $candidate = preg_replace('/[^A-Z0-9]/', '', $randomPart.$timePart) ?: '';
+
+        // Code 39 supports uppercase alphanumeric safely (subset of valid symbols).
+        if ($barcodeSymbol === Product::CODE39) {
+            $candidate = strtoupper($candidate);
+        }
+
+        if (mb_strlen($candidate) < $length) {
+            $padding = strtoupper(Str::random($length - mb_strlen($candidate)));
+            $candidate .= preg_replace('/[^A-Z0-9]/', '', $padding) ?: '';
+        }
+
+        return mb_substr($candidate, 0, $length);
+    }
+
+    private function barcodeCodeExists(string $code): bool
+    {
+        return Product::query()
+            ->where('code', $code)
+            ->orWhere('product_code', $code)
+            ->exists()
+            || MainProduct::query()
+                ->where('code', $code)
+                ->exists();
     }
 }

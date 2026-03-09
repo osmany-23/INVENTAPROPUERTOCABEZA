@@ -13,7 +13,7 @@ import {Line} from 'react-chartjs-2';
 import {connect} from 'react-redux';
 import {weekSalePurchases} from '../../store/action/weeksalePurchaseAction';
 import {yearlyTopProduct} from '../../store/action/yearlyTopProductAction';
-import {placeholderText} from "../../shared/sharedMethod";
+import {formatNumber, parseNumber, placeholderText} from "../../shared/sharedMethod";
 
 const LineChart = (props) => {
     const {weekSalePurchase, frontSetting} = props
@@ -30,14 +30,14 @@ const LineChart = (props) => {
 
     const currency = frontSetting ? frontSetting.value && frontSetting.value.currency_symbol : ' $';
     const valueFormatter = (tooltipItems) => {
-        const value = (tooltipItems.dataset.data[tooltipItems.dataIndex])
+        const value = parseNumber(tooltipItems.dataset.data[tooltipItems.dataIndex], 0)
         const label = tooltipItems.dataset.label
-        return label + ' : ' + `${currency ? currency : ''} ` + value.toFixed(2)
+        return label + ' : ' + `${currency ? currency : ''} ` + formatNumber(value, 2)
     };
 
     const yFormatter = (yValue) => {
-        const value = yValue
-        return `${currency ? currency : ''} ` + value.toFixed(2)
+        const value = parseNumber(yValue, 0);
+        return `${currency ? currency : ''} ` + formatNumber(value, 2)
     };
 
     const options = {
@@ -94,4 +94,3 @@ const mapStateToProps = (state) => {
 };
 
 export default connect(mapStateToProps, {weekSalePurchases, yearlyTopProduct})(LineChart);
-

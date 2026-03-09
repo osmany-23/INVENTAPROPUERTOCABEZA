@@ -2,7 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {Tab, Tabs} from 'react-bootstrap';
 import MasterLayout from '../../MasterLayout';
 import TabTitle from '../../../shared/tab-title/TabTitle';
-import {getFormattedMessage, placeholderText} from '../../../shared/sharedMethod';
+import {formatNumber, getFormattedMessage, placeholderText} from '../../../shared/sharedMethod';
 import SaleTabs from './stockDetails/SaleTabs';
 import {useParams} from 'react-router-dom';
 import SaleReturnTabs from './stockDetails/SaleReturnTabs';
@@ -48,7 +48,7 @@ const StockDetails = (props) => {
                             return (
                                 <tr key={index}>
                                     <td>{warehouse.warehouse.name}</td>
-                                    <td>{(warehouse.quantity).toFixed(2)} {stockWarehouse[0] && stockWarehouse[0].product.product_unit === "1" && "Pc" || stockWarehouse[0].product.product_unit === "2" && "M" || stockWarehouse[0].product.product_unit === "3" && "Kg"}</td>
+                                    <td>{formatNumber(warehouse.quantity, 2)} {stockWarehouse[0] && stockWarehouse[0].product.product_unit === "1" && "Pc" || stockWarehouse[0].product.product_unit === "2" && "M" || stockWarehouse[0].product.product_unit === "3" && "Kg"}</td>
                                 </tr>
                             )
                         })}

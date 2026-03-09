@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useIntl } from "react-intl";
 import Form from "react-bootstrap/Form";
 import { InputGroup, Button } from "react-bootstrap-v5";
+import apiConfig from "../../config/apiConfig";
 import MultipleImage from "./MultipleImage";
 import { fetchUnits } from "../../store/action/unitsAction";
 import { fetchAllProductCategories } from "../../store/action/productCategoryAction";
@@ -26,17 +27,18 @@ import {
     productTypesOptions,
     taxMethodOptions,
     saleStatusOptions,
+    toastType,
 } from "../../constants";
 import { fetchAllWarehouses } from "../../store/action/warehouseAction";
 import { fetchAllSuppliers } from "../../store/action/supplierAction";
 import moment from "moment";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlus } from "@fortawesome/free-solid-svg-icons";
+import { faBarcode, faPlus } from "@fortawesome/free-solid-svg-icons";
 import UnitsForm from "../units/UnitsForm";
 import { addUnit } from "../../store/action/unitsAction";
 import { fetchAllVariations } from "../../store/action/variationAction";
 import ReactMultiSelect from "../../shared/select/ReactMultiSelect";
-import { toUpper } from "lodash";
+import { addToast } from "../../store/action/toastAction";
 
 const ProductForm = (props) => {
     const {
@@ -64,6 +66,7 @@ const ProductForm = (props) => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const intl = useIntl();
+    const MIN_GENERATED_BARCODE_LENGTH = 8;
     const formatPlaceholder = (label) =>
         intl.formatMessage({
             id: label,
@@ -358,6 +361,88 @@ const ProductForm = (props) => {
             barcode_symbol: obj,
         }));
         setErrors({});
+    };
+
+    const getSelectedBarcodeSymbolValue = () => {
+        const selectedValue =
+            productValue?.barcode_symbol?.[0]?.value ??
+            productValue?.barcode_symbol?.value ??
+            productValue?.barcode_symbol;
+
+        if (
+            selectedValue === undefined ||
+            selectedValue === null ||
+            selectedValue === ""
+        ) {
+            return null;
+        }
+
+        const parsedValue = Number(selectedValue);
+        return Number.isFinite(parsedValue) ? parsedValue : null;
+    };
+
+    const onGenerateBarcode = async () => {
+        const barcodeSymbol = getSelectedBarcodeSymbolValue();
+
+        if (!barcodeSymbol) {
+            const message =
+                "Debe seleccionar primero la simbología del código de barras.";
+            dispatch(addToast({ text: message, type: toastType.ERROR }));
+            setErrors((prev) => ({ ...prev, barcode_symbol: message }));
+            return;
+        }
+
+        const currentCode = String(productValue?.code || "").trim();
+        if (currentCode) {
+            const shouldReplace = window.confirm(
+                "El campo ya tiene un código. ¿Desea reemplazarlo?"
+            );
+
+            if (!shouldReplace) {
+                return;
+            }
+        }
+
+        try {
+            const response = await apiConfig.post(
+                "main-products/generate-barcode",
+                {
+                    barcode_symbol: barcodeSymbol,
+                    min_length: MIN_GENERATED_BARCODE_LENGTH,
+                }
+            );
+
+            const generatedCode = String(response?.data?.data?.code || "").trim();
+
+            if (generatedCode.length < MIN_GENERATED_BARCODE_LENGTH) {
+                dispatch(
+                    addToast({
+                        text: "No se pudo generar un código válido.",
+                        type: toastType.ERROR,
+                    })
+                );
+                return;
+            }
+
+            setProductValue((prev) => ({
+                ...prev,
+                code: generatedCode,
+            }));
+
+            setErrors((prev) => ({
+                ...prev,
+                code: "",
+            }));
+        } catch (error) {
+            dispatch(
+                addToast({
+                    text:
+                        error?.response?.data?.message ||
+                        "No se pudo generar el código de barras.",
+                    type: toastType.ERROR,
+                })
+            );
+        }
     };
 
     const onProductCategoryChange = (obj) => {
@@ -963,16 +1048,39 @@ const ProductForm = (props) => {
                                             SKU (Barcode):{" "}
                                         </label>
                                         <span className="required" />
-                                        <input
-                                            type="text"
-                                            name="code"
-                                            className=" form-control"
-                                            placeholder={formatPlaceholder(
-                                                "product.input.code.placeholder.label"
-                                            )}
-                                            onChange={(e) => onChangeInput(e)}
-                                            value={productValue.code}
-                                        />
+                                        <InputGroup>
+                                            <input
+                                                type="text"
+                                                name="code"
+                                                className="form-control"
+                                                placeholder={formatPlaceholder(
+                                                    "product.input.code.placeholder.label"
+                                                )}
+                                                onChange={(e) => onChangeInput(e)}
+                                                value={productValue.code}
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="primary"
+                                                title="Generar código de barras"
+                                                onClick={onGenerateBarcode}
+                                                className="d-flex align-items-center justify-content-center"
+                                                style={{
+                                                    cursor: "pointer",
+                                                    transition: "filter 0.2s ease",
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.currentTarget.style.filter =
+                                                        "brightness(1.12)";
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.filter =
+                                                        "brightness(1)";
+                                                }}
+                                            >
+                                                <FontAwesomeIcon icon={faBarcode} />
+                                            </Button>
+                                        </InputGroup>
                                         <span className="text-danger d-block fw-400 fs-small mt-2">
                                             {errors["code"]
                                                 ? errors["code"]

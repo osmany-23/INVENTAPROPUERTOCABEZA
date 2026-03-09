@@ -11,7 +11,11 @@ import {
     faSquareMinus,
     faMoneyBill,
 } from "@fortawesome/free-solid-svg-icons";
-import { getFormattedMessage } from "../../shared/sharedMethod";
+import {
+    formatNumber,
+    getFormattedMessage,
+    parseNumber,
+} from "../../shared/sharedMethod";
 import { todaySalePurchaseCount } from "../../store/action/dashboardAction";
 import Widget from "../../shared/Widget/Widget";
 import { useNavigate } from "react-router-dom";
@@ -71,9 +75,13 @@ const TodaySalePurchaseCount = (props) => {
                         }
                         value={
                             allSalePurchase.all_sales_count
-                                ? parseFloat(
-                                      allSalePurchase.all_sales_count
-                                  ).toFixed(2)
+                                ? formatNumber(
+                                      parseNumber(
+                                          allSalePurchase.all_sales_count,
+                                          0
+                                      ),
+                                      2
+                                  )
                                 : "0.00"
                         }
                     />
@@ -104,9 +112,13 @@ const TodaySalePurchaseCount = (props) => {
                         }
                         value={
                             allSalePurchase.all_purchases_count
-                                ? parseFloat(
-                                      allSalePurchase.all_purchases_count
-                                  ).toFixed(2)
+                                ? formatNumber(
+                                      parseNumber(
+                                          allSalePurchase.all_purchases_count,
+                                          0
+                                      ),
+                                      2
+                                  )
                                 : "0.00"
                         }
                     />
@@ -138,9 +150,13 @@ const TodaySalePurchaseCount = (props) => {
                         }
                         value={
                             allSalePurchase.all_sale_return_count
-                                ? parseFloat(
-                                      allSalePurchase.all_sale_return_count
-                                  ).toFixed(2)
+                                ? formatNumber(
+                                      parseNumber(
+                                          allSalePurchase.all_sale_return_count,
+                                          0
+                                      ),
+                                      2
+                                  )
                                 : "0.00"
                         }
                     />
@@ -175,9 +191,13 @@ const TodaySalePurchaseCount = (props) => {
                         }
                         value={
                             allSalePurchase.all_purchase_return_count
-                                ? parseFloat(
-                                      allSalePurchase.all_purchase_return_count
-                                  ).toFixed(2)
+                                ? formatNumber(
+                                      parseNumber(
+                                          allSalePurchase.all_purchase_return_count,
+                                          0
+                                      ),
+                                      2
+                                  )
                                 : "0.00"
                         }
                     />
@@ -202,7 +222,10 @@ const TodaySalePurchaseCount = (props) => {
                         }
                         value={
                             todayCount.today_sales
-                                ? parseFloat(todayCount.today_sales).toFixed(2)
+                                ? formatNumber(
+                                      parseNumber(todayCount.today_sales, 0),
+                                      2
+                                  )
                                 : "0.00"
                         }
                     />
@@ -227,9 +250,13 @@ const TodaySalePurchaseCount = (props) => {
                         }
                         value={
                             todayCount.today_sales_received_count
-                                ? parseFloat(
-                                      todayCount.today_sales_received_count
-                                  ).toFixed(2)
+                                ? formatNumber(
+                                      parseNumber(
+                                          todayCount.today_sales_received_count,
+                                          0
+                                      ),
+                                      2
+                                  )
                                 : "0.00"
                         }
                     />
@@ -256,9 +283,10 @@ const TodaySalePurchaseCount = (props) => {
                         }
                         value={
                             todayCount.today_purchases
-                                ? parseFloat(
-                                      todayCount.today_purchases
-                                  ).toFixed(2)
+                                ? formatNumber(
+                                      parseNumber(todayCount.today_purchases, 0),
+                                      2
+                                  )
                                 : "0.00"
                         }
                     />
@@ -285,9 +313,13 @@ const TodaySalePurchaseCount = (props) => {
                         }
                         value={
                             todayCount.today_expense_count
-                                ? parseFloat(
-                                      todayCount.today_expense_count
-                                  ).toFixed(2)
+                                ? formatNumber(
+                                      parseNumber(
+                                          todayCount.today_expense_count,
+                                          0
+                                      ),
+                                      2
+                                  )
                                 : "0.00"
                         }
                     />

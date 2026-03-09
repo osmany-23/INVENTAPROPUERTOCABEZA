@@ -1,7 +1,15 @@
 import React, {useEffect, useState} from 'react';
 import {Button, Form, InputGroup, Modal, Row} from 'react-bootstrap-v5';
 import {subTotalCount, discountAmountMultiply, taxAmountMultiply, amountBeforeTax} from '../../calculation/calculation';
-import {decimalValidate, getFormattedMessage, placeholderText, getFormattedOptions} from '../../sharedMethod';
+import {
+    decimalValidate,
+    formatNumericInputOnBlur,
+    getFormattedMessage,
+    normalizeNumericValue,
+    parseNumber,
+    placeholderText,
+    getFormattedOptions
+} from '../../sharedMethod';
 import ReactSelect from '../../select/reactSelect';
 import { taxMethodOptions, discountMethodOptions } from '../../../constants';
 
@@ -61,12 +69,12 @@ const ProductModal = (props) => {
 
     useEffect(() => {
         setProductModalData(product);
-        setNetUnit(netUnit ? (netUnit).toFixed(2) : parseFloat(product.fix_net_unit.toFixed(2)));
-        setTaxValue(product.tax_value ? parseFloat(product.tax_value).toFixed(2) : '0.00')
+        setNetUnit(formatNumericInputOnBlur(netUnit || product.fix_net_unit, 2));
+        setTaxValue(product.tax_value ? formatNumericInputOnBlur(product.tax_value, 2) : '0.00')
         setTaxType(product.tax_type === '1' || product.tax_type === 1 ? {value: taxTypeFilterOptions[0].id, label: taxTypeFilterOptions[0].name} : {
             value: taxTypeFilterOptions[1].id, label: taxTypeFilterOptions[1].name
         });
-        setDiscountValue(product.discount_value ? parseFloat(product.discount_value).toFixed(2) : '0.00')
+        setDiscountValue(product.discount_value ? formatNumericInputOnBlur(product.discount_value, 2) : '0.00')
         setDiscountType(product.discount_type === '1' || product.discount_type === 1 ? {
             value: 1,
             label: getFormattedMessage('discount-type.filter.percentage.label')
@@ -77,11 +85,11 @@ const ProductModal = (props) => {
     const handleValidation = () => {
         let errorss = {};
         let isValid = false;
-        if (taxValue > 100) {
+        if (parseNumber(taxValue, 0) > 100) {
             errorss['taxValue'] = getFormattedMessage('globally.tax-length.validate.label');
-        } else if (discountType.value === 1 && Number(discountValue) > 100) {
+        } else if (discountType.value === 1 && parseNumber(discountValue, 0) > 100) {
             errorss['discountValue'] = getFormattedMessage('globally.discount-length.validate.label');
-        } else if (discountType.value === 2 && Number(discountValue) >= netUnit) {
+        } else if (discountType.value === 2 && parseNumber(discountValue, 0) >= parseNumber(netUnit, 0)) {
             errorss['discountValue'] = getFormattedMessage('globally.discount-price-length.validate.label');
         } else if (netUnit === null) {
             errorss['netUnit'] = getFormattedMessage('globally.require-input.validate.label');
@@ -93,7 +101,7 @@ const ProductModal = (props) => {
     };
 
     const onChangePrice = (e) => {
-        const {value} = e.target;
+        const value = normalizeNumericValue(e.target.value);
         // check if value includes a decimal point
         if (value.match(/\./g)) {
             const [, decimal] = value.split('.');
@@ -111,7 +119,7 @@ const ProductModal = (props) => {
     };
 
     const onChangeTax = (e) => {
-        const {value} = e.target ? e.target : '0.00';
+        const value = e.target ? normalizeNumericValue(e.target.value) : '0.00';
         // check if value includes a decimal point
         if (value.match(/\./g)) {
             const [, decimal] = value.split('.');
@@ -128,7 +136,7 @@ const ProductModal = (props) => {
 
 
     const onChangeDiscount = (e) => {
-        const {value} = e.target ? e.target : '0.00';
+        const value = e.target ? normalizeNumericValue(e.target.value) : '0.00';
         // check if value includes a decimal point
         if (value.match(/\./g)) {
             const [, decimal] = value.split('.');
@@ -152,14 +160,14 @@ const ProductModal = (props) => {
         const valid = handleValidation();
         if (valid) {
             const newProduct = product;
-            newProduct.product_price = Number(netUnit);
-            newProduct.fix_net_unit = Number(netUnit);
+            newProduct.product_price = parseNumber(netUnit, 0);
+            newProduct.fix_net_unit = parseNumber(netUnit, 0);
             newProduct.net_unit_price = amountBeforeTax(product);
             newProduct.tax_type = taxType.value.toString();
-            newProduct.tax_value = Number(taxValue);
+            newProduct.tax_value = parseNumber(taxValue, 0);
             newProduct.tax_amount = taxAmountMultiply(product);
             newProduct.discount_type = discountType.value.toString();
-            newProduct.discount_value = Number(discountValue);
+            newProduct.discount_value = parseNumber(discountValue, 0);
             newProduct.discount_amount = discountAmountMultiply(product);
             newProduct.sub_total = subTotalCount(product);
             if (productUnit) {
@@ -202,6 +210,7 @@ const ProductModal = (props) => {
                                 <input type='text' name='product_price' className='form-control'
                                               onKeyPress={(event) => decimalValidate(event)}
                                               onChange={onChangePrice} value={netUnit}
+                                              onBlur={() => setNetUnit((prev) => formatNumericInputOnBlur(prev, 2))}
                                               placeholder={placeholderText('product.input.product-price.placeholder.label')}
                                 />
                                 <InputGroup.Text>{frontSetting.value && frontSetting.value.currency_symbol}</InputGroup.Text>
@@ -224,7 +233,8 @@ const ProductModal = (props) => {
                             <InputGroup>
                                 <input type='text' name='taxValue' className='form-control'
                                               value={taxValue} onKeyPress={(event) => decimalValidate(event)}
-                                              onChange={onChangeTax}/>
+                                              onChange={onChangeTax}
+                                              onBlur={() => setTaxValue((prev) => formatNumericInputOnBlur(prev, 2))}/>
                                 <InputGroup.Text>%</InputGroup.Text>
                             </InputGroup>
                             <span
@@ -243,7 +253,8 @@ const ProductModal = (props) => {
                             <span className='required'/>
                             <input type='text' name='discountValue' className='form-control'
                                           onChange={onChangeDiscount}
-                                          onKeyPress={(event) => decimalValidate(event)} value={discountValue}/>
+                                          onKeyPress={(event) => decimalValidate(event)} value={discountValue}
+                                          onBlur={() => setDiscountValue((prev) => formatNumericInputOnBlur(prev, 2))}/>
                             <span
                                 className='text-danger d-block fw-400 fs-small mt-2'>{errors['discountValue'] ? errors['discountValue'] : null}</span>
                         </div>
