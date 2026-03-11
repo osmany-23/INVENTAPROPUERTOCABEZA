@@ -5,6 +5,7 @@ export const prepareCartArray = products => {
             name: product.attributes.name,
             code: product.attributes.code,
             stock_alert: product.attributes.stock_alert,
+            stock_quantity: Number(product?.attributes?.stock?.quantity || 0),
             product_id: product.id,
             product_cost: product.attributes.product_cost,
             net_unit_cost: product.attributes.product_price,

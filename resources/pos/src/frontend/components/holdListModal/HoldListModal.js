@@ -67,6 +67,7 @@ function HoldListModal ( props ) {
                     name: items.product.name,
                     code: items.product.code,
                     stock_alert: items.product.stock_alert,
+                    stock_quantity: Number(items?.product?.stock?.quantity || 0),
                     product_id: items.product_id,
                     product_cost: Number( items.product.product_cost ),
                     product_price: Number( items.product.product_price ),

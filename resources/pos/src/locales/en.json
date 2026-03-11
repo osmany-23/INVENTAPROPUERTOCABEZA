@@ -720,7 +720,7 @@
     "sms.api.update.success.message": "SMS API Updated Successfully.",
     "sale-return.product-qty.validate.message": "Quantity return is greater than quantity sold",
     "template.title": "Templates",
-    "pos.product-quantity-error.message": "No more quantity available.",
+    "pos.product-quantity-error.message": "No more quantity available in stock.",
     "product-list.lable": "Product List",
     "register.details.title": "Register Details",
     "register.total-sales.label": "Total Sales",

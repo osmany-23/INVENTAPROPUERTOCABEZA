@@ -41,9 +41,16 @@ const ProductCartList = ({
     const updateQuantity = useCallback(
         (quantity, showErrorIfExceeded = true) => {
             const finalQuantity = Math.max(0, Number(quantity));
-            const cappedQuantity = Math.min(finalQuantity, Number(availableStock));
+            const hasStockConstraint = Number(availableStock) > 0;
+            const cappedQuantity = hasStockConstraint
+                ? Math.min(finalQuantity, Number(availableStock))
+                : finalQuantity;
 
-            if (showErrorIfExceeded && finalQuantity > Number(availableStock)) {
+            if (
+                hasStockConstraint &&
+                showErrorIfExceeded &&
+                finalQuantity > Number(availableStock)
+            ) {
                 dispatch(
                     addToast({
                         text: getFormattedMessage(
@@ -56,13 +63,21 @@ const ProductCartList = ({
 
             setUpdateProducts((updateProducts) =>
                 updateProducts.map((item) => {
-                    if (item.id !== singleProduct.id) {
+                    if (Number(item.id) !== Number(singleProduct.id)) {
                         return item;
                     }
 
-                    return { ...item, quantity: cappedQuantity };
+                    return {
+                        ...item,
+                        quantity: cappedQuantity,
+                        sub_total:
+                            Number(calculateProductCost(item) || 0) *
+                            cappedQuantity,
+                    };
                 })
             );
+
+            setQuantityDraft(cappedQuantity);
         },
         [availableStock, dispatch, setUpdateProducts, singleProduct.id]
     );

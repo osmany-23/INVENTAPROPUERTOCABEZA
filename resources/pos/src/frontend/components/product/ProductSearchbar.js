@@ -109,6 +109,11 @@ const ProductSearchbar = ({
         }
 
         const exactMatch = posAllProducts.find((item) => {
+            const hasStock = Number(item?.attributes?.stock?.quantity || 0) > 0;
+            if (!hasStock) {
+                return false;
+            }
+
             const code = normalize(item?.attributes?.code);
             const productCode = normalize(item?.attributes?.product_code);
 

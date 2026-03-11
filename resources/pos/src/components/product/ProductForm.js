@@ -123,10 +123,10 @@ const ProductForm = (props) => {
     }, []);
 
     useEffect(() => {
-        if (singleProduct && productUnit) {
-            productUnitDropdown(productUnit[0]?.id);
+        if (productUnit?.[0]?.id) {
+            productUnitDropdown(productUnit[0].id);
         }
-    }, []);
+    }, [productUnit?.[0]?.id]);
 
     useEffect(() => {
         if (productValue.variation !== "" && productValue.isEdit === false) {
@@ -272,6 +272,37 @@ const ProductForm = (props) => {
             setSelectedBarcode((prev) => (prev === null ? prev : null));
         }
     }, [singleProduct]);
+
+    useEffect(() => {
+        if (!selectedBarcode) {
+            return;
+        }
+
+        const nextValue =
+            selectedBarcode?.[0]?.value ??
+            selectedBarcode?.value ??
+            selectedBarcode;
+
+        if (nextValue === undefined || nextValue === null || nextValue === "") {
+            return;
+        }
+
+        setProductValue((prev) => {
+            const currentValue =
+                prev?.barcode_symbol?.[0]?.value ??
+                prev?.barcode_symbol?.value ??
+                prev?.barcode_symbol;
+
+            if (String(currentValue ?? "") === String(nextValue)) {
+                return prev;
+            }
+
+            return {
+                ...prev,
+                barcode_symbol: selectedBarcode,
+            };
+        });
+    }, [selectedBarcode]);
 
     const saleUnitOption =
         productUnits &&

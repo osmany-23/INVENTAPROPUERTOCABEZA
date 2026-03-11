@@ -62,7 +62,6 @@ const Header = (props) => {
     const [languageModel, setLanguageModel] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [warehouseValue, setWarehouseValue] = useState({ label: 'All', value: null });
-    const [totalRecords, setTotalRecords] = useState(0)
     const [showPosRegisterModel, setShowPosRegisterModel] = useState(false)
     const [showStockAlertModal, setShowStockAlertModal] = useState(false)
     const { allConfigData } = useSelector(state => state)
@@ -74,7 +73,7 @@ const Header = (props) => {
         }
 
         const syncAlerts = () => {
-            productQuantityReportAction(warehouseValue.value, Filters.OBJ, false, setTotalRecords);
+            productQuantityReportAction(warehouseValue.value, Filters.OBJ, false);
             fetchStockAlert(false);
         };
 

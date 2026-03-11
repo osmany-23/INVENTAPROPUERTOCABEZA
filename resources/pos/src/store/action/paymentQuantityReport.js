@@ -8,12 +8,17 @@ import { can } from "../../shared/can";
 export const productQuantityReportAction =
     (id, filter = {}, isLoading = true, setTotalRecords) =>
     async (dispatch) => {
+        const shouldSyncGlobalTotalRecord =
+            typeof setTotalRecords !== "function";
+
         if (!can("view_stock_alerts", { strict: true })) {
             dispatch({
                 type: productQuantityReportActionType.QUANTITY_REPORT,
                 payload: [],
             });
-            dispatch(setTotalRecord(0));
+            if (shouldSyncGlobalTotalRecord) {
+                dispatch(setTotalRecord(0));
+            }
             if (typeof setTotalRecords === "function") {
                 setTotalRecords(0);
             }
@@ -31,15 +36,21 @@ export const productQuantityReportAction =
         await apiConfig
             .get(url)
             .then((response) => {
+                const total =
+                    Number(response?.data?.[0]?.total) >= 0
+                        ? Number(response.data[0].total)
+                        : 0;
+
                 dispatch({
                     type: productQuantityReportActionType.QUANTITY_REPORT,
                     payload: response.data[0].data,
                 });
-                dispatch(
-                    setTotalRecord(
-                        response.data[0].total
-                    )
-                );
+                if (shouldSyncGlobalTotalRecord) {
+                    dispatch(setTotalRecord(total));
+                }
+                if (typeof setTotalRecords === "function") {
+                    setTotalRecords(total);
+                }
                 if (isLoading) {
                     dispatch(setLoading(false));
                 }

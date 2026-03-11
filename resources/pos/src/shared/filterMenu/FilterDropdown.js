@@ -330,7 +330,7 @@ const FilterDropdown = (props) => {
         closeDropdownOnSelect();
     };
 
-    const FieldWrapper = ({ children, eventKey }) => {
+    const FieldWrapper = ({ children }) => {
         if (isModernFilterModal) {
             return <div className="filter-field">{children}</div>;
         }
@@ -340,7 +340,6 @@ const FilterDropdown = (props) => {
                 onClick={(e) => {
                     e.stopPropagation();
                 }}
-                eventKey={eventKey}
                 className="mb-5 p-0"
             >
                 {children}
@@ -351,7 +350,7 @@ const FilterDropdown = (props) => {
     const renderFilterFields = () => (
         <>
             {isStatus ? (
-                <FieldWrapper eventKey="1">
+                <FieldWrapper>
                     <ReactSelect
                         multiLanguageOption={statusFilterOptions}
                         onChange={onStatusChange}
@@ -368,7 +367,7 @@ const FilterDropdown = (props) => {
                 </FieldWrapper>
             ) : null}
             {isPaymentStatus ? (
-                <FieldWrapper eventKey="2">
+                <FieldWrapper>
                     <ReactSelect
                         multiLanguageOption={paymentFilterOptions}
                         onChange={onPaymentStatusChange}
@@ -387,7 +386,7 @@ const FilterDropdown = (props) => {
                 </FieldWrapper>
             ) : null}
             {isUnitFilter ? (
-                <FieldWrapper eventKey="3">
+                <FieldWrapper>
                     <ReactSelect
                         onChange={onProductUnitChange}
                         name="product_unit"
@@ -402,7 +401,7 @@ const FilterDropdown = (props) => {
                 </FieldWrapper>
             ) : null}
             {isPaymentType ? (
-                <FieldWrapper eventKey="4">
+                <FieldWrapper>
                     <ReactSelect
                         multiLanguageOption={paymentTypeFilterOptions}
                         onChange={onPaymentTypeChange}
@@ -417,7 +416,7 @@ const FilterDropdown = (props) => {
                 </FieldWrapper>
             ) : null}
             {isWarehouseType ? (
-                <FieldWrapper eventKey="4">
+                <FieldWrapper>
                     <ReactSelect
                         data={warehouseOptions}
                         onChange={onWarehouseChange}
@@ -435,7 +434,7 @@ const FilterDropdown = (props) => {
                 </FieldWrapper>
             ) : null}
             {isTransferStatus ? (
-                <FieldWrapper eventKey="1">
+                <FieldWrapper>
                     <ReactSelect
                         multiLanguageOption={transferStatusFilterOptions}
                         onChange={onTransferStatusChange}
@@ -452,7 +451,7 @@ const FilterDropdown = (props) => {
                 </FieldWrapper>
             ) : null}
             {isBrandFilter ? (
-                <FieldWrapper eventKey="3">
+                <FieldWrapper>
                     <ReactSelect
                         onChange={onBrandChange}
                         name="brand"
@@ -467,7 +466,7 @@ const FilterDropdown = (props) => {
                 </FieldWrapper>
             ) : null}
             {isProductCategoryFilter ? (
-                <FieldWrapper eventKey="3">
+                <FieldWrapper>
                     <ReactSelect
                         onChange={onProductCategoryChange}
                         name="product_category"
@@ -482,7 +481,7 @@ const FilterDropdown = (props) => {
                 </FieldWrapper>
             ) : null}
             {!isModernFilterModal && isExportDropdown ? (
-                <FieldWrapper eventKey="1">
+                <FieldWrapper>
                     <Button
                         type="button"
                         variant="primary"
@@ -494,7 +493,7 @@ const FilterDropdown = (props) => {
                 </FieldWrapper>
             ) : null}
             {!isModernFilterModal && isImportDropdown ? (
-                <FieldWrapper eventKey="1">
+                <FieldWrapper>
                     <Button
                         variant="primary"
                         className="me-3 me-md-0 btn-light-primary w-100"

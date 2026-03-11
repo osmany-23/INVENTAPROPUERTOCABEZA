@@ -695,7 +695,7 @@
     "sms.api.update.success.message": "Actualizaci\u00f3n de la API de SMS Exitosamente.",
     "sale-return.product-qty.validate.message": "La cantidad devuelta es mayor que la cantidad vendida",
     "template.title": "Plantillas",
-    "pos.product-quantity-error.message": "No hay m\u00e1s cantidad disponible.",
+    "pos.product-quantity-error.message": "No hay m\u00e1s cantidad disponible en stock.",
     "product-list.lable": "Lista de productos",
     "register.details.title": "Detalles del Registro",
     "register.total-sales.label": "Ventas Totales",

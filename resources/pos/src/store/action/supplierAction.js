@@ -11,6 +11,7 @@ import { setLoading } from "./loadingAction";
 import { getFormattedMessage } from "../../shared/sharedMethod";
 import { setSavingButton } from "./saveButtonAction";
 import { callImportProductApi } from "./importProductApiAction";
+import { can } from "../../shared/can";
 
 export const fetchSuppliers =
     (filter = {}, isLoading = true) =>
@@ -169,6 +170,14 @@ export const deleteSupplier = (supplierId) => async (dispatch) => {
 };
 
 export const fetchAllSuppliers = () => async (dispatch) => {
+    if (!can("supplier.view", { strict: true })) {
+        dispatch({
+            type: supplierActionType.FETCH_ALL_SUPPLIERS,
+            payload: [],
+        });
+        return;
+    }
+
     apiConfig
         .get(`suppliers?page[size]=0`)
         .then((response) => {

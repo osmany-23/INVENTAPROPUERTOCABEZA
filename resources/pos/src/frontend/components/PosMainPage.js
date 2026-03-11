@@ -136,6 +136,42 @@ const PosMainPage = (props) => {
         return stockMap;
     }, [posAllProducts]);
 
+    const normalizeCartItems = useCallback(
+        (cartItems = []) => {
+            if (!Array.isArray(cartItems)) {
+                return [];
+            }
+
+            return cartItems.map((cartItem) => {
+                const availableStock = Number(
+                    productStockById[Number(cartItem?.id)] ||
+                        cartItem?.stock_quantity ||
+                        0
+                );
+                const requestedQuantity = Number(cartItem?.quantity || 0);
+                const minValidQuantity = requestedQuantity > 0 ? requestedQuantity : 1;
+                const normalizedQuantity =
+                    availableStock > 0
+                        ? Math.min(minValidQuantity, availableStock)
+                        : minValidQuantity;
+
+                const normalizedItem = {
+                    ...cartItem,
+                    stock_quantity: availableStock > 0 ? availableStock : Number(cartItem?.stock_quantity || 0),
+                    quantity: normalizedQuantity,
+                };
+
+                return {
+                    ...normalizedItem,
+                    sub_total:
+                        Number(calculateProductCost(normalizedItem) || 0) *
+                        normalizedQuantity,
+                };
+            });
+        },
+        [productStockById]
+    );
+
     const totalQty = useMemo(() => {
         return updateProducts.reduce(
             (sum, cartProduct) => sum + Number(cartProduct.quantity || 0),
@@ -450,17 +486,33 @@ const PosMainPage = (props) => {
         }
 
         setUpdateProducts((products) =>
-            products.map((cartProduct) =>
+            normalizeCartItems(
+                products.map((cartProduct) =>
                 Number(cartProduct.id) === Number(updatedProduct.id)
                     ? { ...updatedProduct }
                     : cartProduct
             )
+            )
         );
-    }, []);
+    }, [normalizeCartItems]);
 
-    const updateCart = useCallback((cartProducts) => {
-        setUpdateProducts(cartProducts);
-    }, []);
+    const updateCart = useCallback(
+        (cartProductsOrUpdater) => {
+            setUpdateProducts((previousProducts) => {
+                const nextProducts =
+                    typeof cartProductsOrUpdater === "function"
+                        ? cartProductsOrUpdater(previousProducts)
+                        : cartProductsOrUpdater;
+
+                if (!Array.isArray(nextProducts)) {
+                    return previousProducts;
+                }
+
+                return normalizeCartItems(nextProducts);
+            });
+        },
+        [normalizeCartItems]
+    );
 
     //cart item delete
     const onDeleteCartItem = useCallback((productId) => {
@@ -481,7 +533,9 @@ const PosMainPage = (props) => {
         }
 
         const template = customCartByProductId.get(Number(productId));
-        const availableStock = Number(productStockById[Number(productId)] || 0);
+        const availableStock = Number(
+            productStockById[Number(productId)] || template?.stock_quantity || 0
+        );
 
         if (!template || availableStock <= 0) {
             dispatch(
@@ -493,42 +547,71 @@ const PosMainPage = (props) => {
             return;
         }
 
-        const productIndex = updateProducts.findIndex(
-            (cartProduct) => Number(cartProduct.id) === Number(productId)
-        );
+        setUpdateProducts((previousProducts) => {
+            const quantityInCart = previousProducts.reduce((sum, cartProduct) => {
+                if (Number(cartProduct.id) !== Number(productId)) {
+                    return sum;
+                }
 
-        if (productIndex === -1) {
-            setUpdateProducts([
-                ...updateProducts,
-                { ...template, warehouse_id: selectedOption.value },
-            ]);
-            return;
-        }
+                return sum + Number(cartProduct.quantity || 0);
+            }, 0);
 
-        const currentProduct = updateProducts[productIndex];
-        if (Number(currentProduct.quantity) >= availableStock) {
-            dispatch(
-                addToast({
-                    text: getFormattedMessage("pos.quantity.exceeds.quantity.available.in.stock.message"),
-                    type: toastType.ERROR,
-                })
-            );
-            return;
-        }
+            if (quantityInCart + 1 > availableStock) {
+                dispatch(
+                    addToast({
+                        text: getFormattedMessage("pos.product-quantity-error.message"),
+                        type: toastType.ERROR,
+                    })
+                );
+                return previousProducts;
+            }
 
-        const updatedProducts = [...updateProducts];
-        updatedProducts[productIndex] = {
-            ...currentProduct,
-            quantity: Number(currentProduct.quantity) + 1,
-            warehouse_id: selectedOption.value,
-        };
+            let isUpdated = false;
+            const nextProducts = previousProducts.map((cartProduct) => {
+                if (isUpdated || Number(cartProduct.id) !== Number(productId)) {
+                    return cartProduct;
+                }
 
-        setUpdateProducts(updatedProducts);
+                isUpdated = true;
+                const nextQuantity = Number(cartProduct.quantity || 0) + 1;
+
+                return {
+                    ...cartProduct,
+                    stock_quantity:
+                        Number(cartProduct.stock_quantity || 0) > 0
+                            ? Number(cartProduct.stock_quantity || 0)
+                            : availableStock,
+                    quantity: nextQuantity,
+                    warehouse_id: selectedOption.value,
+                    sub_total:
+                        Number(calculateProductCost(cartProduct) || 0) *
+                        nextQuantity,
+                };
+            });
+
+            if (isUpdated) {
+                return nextProducts;
+            }
+
+            const nextProduct = {
+                ...template,
+                quantity: 1,
+                stock_quantity: availableStock,
+                warehouse_id: selectedOption.value,
+            };
+
+            return [
+                ...previousProducts,
+                {
+                    ...nextProduct,
+                    sub_total: Number(calculateProductCost(nextProduct) || 0),
+                },
+            ];
+        });
     }, [
         selectedOption,
         customCartByProductId,
         productStockById,
-        updateProducts,
         dispatch,
         getFormattedMessage,
     ]);
@@ -810,7 +893,11 @@ const PosMainPage = (props) => {
                                                             availableStock={
                                                                 productStockById[
                                                                     Number(updateProduct.id)
-                                                                ] || 0
+                                                                ] ||
+                                                                Number(
+                                                                    updateProduct.stock_quantity ||
+                                                                        0
+                                                                )
                                                             }
                                                             onDeleteCartItem={
                                                                 onDeleteCartItem

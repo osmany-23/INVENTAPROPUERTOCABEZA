@@ -38,12 +38,12 @@ class MainProductAPIController extends AppBaseController
     {
         abort_unless(hasPermissionStrict('products.view'), 403);
 
-        $perPage = (int) $request->input('page.size', 20);
+        $perPage = (int) $request->input('page.size', $request->input('per_page', 20));
         $perPage = max(min($perPage, 100), 1);
-        $currentPage = max((int) $request->input('page.number', 1), 1);
+        $currentPage = max((int) $request->input('page.number', $request->input('page', 1)), 1);
 
         $filters = $request->input('filter', []);
-        $search = trim((string) data_get($filters, 'search', ''));
+        $search = trim((string) data_get($filters, 'search', $request->input('search', '')));
         $productUnit = $request->input('product_unit');
         $brandId = (int) $request->input('brand_id', 0);
         $productCategoryId = (int) $request->input('product_category_id', 0);
