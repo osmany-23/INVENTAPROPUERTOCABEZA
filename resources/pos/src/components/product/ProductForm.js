@@ -108,7 +108,8 @@ const ProductForm = (props) => {
     });
 
     const [unitModel, setUnitModel] = useState(false);
-    const [removedImage, setRemovedImage] = useState([]);
+    const [existingImages, setExistingImages] = useState([]);
+    const [deletedImageIds, setDeletedImageIds] = useState([]);
     const [isClearDropdown, setIsClearDropdown] = useState(true);
     const [isDropdown, setIsDropdown] = useState(true);
     const [multipleFiles, setMultipleFiles] = useState([]);
@@ -179,7 +180,7 @@ const ProductForm = (props) => {
           )
         : [];
     const disabled =
-        multipleFiles.length !== 0
+        multipleFiles.length !== 0 || deletedImageIds.length !== 0
             ? false
             : singleProductItem &&
               productValue.product_unit[0] &&
@@ -202,8 +203,8 @@ const ProductForm = (props) => {
               newTax.length === productValue.tax_type.length &&
               singleProductItem.product_category_id.value ===
                   productValue.product_category_id.value &&
-              JSON.stringify(singleProductItem.images.imageUrls) ===
-                  JSON.stringify(removedImage);
+              JSON.stringify(singleProductItem.images.imageUrls || []) ===
+                  JSON.stringify(existingImages);
 
 
     const [selectedBrand, setSelectedBrand] = useState(null);
@@ -353,12 +354,15 @@ const ProductForm = (props) => {
     }, []);
 
     const onChangeFiles = (file) => {
-        setMultipleFiles(file);
+        setMultipleFiles(Array.isArray(file) ? file : []);
     };
 
     const transferImage = (item) => {
-        setRemovedImage(item);
-        setMultipleFiles([]);
+        setExistingImages(Array.isArray(item) ? item : []);
+    };
+
+    const transferDeletedImageIds = (ids) => {
+        setDeletedImageIds(Array.isArray(ids) ? ids : []);
     };
 
     const handleProductUnitChange = (obj) => {
@@ -1014,6 +1018,11 @@ const ProductForm = (props) => {
                 formData.append(`images[${index}]`, image);
             });
         }
+        if (deletedImageIds.length > 0) {
+            deletedImageIds.forEach((imageId, index) => {
+                formData.append(`deleted_image_ids[${index}]`, imageId);
+            });
+        }
 
         return formData;
     };
@@ -1021,7 +1030,6 @@ const ProductForm = (props) => {
     const onSubmit = (event) => {
         event.preventDefault();
         const valid = handleValidation();
-        productValue.images = multipleFiles;
         if (
             singleProduct &&
             valid &&
@@ -1033,8 +1041,6 @@ const ProductForm = (props) => {
             }
         } else {
             if (valid) {
-                productValue.images = multipleFiles;
-                setProductValue(productValue);
                 addProductData(prepareFormData());
             }
         }
@@ -1308,6 +1314,9 @@ const ProductForm = (props) => {
                                     product={singleProduct}
                                     fetchFiles={onChangeFiles}
                                     transferImage={transferImage}
+                                    transferDeletedImageIds={
+                                        transferDeletedImageIds
+                                    }
                                 />
                             </div>
                             {singleProduct ? (

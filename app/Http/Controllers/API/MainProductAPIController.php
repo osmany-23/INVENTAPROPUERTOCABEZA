@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 class MainProductAPIController extends AppBaseController
@@ -464,6 +465,19 @@ class MainProductAPIController extends AppBaseController
             'product_unit' => $input['product_unit'],
         ]);
 
+        $deletedImageIds = array_filter(
+            array_map('intval', $input['deleted_image_ids'] ?? []),
+            fn ($mediaId) => $mediaId > 0
+        );
+        if (!empty($deletedImageIds)) {
+            Media::query()
+                ->whereIn('id', $deletedImageIds)
+                ->where('model_type', MainProduct::class)
+                ->where('model_id', $mainProduct->id)
+                ->where('collection_name', MainProduct::PATH)
+                ->get()
+                ->each(fn ($media) => $media->delete());
+        }
 
         if (isset($input['images']) && !empty($input['images'])) {
             foreach ($input['images'] as $image) {

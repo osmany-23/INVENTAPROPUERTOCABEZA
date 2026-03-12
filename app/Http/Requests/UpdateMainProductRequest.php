@@ -50,6 +50,8 @@ class UpdateMainProductRequest extends FormRequest
             'notes' => 'nullable',
             'barcode_symbol' => 'required',
             'images.*' => 'image|mimes:jpg,jpeg,png',
+            'deleted_image_ids' => 'nullable|array',
+            'deleted_image_ids.*' => 'integer|exists:media,id',
             // 'variation_data.*.product_cost' => 'required|numeric',
             // 'variation_data.*.product_price' => 'required|numeric',
             // 'variation_data.*.stock_alert' => 'nullable',
