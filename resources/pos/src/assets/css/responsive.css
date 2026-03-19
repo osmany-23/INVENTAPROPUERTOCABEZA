@@ -16,6 +16,16 @@ video {
   white-space: normal;
 }
 
+/* Ensure react-bootstrap-sweetalert overlays sit above fixed UI elements */
+body.sweetalert-overflow-hidden div[tabindex="0"][style*="position: fixed"] {
+  z-index: 100010 !important;
+  background-color: rgba(0, 0, 0, 0.6) !important;
+}
+
+body.sweetalert-overflow-hidden .sweet-alert {
+  z-index: 100011 !important;
+}
+
 /* Better readability on small screens */
 @media (max-width: 991.98px) {
   .container-fluid {
@@ -25,6 +35,70 @@ video {
 
   .card-body {
     padding: 0.875rem;
+  }
+
+  /* Keep modals above all UI and centered on small screens */
+  .modal {
+    padding: 0 !important;
+    position: fixed !important;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 100005 !important;
+  }
+
+  .modal-backdrop {
+    position: fixed !important;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 100004 !important;
+    background: rgba(0, 0, 0, 0.6) !important;
+  }
+
+  .modal-backdrop.show {
+    opacity: 1 !important;
+  }
+
+  .modal-dialog {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 92% !important;
+    max-width: 720px !important;
+    margin: 0 !important;
+  }
+
+  .modal-content {
+    border-radius: 12px !important;
+    max-height: calc(100vh - 24px);
+    overflow: hidden;
+  }
+
+  .modal-body {
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Register details modals: avoid off-screen width */
+  .registerModel-content .modal-content {
+    width: 100% !important;
+  }
+
+  .registerModel-content .modal-dialog {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translate(-50%, -50%) !important;
+    width: 92vw !important;
+    max-width: 92vw !important;
+    margin: 0 !important;
   }
 
   .table {
@@ -51,7 +125,13 @@ video {
 }
 
 /* Phone layout defaults */
-@media (max-width: 767.98px) {
+@media (max-width: 768px) {
+  /* Allow header to grow when items wrap (prevents hidden actions on phones). */
+  .header {
+    height: auto;
+    min-height: 70px;
+  }
+
   .header .container-fluid {
     flex-wrap: wrap;
     row-gap: 0.5rem;
@@ -62,19 +142,52 @@ video {
   }
 
   .modal {
-    padding-left: 0 !important;
-    padding-right: 0 !important;
+    padding: 0 !important;
+    z-index: 100005 !important;
+  }
+
+  .modal-backdrop {
+    z-index: 100004 !important;
+    background: rgba(0, 0, 0, 0.6) !important;
+  }
+
+  .modal-backdrop.show {
+    opacity: 1 !important;
   }
 
   .modal-dialog {
-    margin: 0.75rem auto;
-    max-width: calc(100% - 1.5rem);
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 90% !important;
+    max-width: 420px !important;
+    margin: 0 !important;
+  }
+
+  .modal-content {
+    border-radius: 12px !important;
+    max-height: calc(100vh - 24px);
+    overflow: hidden;
+  }
+
+  .modal-body {
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .btn,
   .btn-sm,
   .btn-lg {
     width: 100%;
+  }
+
+  /* But keep header actions inline (avoid full-width header buttons). */
+  .header .btn,
+  .header .btn-sm,
+  .header .btn-lg {
+    width: auto;
   }
 }
 
@@ -86,12 +199,622 @@ video {
     min-height: auto !important;
   }
 
+	  /* Register dropdown (bag icon): keep fully visible on responsive screens */
+	  .pos-screen .register_dropdown .dropdown-menu.show {
+	    position: fixed !important;
+	    inset: auto !important;
+	    top: 50% !important;
+	    left: 50% !important;
+	    right: auto !important;
+	    bottom: auto !important;
+	    transform: translate(-50%, -50%) !important;
+	    width: 92vw !important;
+	    min-width: 0 !important;
+	    max-width: 420px !important;
+    max-height: 70vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 10px 0 !important;
+    border: 0 !important;
+    border-radius: 12px !important;
+    background-color: #fff !important;
+    z-index: 100003 !important;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18), 0 0 0 100vmax rgba(0, 0, 0, 0.6);
+  }
+
+  .pos-screen .register_dropdown .dropdown-menu.show .dropdown-item {
+    padding: 14px 16px !important;
+    font-size: 16px !important;
+    color: #212529 !important;
+  }
+
   .pos-screen .main-table {
     max-height: 45vh;
   }
 
   .pos-screen .product-list-block__product-block {
     justify-content: center;
+  }
+}
+
+/* POS responsive layout (mobile <= 768px) */
+@media (max-width: 768px) {
+  .pos-screen {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    overflow-x: hidden;
+  }
+
+  .pos-screen .pos-left-scs,
+  .pos-screen .pos-right-scs {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  /* 1) Top selectors (Customer + Warehouse) */
+  .pos-screen .top-nav {
+    height: auto !important;
+    margin-top: 12px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .pos-screen .top-nav .grp-select {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    align-items: center;
+    min-height: 60px;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  .pos-screen .top-nav .grp-select > .select-box {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .pos-screen .top-nav .grp-select .input-group-text {
+    padding: 0 10px !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    display: flex;
+    align-items: center;
+  }
+
+  .pos-screen .top-nav .grp-select .select-box .css-b62m3t-container .css-1s2u09g-control,
+  .pos-screen .top-nav .grp-select .select-box .css-b62m3t-container .css-1pahdxg-control,
+  .pos-screen .top-nav .grp-select .select-box .css-b62m3t-container .css-t3ipsp-control,
+  .pos-screen .top-nav .grp-select .select-box .css-b62m3t-container .css-13cymwt-control {
+    height: 50px !important;
+    min-height: 50px !important;
+    border-radius: 12px !important;
+  }
+
+  .pos-screen .top-nav .grp-select .select-box .css-b62m3t-container .css-319lph-ValueContainer,
+  .pos-screen .top-nav .grp-select .select-box .css-b62m3t-container .css-1fdsijx-ValueContainer,
+  .pos-screen .top-nav .grp-select .select-box .css-b62m3t-container .css-1d8n9bt,
+  .pos-screen .top-nav .grp-select .select-box .css-b62m3t-container .css-hlgwow {
+    padding-left: 42px !important;
+    padding-right: 10px !important;
+  }
+
+  .pos-screen .top-nav .grp-select .select-box:nth-child(1) .css-b62m3t-container .css-1hb7zxy-IndicatorsContainer .css-tlfecz-indicatorContainer,
+  .pos-screen .top-nav .grp-select .select-box:nth-child(1) .css-b62m3t-container .css-1hb7zxy-IndicatorsContainer .css-1gtu0rj-indicatorContainer,
+  .pos-screen .top-nav .grp-select .select-box:nth-child(1) .css-b62m3t-container .css-1hb7zxy-IndicatorsContainer .css-tlfecz-indicatorContainer,
+  .pos-screen .top-nav .grp-select .select-box:nth-child(1) .css-b62m3t-container .css-1hb7zxy-IndicatorsContainer .css-1gtu0rj-indicatorContainer {
+    padding-right: 64px !important;
+  }
+
+  .pos-screen .top-nav .grp-select .select-box button.position-absolute {
+    height: 50px !important;
+    width: 44px !important;
+    padding: 0 !important;
+    border-radius: 0 12px 12px 0 !important;
+  }
+
+  /* Customer dropdown list (react-select): scroll + stay inside viewport */
+  .pos-screen .top-nav .grp-select .select-box .css-26l3qy-menu,
+  .pos-screen .top-nav .grp-select .select-box .css-1nmdiq5-menu {
+    width: 100% !important;
+    max-width: calc(100vw - 24px) !important;
+    z-index: 10050 !important;
+  }
+
+  .pos-screen .top-nav .grp-select .select-box .css-26l3qy-menu .css-4ljt47-MenuList,
+  .pos-screen .top-nav .grp-select .select-box .css-26l3qy-menu .css-1n6sfyn-MenuList,
+  .pos-screen .top-nav .grp-select .select-box .css-26l3qy-menu .css-qr46ko,
+  .pos-screen .top-nav .grp-select .select-box .css-26l3qy-menu .css-11unzgr,
+  .pos-screen .top-nav .grp-select .select-box .css-1nmdiq5-menu .css-4ljt47-MenuList,
+  .pos-screen .top-nav .grp-select .select-box .css-1nmdiq5-menu .css-1n6sfyn-MenuList,
+  .pos-screen .top-nav .grp-select .select-box .css-1nmdiq5-menu .css-qr46ko,
+  .pos-screen .top-nav .grp-select .select-box .css-1nmdiq5-menu .css-11unzgr {
+    max-height: 45vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* TPV/POS header button should be pill-like on phones */
+  .header a.pos-button,
+  .header button.pos-button {
+    border-radius: 999px !important;
+  }
+
+  /* 2) Calculator (keep fully visible on phones) */
+  .pos-screen .calculator {
+    position: fixed !important;
+    top: 50% !important;
+    bottom: auto !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translate(-50%, -50%) !important;
+    width: 92vw !important;
+    max-width: 320px !important;
+    max-height: 90vh;
+    overflow: auto;
+    z-index: 9997 !important;
+  }
+
+  .pos-screen .calculator .pos_calc_close {
+    top: 8px !important;
+    right: 8px !important;
+    left: auto !important;
+    transform: none !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    padding: 0 !important;
+    border-radius: 999px !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .pos-screen .calculator .inputs {
+    display: grid !important;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .pos-screen .calculator .operator .btn-div {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .pos-screen .calculator .numbers {
+    display: grid;
+    gap: 8px;
+  }
+
+  .pos-screen .calculator .numbers > div {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .pos-screen .calculator .numbers > div:last-child button:first-child {
+    grid-column: 1/span 2;
+  }
+
+  .pos-screen .calculator .numbers > div:last-child button:nth-child(2) {
+    grid-column: 3;
+  }
+
+  .pos-screen .calculator button:not(.pos_calc_close):not(.btn-close) {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* 2) Cart list table */
+  .pos-screen .left-content {
+    padding: 12px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .pos-screen .left-content .main-table {
+    max-height: 260px !important;
+    min-height: auto !important;
+    height: auto !important;
+    overflow-y: auto !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .pos-screen .left-content .main-table table {
+    display: table;
+    width: 100%;
+    min-width: 680px;
+    table-layout: auto;
+  }
+
+  .pos-screen .left-content .main-table table thead th,
+  .pos-screen .left-content .main-table table tbody td {
+    padding: 0 6px !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+
+  .pos-screen .left-content .main-table table thead th {
+    position: sticky;
+    top: 0;
+    background-color: #FFFFFF;
+    z-index: 1;
+    font-size: 12px !important;
+  }
+
+  .pos-screen .left-content .main-table table tbody {
+    font-size: 13px !important;
+  }
+
+  .pos-screen .left-content .main-table table thead th:nth-child(2),
+  .pos-screen .left-content .main-table table tbody td:nth-child(2) {
+    text-align: center;
+    min-width: 150px;
+  }
+
+  .pos-screen .left-content .main-table table thead th:nth-child(3),
+  .pos-screen .left-content .main-table table tbody td:nth-child(3) {
+    text-align: right;
+    min-width: 110px;
+  }
+
+  .pos-screen .left-content .main-table table thead th:first-child,
+  .pos-screen .left-content .main-table table tbody td:first-child {
+    padding-left: 0 !important;
+    min-width: 240px;
+  }
+
+  .pos-screen .left-content .main-table table thead th:last-child {
+    text-align: right;
+    padding-right: 48px !important;
+  }
+
+  .pos-screen .left-content .main-table table tbody td:nth-child(4) {
+    text-align: right;
+    min-width: 120px;
+  }
+
+  .pos-screen .left-content .main-table table tbody td.remove-button {
+    min-width: 48px;
+    width: 48px;
+    text-align: right;
+    padding-right: 0 !important;
+  }
+
+  .pos-screen .left-content .main-table table tbody td.remove-button button {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .pos-screen .left-content .main-table .product-name {
+    width: auto !important;
+    font-size: 13px !important;
+    line-height: 1.15;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pos-screen .left-content .main-table .counter {
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+
+  .pos-screen .left-content .main-table .counter button {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    border-radius: 10px !important;
+    padding: 0 !important;
+  }
+
+  .pos-screen .left-content .main-table .counter input {
+    width: 44px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    font-size: 14px;
+  }
+
+  /* 3) Taxes / Discount / Total block */
+  .pos-screen .left-content .calculation {
+    margin-top: 12px !important;
+  }
+
+  .pos-screen .left-content .calculation .total-price {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  .pos-screen .left-content .calculation .total-price > .col-6 {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  .pos-screen .left-content .calculation .form-control {
+    min-height: 44px !important;
+    height: 44px !important;
+  }
+
+  .pos-screen .left-content .calculation .total-price h4 {
+    font-size: 14px !important;
+  }
+
+  .pos-screen .left-content .calculation .total-price h2 {
+    font-size: 18px !important;
+    font-weight: 600 !important;
+  }
+
+  /* 4) Main action buttons (Hold / Reset / Pay now) */
+  .pos-screen .left-content .calculation + div {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    align-items: stretch !important;
+  }
+
+  .pos-screen .left-content .calculation + div .me-2 {
+    margin-right: 0 !important;
+  }
+
+  .pos-screen .left-content .calculation + div > button {
+    height: 48px !important;
+    padding: 0 10px !important;
+    border-radius: 10px !important;
+    margin: 0 !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    font-size: 14px;
+  }
+
+  .pos-screen .left-content .calculation + div > button.pos-pay-btn {
+    grid-column: 1/-1;
+    box-shadow: 0 8px 18px rgba(10, 192, 116, 0.25);
+    font-weight: 700;
+  }
+
+  /* 5) Product search bar */
+  .pos-screen .right-content > div.d-sm-flex {
+    display: flex !important;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .pos-screen .search-bar {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 50px !important;
+  }
+
+  .pos-screen .search-bar:nth-child(1) {
+    height: 50px !important;
+  }
+
+  .pos-screen .search-bar input {
+    min-height: 50px !important;
+    height: 50px !important;
+    border-radius: 25px !important;
+    padding-left: 48px !important;
+  }
+
+  .pos-screen .search-bar .react-search-icon {
+    left: 16px !important;
+    font-size: 18px !important;
+  }
+
+  /* 6) Action icons bar */
+  .pos-screen .right-content .header-btn-grp {
+    display: grid !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
+    padding-bottom: 0 !important;
+    margin: 0 !important;
+    justify-items: center;
+    width: 100%;
+  }
+
+  .pos-screen .right-content .header-btn-grp .nav-item {
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 10px !important;
+    margin-left: 0 !important;
+    background-color: #6571FF;
+  }
+
+  .pos-screen .right-content .header-btn-grp .nav-green {
+    background-color: #0AC074 !important;
+  }
+
+  .pos-screen .right-content .header-btn-grp .nav-pink {
+    background-color: #FF679B !important;
+  }
+
+  .pos-screen .right-content .header-btn-grp .nav-red {
+    background-color: #F62947 !important;
+  }
+
+  .pos-screen .right-content .header-btn-grp .nav-link {
+    padding: 0 !important;
+  }
+
+  .pos-screen .right-content .header-btn-grp .hold-list-badge {
+    top: -6px;
+    right: -6px;
+    padding: 2px 6px;
+    font-size: 11px;
+  }
+
+  .pos-screen .right-content .header-btn-grp .register_dropdown .dropdown,
+  .pos-screen .right-content .header-btn-grp .register_dropdown .dropdown-toggle {
+    width: 100%;
+    height: 100%;
+  }
+
+  .pos-screen .right-content .header-btn-grp .register_dropdown .dropdown-toggle {
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 10px !important;
+    background: transparent !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .pos-screen .right-content .header-btn-grp .register_dropdown .dropdown-toggle::after {
+    display: none !important;
+  }
+
+	  /* Register dropdown (bag icon): present as centered modal on phones */
+	  .pos-screen .right-content .header-btn-grp .register_dropdown .dropdown-menu.show {
+	    position: fixed !important;
+	    inset: auto !important;
+	    top: 50% !important;
+	    left: 50% !important;
+	    right: auto !important;
+	    bottom: auto !important;
+	    transform: translate(-50%, -50%) !important;
+	    width: 90vw !important;
+	    min-width: 0 !important;
+	    max-width: 420px !important;
+    max-height: 70vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 10px 0 !important;
+    border: 0 !important;
+    border-radius: 12px !important;
+    z-index: 100002 !important;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18), 0 0 0 100vmax rgba(0, 0, 0, 0.6);
+  }
+
+  .pos-screen .right-content .header-btn-grp .register_dropdown .dropdown-menu.show .dropdown-item {
+    padding: 14px 16px;
+    font-size: 16px;
+  }
+
+  /* 7) Categories / Brands chips (horizontal scroll) */
+  .pos-screen .right-content .button-list {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    gap: 10px !important;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .pos-screen .right-content .button-list::-webkit-scrollbar {
+    height: 0;
+  }
+
+  .pos-screen .right-content .button-list__item {
+    margin: 0 !important;
+    flex: 0 0 auto;
+  }
+
+  .pos-screen .right-content .button-list .swiper-container {
+    width: 100% !important;
+  }
+
+  .pos-screen .right-content .button-list .swiper-wrapper {
+    display: flex;
+    gap: 10px;
+  }
+
+  .pos-screen .right-content .button-list .swiper-slide {
+    width: auto !important;
+  }
+
+  .pos-screen .right-content .button-list .custom-btn-size {
+    height: 36px !important;
+    padding: 8px 14px !important;
+    border-radius: 18px !important;
+    white-space: nowrap;
+    min-width: auto !important;
+    font-size: 13px;
+  }
+
+  /* 8) Products grid (3 columns) */
+  .pos-screen .right-content .product-list-block {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    min-height: 0 !important;
+    max-height: calc(100vh - 340px);
+    overflow-y: auto !important;
+  }
+
+  .pos-screen .right-content .product-list-block__product-block {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    justify-content: start !important;
+  }
+
+  .pos-screen .right-content .product-custom-card {
+    width: auto !important;
+    margin: 0 !important;
+    height: 150px !important;
+    border-radius: 12px !important;
+    padding: 6px !important;
+  }
+
+  .pos-screen .right-content .product-custom-card .card {
+    border-radius: 12px !important;
+  }
+
+  .pos-screen .right-content .product-custom-card .card .card-img-top {
+    height: 65px !important;
+    max-height: 65px !important;
+    object-fit: cover !important;
+    border-radius: 8px !important;
+    margin: 6px 6px 0 6px;
+    width: calc(100% - 12px) !important;
+  }
+
+  .pos-screen .right-content .product-custom-card .card .custom-card-body {
+    padding: 6px !important;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .pos-screen .right-content .product-custom-card .card .product-title {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    line-height: 1.2;
+  }
+
+  .pos-screen .right-content .product-custom-card .item-badge,
+  .pos-screen .right-content .product-custom-card .item-badges {
+    position: static !important;
+  }
+
+  .pos-screen .right-content .product-custom-card .item-badge {
+    order: 3;
+  }
+
+  .pos-screen .right-content .product-custom-card .item-badges {
+    order: 4;
+  }
+
+  .pos-screen .right-content .product-custom-card__card-badge {
+    font-size: 12px !important;
   }
 }
 
