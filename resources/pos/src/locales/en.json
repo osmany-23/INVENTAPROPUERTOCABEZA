@@ -482,6 +482,7 @@
     "reset-password.password.validate.label": "The confirm password and password must match",
     "reset-password.success.update.message": "Your password has been reset!",
     "sales.title": "Sales",
+    "credits.title": "Credits",
     "sale.title": "Sale",
     "sale.create.title": "Create Sale",
     "sale.edit.title": "Edit Sale",

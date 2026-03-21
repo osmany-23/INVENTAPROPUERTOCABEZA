@@ -35,6 +35,7 @@ import PrintData from "./frontend/components/printModal/PrintData";
 import Sales from "./components/sales/Sales";
 import CreateSale from "./components/sales/CreateSale";
 import EditSale from "./components/sales/EditSale";
+import Credits from "./components/credits/Credits";
 import SaleReturn from "./components/saleReturn/SaleReturn";
 import CreateSaleReturn from "./components/saleReturn/CreateSaleReturn";
 import EditSaleReturn from "./components/saleReturn/EditSaleReturn";
@@ -315,6 +316,11 @@ export const route = [
         path: "sales",
         ele: <Sales />,
         permission: Permissions.MANAGE_SALE,
+    },
+    {
+        path: "credits",
+        ele: <Credits />,
+        permission: "",
     },
     {
         path: "sales/create",

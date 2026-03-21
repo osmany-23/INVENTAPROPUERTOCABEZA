@@ -459,6 +459,7 @@
     "reset-password.password.validate.label": "Onay şifresi ve şifre eşleşmelidir",
     "reset-password.success.update.message": "Şifreniz sıfırlandı!",
     "sales.title": "Satış",
+    "credits.title": "Krediler",
     "sale.title": "Satış",
     "sale.create.title": "İndirim Oluştur",
     "sale.edit.title": "Satışı Düzenle",

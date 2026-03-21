@@ -460,6 +460,7 @@
     "reset-password.password.validate.label": "确认密码和密码必须匹配",
     "reset-password.success.update.message": "您的密码已被重置！",
     "sales.title": "销售额",
+    "credits.title": "信用",
     "sale.title": "销售",
     "sale.create.title": "创建销售",
     "sale.edit.title": "编辑销售",

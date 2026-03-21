@@ -460,6 +460,7 @@
     "reset-password.password.validate.label": "يجب أن يتطابق تأكيد كلمة المرور وكلمة المرور",
     "reset-password.success.update.message": "تم إعادة تعيين كلمة المرور الخاصة بك!",
     "sales.title": "مبيعات",
+    "credits.title": "الائتمان",
     "sale.title": "تخفيض السعر",
     "sale.create.title": "إنشاء بيع",
     "sale.edit.title": "تحرير البيع",

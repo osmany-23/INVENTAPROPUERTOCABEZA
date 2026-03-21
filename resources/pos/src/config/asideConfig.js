@@ -218,6 +218,20 @@ export default [
         ],
     },
     {
+        title: "credits.title",
+        name: "credits",
+        fontIcon: <FontAwesomeIcon icon={faMoneyCheckDollar} />,
+        to: "/app/credits",
+        class: "d-flex",
+        permission: "",
+        items: [
+            {
+                title: getFormattedMessage("credits.title"),
+                to: "/app/credits",
+            },
+        ],
+    },
+    {
         title: "transfers.title",
         name: "transfers",
         fontIcon: <FontAwesomeIcon icon={faMapLocation} />,

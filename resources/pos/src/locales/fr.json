@@ -457,6 +457,7 @@
     "reset-password.password.validate.label": "Le mot de passe de confirmation et le mot de passe doivent correspondre",
     "reset-password.success.update.message": "votre mot de passe a été réinitialisé!",
     "sales.title": "Ventes",
+    "credits.title": "Credits",
     "sale.title": "Vente",
     "sale.create.title": "Créer une vente",
     "sale.edit.title": "Modifier la vente",

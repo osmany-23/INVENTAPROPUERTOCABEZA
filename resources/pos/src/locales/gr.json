@@ -458,6 +458,7 @@
     "reset-password.password.validate.label": "Das Bestätigungspasswort und das Passwort müssen übereinstimmen",
     "reset-password.success.update.message": "Dein Passwort wurde zurück gesetzt!",
     "sales.title": "Umsätze",
+    "credits.title": "Kredite",
     "sale.title": "Verkauf",
     "sale.create.title": "Verkauf erstellen",
     "sale.edit.title": "Verkauf bearbeiten",

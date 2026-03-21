@@ -457,6 +457,7 @@
     "reset-password.password.validate.label": "Mật khẩu xác nhận và mật khẩu phải khớp",
     "reset-password.success.update.message": "Mật khẩu của bạn đã được thiết lập lại!",
     "sales.title": "Việc bán hàng",
+    "credits.title": "Tin dung",
     "sale.title": "Doanh thu",
     "sale.create.title": "Tạo bán hàng",
     "sale.edit.title": "Chỉnh sửa giảm giá",

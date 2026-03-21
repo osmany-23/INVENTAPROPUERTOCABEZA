@@ -460,6 +460,7 @@
     "reset-password.password.validate.label": "La contrase\u00f1a de confirmaci\u00f3n y la contrase\u00f1a deben coincidir",
     "reset-password.success.update.message": "\u00a1Tu contrase\u00f1a ha sido restablecida!",
     "sales.title": "Ventas",
+    "credits.title": "Creditos",
     "sale.title": "Rebaja",
     "sale.create.title": "Crear venta",
     "sale.edit.title": "Editar venta",
