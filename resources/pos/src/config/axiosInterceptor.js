@@ -91,10 +91,41 @@ const getAuthToken = () => {
     return null;
 };
 
+const getTokenTtlMinutes = () => {
+    const ttlMinutes = Number(localStorage.getItem(Tokens.TOKEN_TTL));
+    if (!Number.isFinite(ttlMinutes) || ttlMinutes <= 0) {
+        return null;
+    }
+    return ttlMinutes;
+};
+
+const refreshAuthSessionExpiry = () => {
+    const ttlMinutes = getTokenTtlMinutes();
+    if (!ttlMinutes) {
+        return;
+    }
+
+    const authToken = getAuthToken();
+    if (!authToken) {
+        return;
+    }
+
+    const now = Date.now();
+    const expiresAt = now + ttlMinutes * 60 * 1000;
+
+    localStorage.setItem("user_time", String(expiresAt));
+    Cookies.set("authToken", authToken, {
+        expires: new Date(expiresAt),
+        path: "/",
+        sameSite: "Lax",
+    });
+};
+
 const clearAuthSession = () => {
     Cookies.remove('authToken');
     Cookies.remove('authToken', { path: '/' });
     localStorage.removeItem(Tokens.ADMIN);
+    localStorage.removeItem(Tokens.TOKEN_TTL);
     localStorage.removeItem(Tokens.USER);
     localStorage.removeItem(Tokens.GET_PERMISSIONS);
     localStorage.removeItem('user_time');
@@ -169,6 +200,7 @@ export default {
             return Promise.reject({ ...error });
         };
         const successHandler = (response) => {
+            refreshAuthSessionExpiry();
             return response;
         };
     }

@@ -27,6 +27,7 @@ const clearAuthSession = () => {
     Cookies.remove("authToken");
     Cookies.remove("authToken", { path: "/" });
     localStorage.removeItem(Tokens.ADMIN);
+    localStorage.removeItem(Tokens.TOKEN_TTL);
     localStorage.removeItem(Tokens.GET_PERMISSIONS);
     localStorage.removeItem("user_time");
 };

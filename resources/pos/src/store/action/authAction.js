@@ -13,6 +13,7 @@ const clearLocalAuthSession = () => {
     Cookies.remove("authToken");
     Cookies.remove("authToken", { path: "/" });
     localStorage.removeItem(Tokens.ADMIN);
+    localStorage.removeItem(Tokens.TOKEN_TTL);
     localStorage.removeItem(Tokens.USER);
     localStorage.removeItem(Tokens.IMAGE);
     localStorage.removeItem(Tokens.FIRST_NAME);
@@ -58,21 +59,35 @@ export const loginAction = (user, navigate, setLoading) => async (dispatch) => {
                 "loginUserArray",
                 JSON.stringify(response.data.data.user)
             );
+            const now = Date.now();
             const expiresAt = Number(response.data?.data?.expires_at);
-            const expiresAtInMinutes =
-                Number.isFinite(expiresAt) && expiresAt > 0 ? expiresAt : 120;
+            const hasExpiration =
+                Number.isFinite(expiresAt) && expiresAt > 0;
 
-            localStorage.setItem(
-                "user_time",
-                String(Date.now() + expiresAtInMinutes * 60 * 1000)
-            );
+            if (hasExpiration) {
+                localStorage.setItem(Tokens.TOKEN_TTL, String(expiresAt));
+                localStorage.setItem(
+                    "user_time",
+                    String(now + expiresAt * 60 * 1000)
+                );
+            } else {
+                localStorage.removeItem(Tokens.TOKEN_TTL);
+                localStorage.removeItem("user_time");
+            }
             Cookies.remove("authToken");
             Cookies.remove("authToken", { path: "/" });
-            Cookies.set("authToken", authToken, {
-                expires: new Date(Date.now() + expiresAtInMinutes * 60 * 1000),
+            const cookieOptions = {
                 path: "/",
                 sameSite: "Lax",
-            });
+            };
+            if (hasExpiration) {
+                Cookies.set("authToken", authToken, {
+                    ...cookieOptions,
+                    expires: new Date(now + expiresAt * 60 * 1000),
+                });
+            } else {
+                Cookies.set("authToken", authToken, cookieOptions);
+            }
             dispatch({
                 type: authActionType.LOGIN_USER,
                 payload: response.data.data,

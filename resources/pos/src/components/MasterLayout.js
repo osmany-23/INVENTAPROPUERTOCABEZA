@@ -10,6 +10,7 @@ import { environment } from "../config/environment";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBars } from "@fortawesome/free-solid-svg-icons";
 import { normalizePermissions } from "../shared/permissionRoute";
+import { useLocation } from "react-router-dom";
 
 const MasterLayout = (props) => {
     const {
@@ -19,10 +20,12 @@ const MasterLayout = (props) => {
         config,
         allConfigData,
     } = props;
-    const [isResponsiveMenu, setIsResponsiveMenu] = useState(false);
-    const [isMenuCollapse, setIsMenuCollapse] = useState(false);
-    const newRoutes = config && prepareRoutes(config);
-    const token = localStorage.getItem(Tokens.ADMIN);
+	    const [isResponsiveMenu, setIsResponsiveMenu] = useState(false);
+	    const [isMenuCollapse, setIsMenuCollapse] = useState(false);
+	    const newRoutes = config && prepareRoutes(config);
+	    const token = localStorage.getItem(Tokens.ADMIN);
+	    const location = useLocation();
+	    const isReportRoute = location.pathname.includes("/report");
 
     useEffect(() => {
         if (!token) {
@@ -53,7 +56,11 @@ const MasterLayout = (props) => {
                     isMenuCollapse === true ? "wrapper-res" : "wrapper"
                 } d-flex flex-column flex-row-fluid`}
             >
-                <div className="d-flex align-items-stretch justify-content-between header">
+	                <div
+	                    className={`d-flex align-items-stretch justify-content-between header${
+	                        isReportRoute ? " header--report" : ""
+	                    }`}
+	                >
                     <div className="container-fluid d-flex align-items-stretch justify-content-xxl-between flex-grow-1">
                         <button
                             type="button"

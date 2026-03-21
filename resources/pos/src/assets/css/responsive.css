@@ -118,17 +118,296 @@ body.sweetalert-overflow-hidden .sweet-alert {
     min-height: 42px;
   }
 
-  .rdt_TableWrapper,
-  .rdt_Table {
-    overflow-x: auto;
-  }
-}
+	  .rdt_TableWrapper,
+	  .rdt_Table {
+	    overflow-x: auto;
+	  }
 
-/* Phone layout defaults */
-@media (max-width: 768px) {
-  /* Allow header to grow when items wrap (prevents hidden actions on phones). */
-  .header {
-    height: auto;
+	  /* Reports header (responsive): keep action icons on top, report nav below */
+	  .header--report .container-fluid {
+	    flex-wrap: wrap;
+	    row-gap: 0.5rem;
+	    align-items: center !important;
+	  }
+
+	  .header--report .container-fluid > button.d-xl-none {
+	    order: 0;
+	    flex: 0 0 auto;
+	  }
+
+		  .header--report .container-fluid > .navbar.navbar-expand-lg {
+		    order: 1;
+		    flex: 0 0 auto;
+		    margin-left: auto !important;
+		    white-space: nowrap;
+		  }
+
+	  .header--report .container-fluid > .navbar.navbar-expand-xl {
+	    order: 2;
+	    flex: 1 1 100%;
+	    width: 100%;
+	    padding-top: 0 !important;
+	    padding-bottom: 0 !important;
+	  }
+
+	  .header--report .container-fluid > .navbar.navbar-expand-xl .navbar-collapse {
+	    width: 100%;
+	  }
+
+	  /* Reports/DataTables: keep toolbar controls usable on small screens */
+	  .data-table header {
+	    flex-wrap: wrap !important;
+	    gap: 0.75rem;
+	    align-items: center !important;
+	  }
+
+	  .data-table header > div {
+	    flex: 1 1 100%;
+	    max-width: 100%;
+	  }
+
+	  .data-table header .searchBox {
+	    margin-bottom: 0 !important;
+	  }
+
+	  .data-table header .searchBox .width-320 {
+	    width: 100% !important;
+	  }
+
+	  .data-table header .justify-content-end {
+	    justify-content: flex-start !important;
+	  }
+
+	  /* Tabs: allow horizontal scroll instead of wrapping */
+	  .nav-tabs {
+	    flex-wrap: nowrap;
+	    overflow-x: auto;
+	    overflow-y: hidden;
+	    -webkit-overflow-scrolling: touch;
+	    gap: 0.5rem;
+	  }
+
+	  .nav-tabs .nav-link {
+	    white-space: nowrap;
+	  }
+
+	  /* Reports: "More" dropdown should act like a centered menu on mobile */
+	  .report-more-toggle {
+	    padding: 0.25rem 0.5rem;
+	    border-radius: 0.5rem;
+	  }
+
+	  .report-more-dropdown.dropdown-menu.show {
+	    position: fixed !important;
+	    inset: auto !important;
+	    top: 50% !important;
+	    left: 50% !important;
+	    right: auto !important;
+	    bottom: auto !important;
+	    transform: translate(-50%, -50%) !important;
+	    width: min(420px, calc(100vw - 2rem)) !important;
+	    max-width: calc(100vw - 2rem) !important;
+	    max-height: calc(100vh - 2rem) !important;
+	    overflow-y: auto !important;
+	    -webkit-overflow-scrolling: touch;
+	    overscroll-behavior: contain;
+	    border: 0 !important;
+	    border-radius: 12px !important;
+	    z-index: 100003 !important;
+	    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18), 0 0 0 100vmax rgba(0, 0, 0, 0.6);
+	  }
+	}
+
+	/* Reports header/navigation (responsive < xl) */
+		@media (max-width: 1199.98px) {
+		  .header--report .container-fluid {
+		    flex-wrap: wrap;
+		    row-gap: 0.5rem;
+		    align-items: center !important;
+		  }
+
+	  .header--report .container-fluid > button.d-xl-none {
+	    order: 0;
+	    flex: 0 0 auto;
+	  }
+
+		  .header--report .container-fluid > .navbar.navbar-expand-lg {
+		    order: 1;
+		    flex: 0 0 auto;
+		    margin-left: auto !important;
+		    white-space: nowrap;
+		  }
+
+	  .header--report .container-fluid > .navbar.navbar-expand-xl {
+	    order: 2;
+	    flex: 1 1 100%;
+	    width: 100%;
+	    padding-top: 0 !important;
+	    padding-bottom: 0 !important;
+	  }
+
+	  .header--report .container-fluid > .navbar.navbar-expand-xl .navbar-collapse {
+	    width: 100%;
+	  }
+
+	  .header--report .top-nav-heding.navbar,
+	  .header--report .top-navbar.navbar {
+	    padding-top: 0 !important;
+	    padding-bottom: 0 !important;
+	    margin: 0 !important;
+	  }
+
+	  .report-nav-mobile {
+	    width: min(360px, calc(100vw - 1.5rem));
+	    margin-left: auto !important;
+	  }
+
+	  .report-nav-mobile-toggle {
+	    background: #ffffff !important;
+	    border: 1px solid #d9deea !important;
+	    border-radius: 12px !important;
+	    padding: 10px 12px !important;
+	    min-height: 44px;
+	    width: 100%;
+	    gap: 0.75rem;
+	    font-size: 1rem !important;
+	    line-height: 1.2;
+	  }
+
+	  .report-nav-mobile-label {
+	    flex: 1 1 auto;
+	    min-width: 0;
+	    white-space: nowrap;
+	    overflow: hidden;
+	    text-overflow: ellipsis;
+	  }
+
+		  .report-nav-mobile-menu.dropdown-menu.show {
+		    position: fixed !important;
+		    inset: auto !important;
+		    top: 50% !important;
+		    left: 50% !important;
+	    right: auto !important;
+	    bottom: auto !important;
+	    transform: translate(-50%, -50%) !important;
+	    width: min(420px, calc(100vw - 2rem)) !important;
+	    max-width: calc(100vw - 2rem) !important;
+	    max-height: calc(100vh - 2rem) !important;
+	    overflow-y: auto !important;
+	    -webkit-overflow-scrolling: touch;
+	    overscroll-behavior: contain;
+	    border: 0 !important;
+	    border-radius: 12px !important;
+		    z-index: 100003 !important;
+		    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18), 0 0 0 100vmax rgba(0, 0, 0, 0.6);
+		  }
+		}
+
+		/* Reports "Secciones" select (phone only < md) */
+		@media (max-width: 767.98px) {
+		  .report-nav-mobile {
+		    width: 100% !important;
+		    max-width: 100% !important;
+		    margin-left: 0 !important;
+		    margin-right: 0 !important;
+		    flex: 1 1 100%;
+		  }
+
+		  .report-nav-mobile-toggle {
+		    justify-content: flex-start !important;
+		    text-align: left;
+		  }
+
+		  .report-nav-mobile-label {
+		    text-align: left;
+		  }
+
+		  .report-nav-mobile-menu.dropdown-menu.show {
+		    z-index: var(--pos-overlay-z, 100003) !important;
+		    animation: posReportNavMobileMenuIn 140ms ease-out;
+		  }
+
+		  .report-nav-mobile-menu .dropdown-item > .nav-link {
+		    min-height: 44px;
+		    display: flex;
+		    align-items: center;
+		    padding-top: 0.75rem !important;
+		    padding-bottom: 0.75rem !important;
+		  }
+
+		  .header--report .report-nav-shell {
+		    display: block !important;
+		    width: 100%;
+		    justify-content: flex-start !important;
+		    row-gap: 0.25rem;
+		  }
+
+		  .header--report .navbar.navbar-expand-xl .navbar-collapse,
+		  .header--report .navbar.navbar-expand-xl .navbar-nav.me-auto.mb-2.mb-lg-0 {
+		    width: 100%;
+		  }
+
+		  .header--report .report-tabs-carousel {
+		    display: flex !important;
+		    flex-direction: row !important;
+		    flex: 1 1 100%;
+		    width: 100%;
+		    min-width: 0;
+		    margin: 0;
+		    padding: 0 0 0.5rem;
+		    flex-wrap: nowrap !important;
+		    align-items: stretch;
+		    justify-content: flex-start;
+		    gap: 0.875rem;
+		    overflow-x: auto;
+		    overflow-y: hidden;
+		    white-space: nowrap;
+		    scroll-behavior: smooth;
+		    scroll-snap-type: x proximity;
+		    scroll-padding-left: 0.25rem;
+		    overscroll-behavior-x: contain;
+		    -webkit-overflow-scrolling: touch;
+		    touch-action: pan-x;
+		    scrollbar-width: none;
+		    -ms-overflow-style: none;
+		  }
+
+		  .header--report .report-tabs-carousel::-webkit-scrollbar {
+		    display: none;
+		  }
+
+		  .header--report .report-tabs-carousel .report-tabs-carousel-item {
+		    display: flex;
+		    flex: 0 0 auto;
+		    margin: 0 !important;
+		    min-width: max-content;
+		    scroll-snap-align: start;
+		  }
+
+		  .header--report .report-tabs-carousel .nav-link {
+		    display: inline-flex;
+		    align-items: center;
+		    min-height: 44px;
+		    white-space: nowrap;
+		  }
+
+		  @keyframes posReportNavMobileMenuIn {
+		    from {
+		      opacity: 0;
+		      transform: translate(-50%, -48%) scale(0.98);
+		    }
+		    to {
+		      opacity: 1;
+		      transform: translate(-50%, -50%) scale(1);
+		    }
+		  }
+		}
+
+		/* Phone layout defaults */
+		@media (max-width: 768px) {
+		  /* Allow header to grow when items wrap (prevents hidden actions on phones). */
+	  .header {
+	    height: auto;
     min-height: 70px;
   }
 

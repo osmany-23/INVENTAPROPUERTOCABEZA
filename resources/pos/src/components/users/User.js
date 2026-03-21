@@ -14,6 +14,7 @@ import ActionButton from '../../shared/action-buttons/ActionButton';
 import TopProgressBar from "../../shared/components/loaders/TopProgressBar";
 import { can } from "../../shared/can";
 import ChangeUserCredentialsModal from "./ChangeUserCredentialsModal";
+import "./user-view.css";
 
 const User = (props) => {
     const {users, fetchUsers, totalRecord, isLoading, allConfigData} = props;
@@ -123,29 +124,41 @@ const User = (props) => {
             ignoreRowClick: true,
             allowOverflow: true,
             button: true,
-            cell: row => <ActionButton item={row} goToEditProduct={goToEdit} isEditMode={true}
-                                       onClickDeleteModel={onClickDeleteModel}
-                                       isCredentialMode={canEditUserCredentials}
-                                       onClickCredentialModel={onClickCredentialsModal}/>
+            cell: row => (
+                <div className="actions">
+                    <ActionButton
+                        item={row}
+                        goToEditProduct={goToEdit}
+                        isEditMode={true}
+                        onClickDeleteModel={onClickDeleteModel}
+                        isCredentialMode={canEditUserCredentials}
+                        onClickCredentialModel={onClickCredentialsModal}
+                        actionButtonClassName="action-btn"
+                        iconFixedWidth={true}
+                    />
+                </div>
+            )
         }
     ];
 
     return (
         <MasterLayout>
-            <TopProgressBar />
-            <TabTitle title={placeholderText('users.title')}/>
-            <ReactDataTable columns={columns} items={itemsValue} onChange={onChange}
-                            ButtonValue={getFormattedMessage('user.create.title')}
-                            to='#/app/users/create' totalRows={totalRecord} isLoading={isLoading}/>
-            <DeleteUser onClickDeleteModel={onClickDeleteModel} deleteModel={deleteModel} onDelete={isDelete}/>
-            <ChangeUserCredentialsModal
-                show={showCredentialsModal}
-                selectedUser={selectedUserForCredentials}
-                onClose={() => {
-                    setShowCredentialsModal(false);
-                    setSelectedUserForCredentials(null);
-                }}
-            />
+            <div className="user-view">
+                <TopProgressBar />
+                <TabTitle title={placeholderText('users.title')}/>
+                <ReactDataTable columns={columns} items={itemsValue} onChange={onChange}
+                                ButtonValue={getFormattedMessage('user.create.title')}
+                                to='#/app/users/create' totalRows={totalRecord} isLoading={isLoading}/>
+                <DeleteUser onClickDeleteModel={onClickDeleteModel} deleteModel={deleteModel} onDelete={isDelete}/>
+                <ChangeUserCredentialsModal
+                    show={showCredentialsModal}
+                    selectedUser={selectedUserForCredentials}
+                    onClose={() => {
+                        setShowCredentialsModal(false);
+                        setSelectedUserForCredentials(null);
+                    }}
+                />
+            </div>
         </MasterLayout>
     )
 };

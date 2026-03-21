@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { getFormattedMessage } from "../../shared/sharedMethod";
 import { Dropdown } from "react-bootstrap";
@@ -7,11 +7,48 @@ import { faAngleDown, faPlusSquare } from "@fortawesome/free-solid-svg-icons";
 import { useSelector } from "react-redux";
 import { Permissions } from "../../constants";
 
+const isReportItemActive = (pathname, item) => {
+    const matchesMain = pathname === item.to || pathname.includes(item.to);
+    const matchesDetail =
+        Boolean(item.detail) &&
+        (pathname === item.detail || pathname.includes(item.detail));
+
+    return matchesMain || matchesDetail;
+};
+
 const AsideTopSubMenuItem = (props) => {
     const { asideConfig, isMenuCollapse } = props;
-    const config = useSelector((state) => state.config);
-    const location = useLocation();
-    const id = useParams();
+	    const config = useSelector((state) => state.config);
+	    const location = useLocation();
+	    const id = useParams();
+	    const isReportRoute = location.pathname.includes("report");
+    const activeReportTabRef = useRef(null);
+
+    useEffect(() => {
+        if (
+            !isReportRoute ||
+            !activeReportTabRef.current ||
+            typeof window === "undefined"
+        ) {
+            return undefined;
+        }
+
+        const mobileMediaQuery = window.matchMedia("(max-width: 767.98px)");
+
+        if (!mobileMediaQuery.matches) {
+            return undefined;
+        }
+
+        const frameId = window.requestAnimationFrame(() => {
+            activeReportTabRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "nearest",
+                inline: "center",
+            });
+        });
+
+        return () => window.cancelAnimationFrame(frameId);
+    }, [isReportRoute, location.pathname]);
 
     return (
         <nav
@@ -241,27 +278,27 @@ const AsideTopSubMenuItem = (props) => {
                                             mainItems.supplierReportDetailsPath +
                                                 "/" +
                                                 id.id
-                                            ? "d-flex align-items-center"
-                                            : "d-none"
-                                    }`}
-                                >
-                                    {mainItems.items
-                                        ? mainItems.items.map((item, index) => {
-                                              if (index <= 4) {
-                                                  return (
-                                                      <div
-                                                          key={index}
-                                                          className={`nav-item ${
-                                                              location.pathname.includes(
-                                                                  "report"
-                                                              )
-                                                                  ? "report-nav-item"
-                                                                  : ""
-                                                          } position-relative mx-xl-3 mb-3 mb-xl-0 mx-1`}
-                                                      >
-                                                          <Link
-                                                              to={item.to}
-                                                              className={`nav-link p-0 ${
+	                                            ? isReportRoute
+	                                                ? "d-flex align-items-center w-100 justify-content-end flex-wrap report-nav-shell"
+	                                                : "d-flex align-items-center"
+	                                            : "d-none"
+	                                    }`}
+	                                >
+	                                    {mainItems.items
+	                                        ? mainItems.items.map((item, index) => {
+	                                              if (index <= 4) {
+	                                                  return (
+	                                                      <div
+	                                                          key={index}
+	                                                          className={`nav-item ${
+	                                                              isReportRoute
+	                                                                  ? "report-nav-item d-none d-xl-block"
+	                                                                  : ""
+	                                                          } position-relative mx-xl-3 mb-3 mb-xl-0 mx-1`}
+	                                                      >
+	                                                          <Link
+	                                                              to={item.to}
+	                                                              className={`nav-link p-0 ${
                                                                   location.pathname ===
                                                                       item.to ||
                                                                   (mainItems.isSamePrefix
@@ -296,9 +333,9 @@ const AsideTopSubMenuItem = (props) => {
                                                           </Link>
                                                       </div>
                                                   );
-                                              }
-                                          })
-                                        : mainItems?.subMenu?.map(
+	                                              }
+	                                          })
+	                                        : mainItems?.subMenu?.map(
                                               (item, index) => {
                                                   return location.pathname ===
                                                       item.to ||
@@ -340,15 +377,130 @@ const AsideTopSubMenuItem = (props) => {
                                                           </Link>
                                                       </div>
                                                   ) : null;
-                                              }
-                                          )}
-                                    {/* Report Dropdown  */}
-                                    {location.pathname.includes("report") && (
-                                        <Dropdown className="d-flex align-items-stretch">
-                                            <Dropdown.Toggle
-                                                className="hide-arrow bg-transparent border-0 p-0 d-flex align-items-center"
-                                                id="dropdown-basic"
-                                            >
+	                                              }
+	                                          )}
+
+	                                    {/* Report tabs carousel (mobile only) */}
+	                                    {isReportRoute &&
+	                                        Array.isArray(mainItems.items) &&
+	                                        mainItems.items.length > 0 && (
+	                                            <div className="report-tabs-carousel navbar-nav d-flex d-md-none">
+	                                                {mainItems.items.map(
+	                                                    (reportItem, index) => {
+	                                                        const isActiveItem =
+	                                                            isReportItemActive(
+	                                                                location.pathname,
+	                                                                reportItem
+	                                                            );
+
+	                                                        return (
+	                                                            <div
+	                                                                key={
+	                                                                    reportItem.to ||
+	                                                                    index
+	                                                                }
+	                                                                className="nav-item position-relative report-tabs-carousel-item"
+	                                                            >
+	                                                                <Link
+	                                                                    to={
+	                                                                        reportItem.to
+	                                                                    }
+	                                                                    ref={
+	                                                                        isActiveItem
+	                                                                            ? activeReportTabRef
+	                                                                            : null
+	                                                                    }
+	                                                                    className={`nav-link p-0 ${
+	                                                                        isActiveItem
+	                                                                            ? "active"
+	                                                                            : ""
+	                                                                    }`}
+	                                                                >
+	                                                                    <span>
+	                                                                        {
+	                                                                            reportItem.title
+	                                                                        }
+	                                                                    </span>
+	                                                                </Link>
+	                                                            </div>
+	                                                        );
+	                                                    }
+	                                                )}
+	                                            </div>
+	                                        )}
+
+	                                    {/* Report listbox (tablet only) */}
+	                                    {isReportRoute &&
+	                                        Array.isArray(mainItems.items) &&
+	                                        mainItems.items.length > 0 && (
+	                                            <Dropdown className="d-none d-md-flex d-xl-none report-nav-mobile ms-auto">
+	                                                <Dropdown.Toggle
+	                                                    className="hide-arrow bg-transparent border-0 p-0 d-flex align-items-center report-nav-mobile-toggle"
+	                                                    id="report-nav-mobile"
+	                                                >
+	                                                    <span className="text-gray-600 report-nav-mobile-label">
+	                                                        {(() => {
+	                                                            const activeItem =
+	                                                                mainItems.items.find(
+	                                                                    (reportItem) =>
+	                                                                        isReportItemActive(
+	                                                                            location.pathname,
+	                                                                            reportItem
+	                                                                        )
+	                                                                );
+                                                            if (activeItem?.title) {
+                                                                return (
+                                                                    <>
+                                                                        Secciones:{" "}
+                                                                        {activeItem.title}
+                                                                    </>
+                                                                );
+                                                            }
+                                                            return "Seleccionar sección";
+                                                        })()}
+                                                    </span>
+                                                    <FontAwesomeIcon
+                                                        icon={faAngleDown}
+                                                        className="text-gray-600 ms-auto"
+	                                                    />
+	                                                </Dropdown.Toggle>
+	                                                <Dropdown.Menu className="mt-6 report-nav-mobile-menu">
+	                                                    {mainItems.items.map(
+	                                                        (reportItem, index) => (
+	                                                            <Dropdown.Item
+	                                                                key={
+	                                                                    reportItem.to ||
+	                                                                    index
+	                                                                }
+	                                                                as={Link}
+	                                                                to={reportItem.to}
+	                                                                className="px-0 py-0 fs-6"
+	                                                                active={isReportItemActive(
+	                                                                    location.pathname,
+	                                                                    reportItem
+	                                                                )}
+	                                                            >
+	                                                                <div className="nav-link px-4 py-2">
+	                                                                    <span>
+	                                                                        {
+	                                                                            reportItem.title
+	                                                                        }
+	                                                                    </span>
+	                                                                </div>
+	                                                            </Dropdown.Item>
+	                                                        )
+	                                                    )}
+	                                                </Dropdown.Menu>
+	                                            </Dropdown>
+	                                        )}
+
+	                                    {/* Report Dropdown  */}
+	                                    {isReportRoute && (
+	                                        <Dropdown className="d-none d-xl-flex align-items-stretch">
+	                                            <Dropdown.Toggle
+	                                                className="hide-arrow bg-transparent border-0 p-0 d-flex align-items-center report-more-toggle"
+	                                                id="dropdown-basic"
+	                                            >
                                                 <div className="d-flex align-items-center justify-content-center">
                                                     <span className="ms-2 text-gray-600 d-none d-sm-block">
                                                         {getFormattedMessage(
@@ -358,10 +510,10 @@ const AsideTopSubMenuItem = (props) => {
                                                 </div>
                                                 <FontAwesomeIcon
                                                     icon={faAngleDown}
-                                                    className="text-gray-600 ms-2 d-none d-sm-block"
+                                                    className="text-gray-600 ms-2"
                                                 />
                                             </Dropdown.Toggle>
-                                            <Dropdown.Menu className="mt-6">
+                                            <Dropdown.Menu className="mt-6 report-more-dropdown">
                                                 {mainItems.items &&
                                                     mainItems.items.map(
                                                         (item, index) => {

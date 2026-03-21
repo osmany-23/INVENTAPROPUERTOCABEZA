@@ -74,12 +74,42 @@ const ReactDataTable = (props) => {
     const [tableWarehouseValue, setTableWarehouseValue] = useState();
     const [status, setStatus] = useState();
     const [transferStatus, setTransferStatus] = useState();
-    const [productUnit, setProductUnit] = useState();
-    const [brand, setBrand] = useState();
-    const [productCategory, setProductCategory] = useState();
+	    const [productUnit, setProductUnit] = useState();
+	    const [brand, setBrand] = useState();
+	    const [productCategory, setProductCategory] = useState();
 
-    const [show, setShow] = useState(false);
-    const dispatch = useDispatch();
+	    const [show, setShow] = useState(false);
+	    const [isMobileView, setIsMobileView] = useState(() => {
+	        if (
+	            typeof window === "undefined" ||
+	            typeof window.matchMedia !== "function"
+	        ) {
+	            return false;
+	        }
+	        return window.matchMedia("(max-width: 991.98px)").matches;
+	    });
+	    const dispatch = useDispatch();
+	    const useModernFilterModal = Boolean(isModernFilterModal || isMobileView);
+
+	    useEffect(() => {
+	        if (
+	            typeof window === "undefined" ||
+	            typeof window.matchMedia !== "function"
+	        ) {
+	            return undefined;
+	        }
+
+	        const mediaQuery = window.matchMedia("(max-width: 991.98px)");
+	        const handler = (event) => setIsMobileView(event.matches);
+
+	        if (typeof mediaQuery.addEventListener === "function") {
+	            mediaQuery.addEventListener("change", handler);
+	            return () => mediaQuery.removeEventListener("change", handler);
+	        }
+
+	        mediaQuery.addListener(handler);
+	        return () => mediaQuery.removeListener(handler);
+	    }, []);
 
     const tableColumns = useMemo(() => columns, [columns]);
 
@@ -181,13 +211,13 @@ const ReactDataTable = (props) => {
                             warehouseOptions={warehouseOptions}
                             isUnitFilter={isUnitFilter}
                             onResetClick={onResetClick}
-                            isExportDropdown={isExportDropdown}
-                            isImportDropdown={isImportDropdown}
-                            isModernFilterModal={isModernFilterModal}
-                            isProductCategoryFilter={isProductCategoryFilter}
-                            isBrandFilter={isBrandFilter}
-                            productCategory={productCategory}
-                            brandFilterTitle={brandFilterTitle}
+	                            isExportDropdown={isExportDropdown}
+	                            isImportDropdown={isImportDropdown}
+	                            isModernFilterModal={useModernFilterModal}
+	                            isProductCategoryFilter={isProductCategoryFilter}
+	                            isBrandFilter={isBrandFilter}
+	                            productCategory={productCategory}
+	                            brandFilterTitle={brandFilterTitle}
                             productCategoryFilterTitle={
                                 productCategoryFilterTitle
                             }

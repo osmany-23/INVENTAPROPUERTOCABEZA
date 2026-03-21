@@ -1,0 +1,22 @@
+.user-view .actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    font-size: 0;
+    flex-wrap: nowrap;
+    width: 100%;
+    flex: 1 1 auto;
+}
+
+.user-view .action-btn {
+    width: 2.563rem !important;
+    height: 2.563rem !important;
+    padding: 0.375rem !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    flex: 0 0 auto;
+    font-size: 1.125rem !important;
+}

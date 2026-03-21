@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Image, Nav, Navbar } from 'react-bootstrap-v5';
 import { connect, useSelector } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
@@ -66,6 +66,7 @@ const Header = (props) => {
     const [showStockAlertModal, setShowStockAlertModal] = useState(false)
     const { allConfigData } = useSelector(state => state)
     const canViewStockAlerts = can("view_stock_alerts", { strict: true });
+    const ignoreTotalRecordSync = useCallback(() => {}, []);
 
     useEffect(() => {
         if (!canViewStockAlerts) {
@@ -73,7 +74,12 @@ const Header = (props) => {
         }
 
         const syncAlerts = () => {
-            productQuantityReportAction(warehouseValue.value, Filters.OBJ, false);
+            productQuantityReportAction(
+                warehouseValue.value,
+                Filters.OBJ,
+                false,
+                ignoreTotalRecordSync
+            );
             fetchStockAlert(false);
         };
 
@@ -83,7 +89,13 @@ const Header = (props) => {
         return () => {
             clearInterval(intervalId);
         };
-    }, [canViewStockAlerts, fetchStockAlert, productQuantityReportAction, warehouseValue.value]);
+    }, [
+        canViewStockAlerts,
+        fetchStockAlert,
+        ignoreTotalRecordSync,
+        productQuantityReportAction,
+        warehouseValue.value,
+    ]);
     const onClickDeleteModel = () => {
         setDeleteModel(!deleteModel);
     };
