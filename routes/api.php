@@ -5,6 +5,7 @@ use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\BaseUnitAPIController;
 use App\Http\Controllers\API\BrandAPIController;
 use App\Http\Controllers\API\CouponCodeAPIController;
+use App\Http\Controllers\API\CreditAPIController;
 use App\Http\Controllers\API\CurrencyAPIController;
 use App\Http\Controllers\API\CustomerAPIController;
 use App\Http\Controllers\API\DashboardAPIController;
@@ -191,6 +192,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('sales/{sale}/payments', [SalesPaymentAPIController::class, 'getAllPayments']);
         Route::post('sales/{salesPayment}/payment', [SalesPaymentAPIController::class, 'updateSalePayment']);
         Route::delete('sales/{id}/payment', [SalesPaymentAPIController::class, 'deletePayment']);
+
+        Route::get('credits/dashboard', [CreditAPIController::class, 'dashboard']);
+        Route::get('credits/check-limit', [CreditAPIController::class, 'checkLimit']);
+        Route::post('credits/customer-config', [CreditAPIController::class, 'upsertCustomerConfig']);
+        Route::post('credits/manual', [CreditAPIController::class, 'storeManual']);
+        Route::get('credits/{credit}', [CreditAPIController::class, 'show']);
+        Route::post('credits/{credit}/payments', [CreditAPIController::class, 'capturePayment']);
     });
 
     Route::resource('holds', HoldAPIController::class);

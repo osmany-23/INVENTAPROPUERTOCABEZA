@@ -13,6 +13,7 @@ use App\Models\SaleItem;
 use App\Models\SalesPayment;
 use App\Models\SmsSetting;
 use App\Models\SmsTemplate;
+use App\Services\CreditService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Arr;
@@ -104,6 +105,7 @@ class SaleRepository extends BaseRepository
             }
 
             $sale = $this->storeSaleItems($sale, $input);
+            app(CreditService::class)->validateSaleCreditBeforeCheckout($sale, $input);
             $reference_code = getSettingValue('sale_code') . '_111' . $sale->id;
             $this->generateBarcode($reference_code);
             $sale['barcode_image_url'] = Storage::url('sales/barcode-' . $reference_code . '.png');
@@ -123,6 +125,8 @@ class SaleRepository extends BaseRepository
                     throw new UnprocessableEntityHttpException('Quantity must be less than Available quantity.');
                 }
             }
+
+            app(CreditService::class)->createCreditFromSale($sale, $input);
 
             $mailTemplate = MailTemplate::where('type', MailTemplate::MAIL_TYPE_SALE)->first();
             $smsTemplate = SmsTemplate::where('type', SmsTemplate::SMS_TYPE_SALE)->first();
@@ -322,6 +326,9 @@ class SaleRepository extends BaseRepository
         try {
             DB::beginTransaction();
             $sale = Sale::findOrFail($id);
+            if ($sale->credit()->exists()) {
+                throw new UnprocessableEntityHttpException('Las ventas con credito deben administrarse desde el modulo de creditos.');
+            }
             $saleItemIds = SaleItem::whereSaleId($id)->pluck('id')->toArray();
             $saleItmOldIds = [];
             foreach ($input['sale_items'] as $key => $saleItem) {

@@ -24,7 +24,7 @@ export const posCashPaymentAction =
             dispatch(setLoading(true));
         }
         let url = apiBaseURL.CASH_PAYMENT;
-        apiConfig
+        return apiConfig
             .post(url, detailsCash)
             .then((response) => {
                 dispatch({
@@ -56,16 +56,24 @@ export const posCashPaymentAction =
                     )
                 );
                 if (isLoading) {
-                    dispatch(setLoading(false));
                     dispatch(fetchHoldLists());
                 }
+                return response.data.data;
             })
             .catch((response) => {
                 dispatch(
                     addToast({
-                        text: response.response.data.message,
+                        text:
+                            response?.response?.data?.message ||
+                            "No se pudo registrar la venta.",
                         type: toastType.ERROR,
                     })
                 );
+                return null;
+            })
+            .finally(() => {
+                if (isLoading) {
+                    dispatch(setLoading(false));
+                }
             });
     };

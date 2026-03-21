@@ -66,6 +66,10 @@ const SalesForm = ( props ) => {
         notes: singleSale ? ( singleSale.notes ?? '' ) : '',
         received_amount: 0,
         paid_amount: 0,
+        credit_enabled: false,
+        credit_interest_rate: "0.00",
+        credit_installments: "1",
+        credit_due_date: moment().add( 1, 'month' ).format( 'YYYY-MM-DD' ),
         status_id: { label: getFormattedMessage( "status.filter.complated.label" ), value: 1 },
         payment_status: { label: getFormattedMessage( "payment-status.filter.unpaid.label" ), value: 2 },
         payment_type: { label: getFormattedMessage( "payment-type.filter.cash.label" ), value: 1 }
@@ -76,7 +80,9 @@ const SalesForm = ( props ) => {
         warehouse_id: '',
         status_id: '',
         payment_status: '',
-        payment_type: ''
+        payment_type: '',
+        credit_due_date: '',
+        credit_installments: ''
     } );
 
     useEffect( () => {
@@ -104,6 +110,10 @@ const SalesForm = ( props ) => {
                 shipping: singleSale ? formatNumericInputOnBlur( singleSale.shipping, 2 ) : '0.00',
                 grand_total: singleSale ? singleSale.grand_total : '0.00',
                 notes: singleSale ? ( singleSale.notes ?? '' ) : '',
+                credit_enabled: false,
+                credit_interest_rate: '0.00',
+                credit_installments: '1',
+                credit_due_date: moment().add( 1, 'month' ).format( 'YYYY-MM-DD' ),
                 status_id: singleSale ? singleSale.status_id : '',
                 payment_status: singleSale.is_Partial === 3 ? { "label": getFormattedMessage( 'payment-status.filter.partial.label' ), "value": 3 } : singleSale ? singleSale.payment_status : '',
                 payment_type: singleSale ? singleSale.payment_type : ''
@@ -121,12 +131,18 @@ const SalesForm = ( props ) => {
                 shipping: singleSale ? formatNumericInputOnBlur( singleSale.shipping, 2 ) : '0.00',
                 grand_total: singleSale ? singleSale.grand_total : '0.00',
                 notes: singleSale ? ( singleSale.notes ?? '' ) : '',
+                credit_enabled: false,
+                credit_interest_rate: '0.00',
+                credit_installments: '1',
+                credit_due_date: moment().add( 1, 'month' ).format( 'YYYY-MM-DD' ),
                 status_id: singleSale ? singleSale.status_id : '',
                 payment_status: saleValue.payment_status ? saleValue.payment_status : '',
                 payment_type: { label: getFormattedMessage( "payment-type.filter.cash.label" ), value: 1 }
             } )
         }
     }, [ singleSale ] );
+
+    const currentPaymentStatus = saleValue?.payment_status?.value ? saleValue.payment_status.value : saleValue?.payment_status;
 
     useEffect( () => {
         if ( singleSale ) {
@@ -158,6 +174,10 @@ const SalesForm = ( props ) => {
             error[ 'payment_status' ] = getFormattedMessage( "globally.payment.status.validate.label" )
         } else if ( !saleValue.payment_type ) {
             error[ 'payment_type' ] = getFormattedMessage( "globally.payment.type.validate.label" )
+        } else if ( saleValue.credit_enabled && !saleValue.credit_due_date ) {
+            error[ 'credit_due_date' ] = 'Seleccione la fecha de vencimiento';
+        } else if ( saleValue.credit_enabled && parseNumber( saleValue.credit_installments, 0 ) < 1 ) {
+            error[ 'credit_installments' ] = 'Ingrese al menos una cuota';
         } else {
             isValid = true;
         }
@@ -200,13 +220,25 @@ const SalesForm = ( props ) => {
     };
 
     const onPaymentStatusChange = ( obj ) => {
-        setSaleValue( inputs => ( { ...inputs, payment_status: obj } ) );
+        setSaleValue( inputs => ( {
+            ...inputs,
+            payment_status: obj,
+            ...( obj.value !== 2 ? { credit_enabled: false } : {} ),
+        } ) );
         obj.value !== 2 ? setIsPaymentType( true ) : setIsPaymentType( false )
         setSaleValue( input => ( { ...input, payment_type: { label: getFormattedMessage( "payment-type.filter.cash.label" ), value: 1 } } ) )
     };
 
     const onPaymentTypeChange = ( obj ) => {
         setSaleValue( inputs => ( { ...inputs, payment_type: obj } ) );
+    };
+
+    const onCreditToggleChange = ( e ) => {
+        setSaleValue( inputs => ( { ...inputs, credit_enabled: e.target.checked } ) );
+    };
+
+    const onCreditDueDateChange = ( e ) => {
+        setSaleValue( inputs => ( { ...inputs, credit_due_date: e.target.value } ) );
     };
 
     const updatedQty = ( qty ) => {
@@ -282,7 +314,11 @@ const SalesForm = ( props ) => {
             note: prepareData.notes,
             status: prepareData.status_id.value ? prepareData.status_id.value : prepareData.status_id,
             payment_status: prepareData.payment_status.value ? prepareData.payment_status.value : prepareData.payment_status,
-            payment_type: prepareData.payment_status.value === 2 ? 0 : prepareData.payment_type.value ? prepareData.payment_type.value : prepareData.payment_type
+            payment_type: prepareData.payment_status.value === 2 ? 0 : prepareData.payment_type.value ? prepareData.payment_type.value : prepareData.payment_type,
+            credit_enabled: Boolean( prepareData.credit_enabled ),
+            credit_interest_rate: parseNumber( prepareData.credit_interest_rate, 0 ).toFixed( 2 ),
+            credit_installments: Math.max( parseInt( prepareData.credit_installments || 1, 10 ), 1 ),
+            credit_due_date: prepareData.credit_due_date,
         }
         return formValue
     };
@@ -301,7 +337,7 @@ const SalesForm = ( props ) => {
     };
 
     const onBlurInput = ( el ) => {
-        if ( [ "shipping", "discount", "tax_rate" ].includes( el.target.name ) ) {
+        if ( [ "shipping", "discount", "tax_rate", "credit_interest_rate" ].includes( el.target.name ) ) {
             setSaleValue( ( prev ) => ( {
                 ...prev,
                 [ el.target.name ]: formatNumericInputOnBlur( prev[ el.target.name ], 2 ),
@@ -417,7 +453,7 @@ const SalesForm = ( props ) => {
                             defaultValue={paymentStatusDefaultValue[ 0 ]}
                             placeholder={placeholderText( 'sale.select.payment-status.placeholder' )} />
                     </div>}
-                    {!singleSale && saleValue.payment_status.value !== 2 && <div className='col-md-4'>
+                    {!singleSale && currentPaymentStatus !== 2 && <div className='col-md-4'>
                         <ReactSelect title={getFormattedMessage( 'select.payment-type.label' )}
                             name='payment_type'
                             value={saleValue.payment_type} errors={errors[ 'payment_type' ]}
@@ -426,6 +462,59 @@ const SalesForm = ( props ) => {
                             multiLanguageOption={paymentMethodOption}
                             onChange={onPaymentTypeChange}
                         />
+                    </div>}
+                    {!singleSale && currentPaymentStatus === 2 && <div className='col-12'>
+                        <div className='border rounded p-4 mb-3 bg-light-primary'>
+                            <div className='form-check form-switch mb-4'>
+                                <input
+                                    className='form-check-input'
+                                    type='checkbox'
+                                    id='createSaleCreditSwitch'
+                                    checked={saleValue.credit_enabled}
+                                    onChange={onCreditToggleChange}
+                                />
+                                <label className='form-check-label' htmlFor='createSaleCreditSwitch'>
+                                    Crear crédito para esta venta
+                                </label>
+                            </div>
+                            {saleValue.credit_enabled && <div className='row'>
+                                <div className='col-md-4 mb-3'>
+                                    <label className='form-label'>Interés (%):</label>
+                                    <input
+                                        type='text'
+                                        className='form-control'
+                                        name='credit_interest_rate'
+                                        value={saleValue.credit_interest_rate}
+                                        onBlur={( event ) => onBlurInput( event )}
+                                        onFocus={( event ) => onFocusInput( event )}
+                                        onKeyPress={( event ) => decimalValidate( event )}
+                                        onChange={( e ) => onChangeInput( e )}
+                                    />
+                                </div>
+                                <div className='col-md-4 mb-3'>
+                                    <label className='form-label'>Cuotas:</label>
+                                    <input
+                                        type='number'
+                                        min='1'
+                                        className='form-control'
+                                        name='credit_installments'
+                                        value={saleValue.credit_installments}
+                                        onChange={( e ) => onChangeInput( e )}
+                                    />
+                                    <span className='text-danger d-block fw-400 fs-small mt-2'>{errors[ 'credit_installments' ] ? errors[ 'credit_installments' ] : null}</span>
+                                </div>
+                                <div className='col-md-4 mb-3'>
+                                    <label className='form-label'>Vence el:</label>
+                                    <input
+                                        type='date'
+                                        className='form-control'
+                                        value={saleValue.credit_due_date}
+                                        onChange={( e ) => onCreditDueDateChange( e )}
+                                    />
+                                    <span className='text-danger d-block fw-400 fs-small mt-2'>{errors[ 'credit_due_date' ] ? errors[ 'credit_due_date' ] : null}</span>
+                                </div>
+                            </div>}
+                        </div>
                     </div>}
                     {isQuotation && <div className='col-md-4'>
                         <ReactSelect multiLanguageOption={paymentStatusFilterOptions} onChange={onPaymentStatusChange} name='payment_status'

@@ -20,6 +20,12 @@ class UpdateSaleRequest extends FormRequest
      */
     public function rules(): array
     {
-        return Sale::$rules;
+        return array_merge(Sale::$rules, [
+            'credit_enabled' => 'nullable|boolean',
+            'credit_interest_rate' => 'nullable|numeric|min:0',
+            'credit_installments' => 'nullable|integer|min:1',
+            'credit_start_date' => 'nullable|date',
+            'credit_due_date' => 'nullable|date',
+        ]);
     }
 }

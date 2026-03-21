@@ -8,6 +8,7 @@ use Eloquent;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Storage;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
@@ -255,6 +256,11 @@ class Sale extends BaseModel implements HasMedia, JsonResourceful
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id', 'id');
+    }
+
+    public function credit(): HasOne
+    {
+        return $this->hasOne(Credit::class, 'sale_id', 'id');
     }
 
     public function customer(): BelongsTo

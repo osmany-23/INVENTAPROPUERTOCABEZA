@@ -1,0 +1,700 @@
+.credits-page {
+    --credits-surface: var(--bs-white);
+    --credits-muted: #6b7280;
+    --credits-border: rgba(173, 181, 189, 0.22);
+    --credits-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+    --credits-shadow-hover: 0 24px 50px rgba(15, 23, 42, 0.14);
+}
+
+.credits-page .card,
+.credits-modal-content {
+    border: 1px solid var(--credits-border);
+}
+
+.credits-surface-card {
+    border-radius: 1.35rem;
+    box-shadow: var(--credits-shadow);
+    overflow: hidden;
+}
+
+.credits-summary-card {
+    border-radius: 1.25rem;
+    box-shadow: 0 16px 34px rgba(15, 23, 42, 0.06);
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+    transition: transform 0.25s ease, box-shadow 0.25s ease,
+        border-color 0.25s ease;
+}
+
+.credits-interactive-card:hover {
+    border-color: rgba(var(--bs-primary-rgb), 0.24);
+    box-shadow: 0 22px 42px rgba(15, 23, 42, 0.11);
+    transform: translateY(-5px) scale(1.01);
+}
+
+.credits-summary-accent {
+    background: linear-gradient(
+        180deg,
+        rgba(var(--bs-primary-rgb), 0.95),
+        rgba(var(--bs-primary-rgb), 0.55)
+    );
+    border-radius: 999px;
+    height: 46px;
+    opacity: 0.18;
+    position: absolute;
+    right: -10px;
+    top: -10px;
+    width: 46px;
+}
+
+.credits-summary-card .card-body {
+    padding: 1.3rem 1.4rem;
+    position: relative;
+}
+
+.credits-summary-content {
+    position: relative;
+    z-index: 1;
+}
+
+.credits-card-icon {
+    color: rgba(var(--bs-primary-rgb), 0.22);
+    font-size: 1.05rem;
+    position: absolute;
+    right: 1.2rem;
+    top: 1.1rem;
+    transition: color 0.22s ease, transform 0.22s ease;
+}
+
+.credits-summary-card:hover .credits-card-icon,
+.credits-record-card:hover .credits-card-icon {
+    color: rgba(var(--bs-primary-rgb), 0.4);
+    transform: scale(1.05);
+}
+
+.credits-record-card .credits-card-icon {
+    font-size: 1rem;
+    right: 1.15rem;
+    top: 1.15rem;
+}
+
+.credits-summary-card .credits-summary-label {
+    color: var(--credits-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.credits-summary-card .credits-summary-value {
+    color: var(--bs-dark);
+    font-size: 1.7rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.credits-toolbar {
+    gap: 0.9rem;
+}
+
+.credits-toolbar-actions {
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.credits-toolbar-field {
+    border-radius: 0.95rem;
+    min-height: 46px;
+    min-width: 220px;
+}
+
+.credits-page .btn,
+.credits-modal-content .btn {
+    border-radius: 0.9rem;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+    font-weight: 600;
+    min-height: 44px;
+    padding-inline: 1rem;
+    transition: transform 0.22s ease, box-shadow 0.22s ease,
+        filter 0.22s ease;
+}
+
+.credits-page .btn:hover,
+.credits-modal-content .btn:hover {
+    box-shadow: 0 16px 28px rgba(15, 23, 42, 0.14);
+    filter: brightness(0.96);
+    transform: translateY(-2px);
+}
+
+.credits-page .btn:active,
+.credits-modal-content .btn:active {
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+    transform: translateY(0);
+}
+
+.credits-page .btn-outline-primary,
+.credits-modal-content .btn-light {
+    box-shadow: none;
+}
+
+.credits-sections {
+    gap: 0.75rem;
+}
+
+.credits-sections .btn {
+    border-radius: 999px;
+    min-height: 44px;
+    padding-inline: 1.15rem;
+}
+
+.credits-card-grid {
+    display: grid;
+    gap: 1.35rem;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.credits-card-grid--compact {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.credits-record-card {
+    --credits-state-rgb: var(--bs-primary-rgb);
+    background: linear-gradient(
+        180deg,
+        rgba(var(--bs-white-rgb), 0.98),
+        rgba(var(--credits-state-rgb), 0.04)
+    );
+    border: 1px solid rgba(var(--credits-state-rgb), 0.14);
+    border-radius: 1.2rem;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-height: 100%;
+    padding: 1.25rem;
+    position: relative;
+    transition: transform 0.28s ease, box-shadow 0.28s ease,
+        border-color 0.28s ease, background 0.28s ease;
+}
+
+.credits-record-card::after {
+    background: linear-gradient(
+        90deg,
+        rgba(var(--credits-state-rgb), 0.28),
+        rgba(var(--credits-state-rgb), 0)
+    );
+    border-radius: 999px;
+    content: "";
+    height: 4px;
+    left: 1.25rem;
+    position: absolute;
+    right: 1.25rem;
+    top: 0;
+}
+
+.credits-record-card:hover {
+    background: linear-gradient(
+        180deg,
+        rgba(var(--bs-white-rgb), 1),
+        rgba(var(--credits-state-rgb), 0.08)
+    );
+    border-color: rgba(var(--credits-state-rgb), 0.34);
+    box-shadow: var(--credits-shadow-hover);
+    transform: translateY(-5px) scale(1.01);
+}
+
+.credits-record-card:hover .credits-record-title,
+.credits-record-card:hover .credits-metric strong {
+    color: rgb(var(--credits-state-rgb));
+}
+
+.credits-record-card--pagado,
+.credits-record-card--activo {
+    --credits-state-rgb: var(--bs-success-rgb);
+}
+
+.credits-record-card--pendiente {
+    --credits-state-rgb: var(--bs-primary-rgb);
+}
+
+.credits-record-card--atrasado,
+.credits-record-card--vencido,
+.credits-record-card--bloqueado {
+    --credits-state-rgb: var(--bs-danger-rgb);
+}
+
+.credits-record-card__header {
+    align-items: flex-start;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: space-between;
+}
+
+.credits-record-eyebrow {
+    color: var(--credits-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.35rem;
+    text-transform: uppercase;
+}
+
+.credits-record-title {
+    color: var(--bs-dark);
+    font-size: 1.08rem;
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 0;
+    transition: color 0.25s ease;
+}
+
+.credits-record-subtitle {
+    color: var(--credits-muted);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 0.87rem;
+    gap: 0.6rem 1rem;
+    margin-top: 0.35rem;
+}
+
+.credits-record-grid {
+    display: grid;
+    gap: 0.85rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.credits-metric {
+    background: rgba(var(--bs-white-rgb), 0.72);
+    border: 1px solid rgba(var(--credits-state-rgb), 0.1);
+    border-radius: 1rem;
+    min-height: 86px;
+    padding: 0.9rem 0.95rem;
+    transition: border-color 0.22s ease, background 0.22s ease,
+        transform 0.22s ease;
+}
+
+.credits-record-card:hover .credits-metric {
+    background: rgba(var(--bs-white-rgb), 0.95);
+    border-color: rgba(var(--credits-state-rgb), 0.18);
+    transform: translateY(-1px);
+}
+
+.credits-metric span {
+    color: var(--credits-muted);
+    display: block;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+}
+
+.credits-metric strong {
+    color: var(--bs-dark);
+    display: block;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.3;
+    transition: color 0.22s ease;
+}
+
+.credits-metric--highlight {
+    background: rgba(var(--credits-state-rgb), 0.09);
+}
+
+.credits-progress-block {
+    background: rgba(var(--bs-white-rgb), 0.78);
+    border: 1px solid rgba(var(--credits-state-rgb), 0.12);
+    border-radius: 1rem;
+    padding: 0.95rem 1rem;
+}
+
+.credits-progress-heading {
+    align-items: center;
+    color: var(--credits-muted);
+    display: flex;
+    font-size: 0.86rem;
+    font-weight: 700;
+    justify-content: space-between;
+    margin-bottom: 0.7rem;
+}
+
+.credits-progress-heading strong {
+    color: rgb(var(--credits-state-rgb));
+    font-size: 0.95rem;
+}
+
+.credits-progress {
+    background: rgba(var(--bs-secondary-rgb), 0.16);
+    border-radius: 999px;
+    height: 0.72rem;
+    overflow: hidden;
+}
+
+.credits-progress .progress-bar {
+    border-radius: 999px;
+}
+
+.credits-progress-caption {
+    color: var(--credits-muted);
+    font-size: 0.8rem;
+    margin-top: 0.65rem;
+}
+
+.credits-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+.credits-card-pill {
+    background: rgba(var(--credits-state-rgb), 0.1);
+    border-radius: 999px;
+    color: rgb(var(--credits-state-rgb));
+    display: inline-flex;
+    font-size: 0.79rem;
+    font-weight: 700;
+    padding: 0.42rem 0.8rem;
+}
+
+.credits-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: auto;
+}
+
+.credits-card-actions .btn {
+    flex: 1 1 150px;
+}
+
+.credits-status-badge {
+    --credits-badge-rgb: var(--bs-primary-rgb);
+    align-items: center;
+    background: rgba(var(--credits-badge-rgb), 0.12);
+    border-radius: 999px;
+    color: rgb(var(--credits-badge-rgb));
+    display: inline-flex;
+    font-size: 0.8rem;
+    font-weight: 700;
+    gap: 0.45rem;
+    padding: 0.42rem 0.8rem;
+    text-transform: capitalize;
+    transition: background 0.22s ease, color 0.22s ease;
+}
+
+.credits-status-dot {
+    background: currentColor;
+    border-radius: 999px;
+    display: inline-block;
+    height: 0.5rem;
+    width: 0.5rem;
+}
+
+.credits-status-badge--pagado,
+.credits-status-badge--activo {
+    --credits-badge-rgb: var(--bs-success-rgb);
+}
+
+.credits-status-badge--pendiente {
+    --credits-badge-rgb: var(--bs-primary-rgb);
+}
+
+.credits-status-badge--atrasado,
+.credits-status-badge--vencido,
+.credits-status-badge--bloqueado {
+    --credits-badge-rgb: var(--bs-danger-rgb);
+}
+
+.credits-tooltip-trigger {
+    display: inline-flex;
+    max-width: 100%;
+}
+
+.credits-tooltip-trigger--block {
+    display: block;
+    width: 100%;
+}
+
+.credits-tooltip .tooltip-inner {
+    background: rgba(6, 9, 23, 0.92);
+    border-radius: 0.8rem;
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);
+    color: var(--bs-white);
+    font-size: 0.78rem;
+    max-width: 260px;
+    padding: 0.55rem 0.75rem;
+    text-align: left;
+}
+
+.credits-tooltip.bs-tooltip-top .tooltip-arrow::before,
+.credits-tooltip.bs-tooltip-auto[data-popper-placement^="top"] .tooltip-arrow::before,
+.credits-tooltip.bs-tooltip-bottom .tooltip-arrow::before,
+.credits-tooltip.bs-tooltip-auto[data-popper-placement^="bottom"] .tooltip-arrow::before,
+.credits-tooltip.bs-tooltip-start .tooltip-arrow::before,
+.credits-tooltip.bs-tooltip-auto[data-popper-placement^="left"] .tooltip-arrow::before,
+.credits-tooltip.bs-tooltip-end .tooltip-arrow::before,
+.credits-tooltip.bs-tooltip-auto[data-popper-placement^="right"] .tooltip-arrow::before {
+    border-top-color: rgba(6, 9, 23, 0.92);
+    border-bottom-color: rgba(6, 9, 23, 0.92);
+    border-left-color: rgba(6, 9, 23, 0.92);
+    border-right-color: rgba(6, 9, 23, 0.92);
+}
+
+.credits-empty {
+    color: var(--credits-muted);
+    padding: 2rem 1rem;
+    text-align: center;
+}
+
+.credits-empty-card {
+    background: rgba(var(--bs-light-rgb), 0.65);
+    border: 1px dashed rgba(var(--bs-primary-rgb), 0.2);
+    border-radius: 1.2rem;
+    display: grid;
+    grid-column: 1 / -1;
+    min-height: 220px;
+    place-content: center;
+}
+
+.credits-modal-dialog {
+    opacity: 1;
+    transform: scale(0.96);
+    transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.modal.show .credits-modal-dialog {
+    transform: scale(1);
+}
+
+.credits-modal-content {
+    border-radius: 1.4rem;
+    box-shadow: 0 28px 54px rgba(15, 23, 42, 0.2);
+    overflow: hidden;
+}
+
+.credits-modal-backdrop.show {
+    backdrop-filter: blur(8px);
+    background-color: rgba(6, 9, 23, 0.42);
+    opacity: 1;
+}
+
+.credits-modal-content .modal-header,
+.credits-modal-content .modal-footer {
+    border-color: rgba(var(--bs-secondary-rgb), 0.12);
+    padding-inline: 1.5rem;
+}
+
+.credits-modal-content .modal-header {
+    background: linear-gradient(
+        180deg,
+        rgba(var(--bs-primary-rgb), 0.08),
+        rgba(var(--bs-white-rgb), 1)
+    );
+    padding-block: 1.25rem;
+}
+
+.credits-modal-content .modal-title {
+    color: var(--bs-dark);
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.credits-modal-content .modal-body {
+    background: linear-gradient(
+        180deg,
+        rgba(var(--bs-light-rgb), 0.45),
+        rgba(var(--bs-white-rgb), 1)
+    );
+    padding: 1.5rem;
+}
+
+.credits-modal-hero {
+    align-items: flex-start;
+    background: linear-gradient(
+        135deg,
+        rgba(var(--bs-primary-rgb), 0.12),
+        rgba(var(--bs-white-rgb), 0.95)
+    );
+    border: 1px solid rgba(var(--bs-primary-rgb), 0.12);
+    border-radius: 1.2rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    margin-bottom: 1.4rem;
+    padding: 1.1rem 1.15rem;
+}
+
+.credits-detail-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.credits-detail-item {
+    background: rgba(var(--bs-white-rgb), 0.94);
+    border: 1px solid rgba(var(--bs-primary-rgb), 0.08);
+    border-radius: 1rem;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
+    padding: 1rem 1.05rem;
+    transition: transform 0.22s ease, box-shadow 0.22s ease,
+        border-color 0.22s ease;
+}
+
+.credits-detail-item:hover {
+    border-color: rgba(var(--bs-primary-rgb), 0.18);
+    box-shadow: 0 16px 28px rgba(15, 23, 42, 0.09);
+    transform: translateY(-2px);
+}
+
+.credits-detail-item strong {
+    color: var(--credits-muted);
+    display: block;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.35rem;
+    text-transform: uppercase;
+}
+
+.credits-detail-item span {
+    color: var(--bs-dark);
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.credits-modal-section + .credits-modal-section {
+    margin-top: 1.5rem;
+}
+
+.credits-modal-section-title {
+    color: var(--bs-dark);
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.9rem;
+}
+
+.credits-form-panel {
+    background: rgba(var(--bs-white-rgb), 0.92);
+    border: 1px solid rgba(var(--bs-primary-rgb), 0.1);
+    border-radius: 1.2rem;
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.05);
+    padding: 1.2rem;
+}
+
+.credits-form-control,
+.credits-toolbar-field {
+    border: 1px solid rgba(var(--bs-secondary-rgb), 0.24);
+    box-shadow: none;
+}
+
+.credits-form-control:focus,
+.credits-toolbar-field:focus {
+    border-color: rgba(var(--bs-primary-rgb), 0.35);
+    box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.14);
+}
+
+.credits-check-field {
+    background: rgba(var(--bs-light-rgb), 0.72);
+    border: 1px solid rgba(var(--bs-primary-rgb), 0.08);
+    border-radius: 0.95rem;
+    padding: 0.9rem 1rem;
+}
+
+.credits-table-wrapper {
+    background: rgba(var(--bs-white-rgb), 0.94);
+    border: 1px solid rgba(var(--bs-primary-rgb), 0.08);
+    border-radius: 1.2rem;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+}
+
+.credits-table-wrapper table {
+    margin-bottom: 0;
+}
+
+.credits-table-wrapper thead th {
+    background: rgba(var(--bs-light-rgb), 0.9);
+    border-bottom: 1px solid rgba(var(--bs-primary-rgb), 0.1);
+    color: var(--credits-muted);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 0.95rem 1rem;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.credits-table-wrapper tbody td {
+    padding: 0.95rem 1rem;
+    transition: background 0.2s ease, color 0.2s ease;
+    vertical-align: middle;
+}
+
+.credits-table-wrapper tbody tr:hover td {
+    background: rgba(var(--bs-primary-rgb), 0.04);
+}
+
+.credits-load-more {
+    display: flex;
+    justify-content: center;
+    margin-top: 1.5rem;
+}
+
+@media (max-width: 991.98px) {
+    .credits-toolbar-actions {
+        justify-content: flex-start;
+    }
+
+    .credits-toolbar-field {
+        min-width: 190px;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .credits-toolbar {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .credits-toolbar-actions {
+        width: 100%;
+    }
+
+    .credits-toolbar-field,
+    .credits-page .btn,
+    .credits-modal-content .btn {
+        width: 100%;
+    }
+
+    .credits-sections {
+        overflow-x: auto;
+        padding-bottom: 0.25rem;
+        white-space: nowrap;
+    }
+
+    .credits-sections::-webkit-scrollbar {
+        display: none;
+    }
+
+    .credits-card-grid,
+    .credits-card-grid--compact {
+        grid-template-columns: 1fr;
+    }
+
+    .credits-record-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .credits-record-card__header,
+    .credits-modal-hero {
+        flex-direction: column;
+    }
+
+    .credits-modal-content .modal-header,
+    .credits-modal-content .modal-body,
+    .credits-modal-content .modal-footer {
+        padding-inline: 1rem;
+    }
+}

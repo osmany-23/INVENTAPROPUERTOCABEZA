@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Traits\HasJsonResourcefulData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * App\Models\Customer
@@ -118,5 +119,15 @@ class Customer extends BaseModel
     public function salesReturns(): HasMany
     {
         return $this->hasMany(SaleReturn::class, 'customer_id', 'id');
+    }
+
+    public function creditConfig(): HasOne
+    {
+        return $this->hasOne(CustomerCreditConfig::class, 'customer_id', 'id');
+    }
+
+    public function credits(): HasMany
+    {
+        return $this->hasMany(Credit::class, 'customer_id', 'id');
     }
 }

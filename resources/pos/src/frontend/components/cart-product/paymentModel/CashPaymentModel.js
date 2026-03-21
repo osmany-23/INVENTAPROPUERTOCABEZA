@@ -36,10 +36,12 @@ const CashPaymentModel = (props) => {
         paymentTypeFilterOptions,
         allConfigData,
         onChangeReturnChange,
+        onCreditToggleChange,
     } = props;
 
     const [summation, setSummation] = useState(0);
     const dispatch = useDispatch();
+    const isPaidSale = cashPaymentValue?.payment_status?.value === 1;
 
     useEffect(() => {
         cashPaymentValue.received_amount !== undefined
@@ -79,7 +81,7 @@ const CashPaymentModel = (props) => {
                 <div className="row">
                     <div className="col-lg-8 col-12">
                         <div className="row">
-                            <Form.Group
+                            {isPaidSale && <Form.Group
                                 className="mb-3 col-6"
                                 controlId="formBasicReceived_amount"
                             >
@@ -99,8 +101,8 @@ const CashPaymentModel = (props) => {
                                     defaultValue={grandTotal}
                                     onChange={(e) => onChangeInput(e)}
                                 />
-                            </Form.Group>
-                            <Form.Group className="mb-3 col-6">
+                            </Form.Group>}
+                            {isPaidSale && <Form.Group className="mb-3 col-6">
                                 <Form.Label>
                                     {getFormattedMessage(
                                         "pos-paying-amount.title"
@@ -115,8 +117,8 @@ const CashPaymentModel = (props) => {
                                     className="form-control-solid"
                                     value={grandTotal}
                                 />
-                            </Form.Group>
-                            <Form.Group className="mb-3 col-6">
+                            </Form.Group>}
+                            {isPaidSale && <Form.Group className="mb-3 col-6">
                                 <Form.Label>
                                     {getFormattedMessage(
                                         "pos.change-return.label"
@@ -130,7 +132,7 @@ const CashPaymentModel = (props) => {
                                     className="form-control-solid"
                                     value={formatNumber(summation, 2)}
                                 />
-                            </Form.Group>
+                            </Form.Group>}
                             {cashPaymentValue?.payment_status?.value === 1 &&<Form.Group
                                 className="mb-3 col-6"
                                 controlId="formBasicType"
@@ -154,6 +156,71 @@ const CashPaymentModel = (props) => {
                                     )}
                                 />
                             </Form.Group>}
+                            {cashPaymentValue?.payment_status?.value === 2 && (
+                                <div className="col-12 mb-3">
+                                    <div className="border rounded p-4 bg-light-primary">
+                                        <Form.Check
+                                            type="switch"
+                                            id="posCreateCreditSwitch"
+                                            className="mb-4"
+                                            label="Crear crédito para esta venta"
+                                            checked={cashPaymentValue?.credit_enabled}
+                                            onChange={onCreditToggleChange}
+                                        />
+                                        {cashPaymentValue?.credit_enabled && (
+                                            <div className="row">
+                                                <Form.Group className="mb-3 col-md-4">
+                                                    <Form.Label>Interés (%)</Form.Label>
+                                                    <Form.Control
+                                                        type="number"
+                                                        min={0}
+                                                        step="0.01"
+                                                        name="credit_interest_rate"
+                                                        value={
+                                                            cashPaymentValue?.credit_interest_rate
+                                                        }
+                                                        onChange={(e) => onChangeInput(e)}
+                                                    />
+                                                </Form.Group>
+                                                <Form.Group className="mb-3 col-md-4">
+                                                    <Form.Label>Cuotas</Form.Label>
+                                                    <Form.Control
+                                                        type="number"
+                                                        min={1}
+                                                        step="1"
+                                                        name="credit_installments"
+                                                        value={
+                                                            cashPaymentValue?.credit_installments
+                                                        }
+                                                        onChange={(e) => onChangeInput(e)}
+                                                    />
+                                                    <span className="text-danger">
+                                                        {errors["credit_installments"]
+                                                            ? errors["credit_installments"]
+                                                            : null}
+                                                    </span>
+                                                </Form.Group>
+                                                <Form.Group className="mb-3 col-md-4">
+                                                    <Form.Label>Vence el</Form.Label>
+                                                    <Form.Control
+                                                        type="date"
+                                                        name="credit_due_date"
+                                                        value={
+                                                            cashPaymentValue?.credit_due_date
+                                                        }
+                                                        onChange={(e) => onChangeInput(e)}
+                                                    />
+                                                    <span className="text-danger">
+                                                        {errors["credit_due_date"]
+                                                            ? errors["credit_due_date"]
+                                                            : null}
+                                                    </span>
+                                                </Form.Group>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                             <Form.Group
                                 className="mb-3 col-12"
                                 controlId="formBasicNotes"
@@ -331,7 +398,7 @@ const CashPaymentModel = (props) => {
                     type="button"
                     className="btn btn-primary"
                     onClick={(event) => {
-                        if (cashPaymentValue.received_amount !== undefined) {
+                        if (isPaidSale && cashPaymentValue.received_amount !== undefined) {
                             if (
                                 parseNumber(cashPaymentValue.received_amount, 0) <
                                 parseNumber(grandTotal, 0)
@@ -358,7 +425,7 @@ const CashPaymentModel = (props) => {
                     type="button"
                     className="btn btn-primary"
                     onClick={(event) => {
-                        if (cashPaymentValue.received_amount !== undefined) {
+                        if (isPaidSale && cashPaymentValue.received_amount !== undefined) {
                             if (
                                 parseNumber(cashPaymentValue.received_amount, 0) <
                                 parseNumber(grandTotal, 0)

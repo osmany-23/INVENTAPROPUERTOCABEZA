@@ -320,7 +320,7 @@ export const route = [
     {
         path: "credits",
         ele: <Credits />,
-        permission: "",
+        permission: Permissions.MANAGE_SALE,
     },
     {
         path: "sales/create",
