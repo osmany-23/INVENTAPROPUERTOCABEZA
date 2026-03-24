@@ -37,11 +37,26 @@ const CashPaymentModel = (props) => {
         allConfigData,
         onChangeReturnChange,
         onCreditToggleChange,
+        onUseCustomerCreditConfigChange,
+        creditAvailability,
+        isLoadingCreditAvailability,
+        selectedCustomerName,
     } = props;
 
     const [summation, setSummation] = useState(0);
     const dispatch = useDispatch();
     const isPaidSale = cashPaymentValue?.payment_status?.value === 1;
+    const maxInstallments = Math.max(
+        Number(creditAvailability?.max_installments || 1),
+        1
+    );
+    const creditEnabled =
+        cashPaymentValue?.payment_status?.value === 2 &&
+        cashPaymentValue?.credit_enabled;
+    const creditBlocked =
+        creditEnabled &&
+        !isLoadingCreditAvailability &&
+        !creditAvailability?.allowed;
 
     useEffect(() => {
         cashPaymentValue.received_amount !== undefined
@@ -168,7 +183,189 @@ const CashPaymentModel = (props) => {
                                             onChange={onCreditToggleChange}
                                         />
                                         {cashPaymentValue?.credit_enabled && (
-                                            <div className="row">
+                                            <>
+                                                <Form.Check
+                                                    type="switch"
+                                                    id="posUseCustomerCreditConfigSwitch"
+                                                    className="mb-3"
+                                                    label="Usar configuracion del cliente"
+                                                    checked={
+                                                        cashPaymentValue?.use_customer_credit_config
+                                                    }
+                                                    onChange={
+                                                        onUseCustomerCreditConfigChange
+                                                    }
+                                                />
+                                                <div className="small text-muted mb-3">
+                                                    Se autocompletan interes y cuotas desde la
+                                                    linea de credito del cliente, pero puede
+                                                    editarlos antes de guardar.
+                                                </div>
+                                                <div className="row g-3 mb-3">
+                                                    <div className="col-md-3 col-sm-6">
+                                                        <div className="border rounded bg-white p-3 h-100">
+                                                            <div className="text-muted small mb-1">
+                                                                Limite
+                                                            </div>
+                                                            <strong>
+                                                                {currencySymbolHandling(
+                                                                    allConfigData,
+                                                                    settings.attributes &&
+                                                                        settings.attributes
+                                                                            .currency_symbol,
+                                                                    Number(
+                                                                        creditAvailability?.credit_limit || 0
+                                                                    ).toFixed(2)
+                                                                )}
+                                                            </strong>
+                                                        </div>
+                                                    </div>
+                                                    <div className="col-md-3 col-sm-6">
+                                                        <div className="border rounded bg-white p-3 h-100">
+                                                            <div className="text-muted small mb-1">
+                                                                Usado
+                                                            </div>
+                                                            <strong>
+                                                                {currencySymbolHandling(
+                                                                    allConfigData,
+                                                                    settings.attributes &&
+                                                                        settings.attributes
+                                                                            .currency_symbol,
+                                                                    Number(
+                                                                        creditAvailability?.used_credit || 0
+                                                                    ).toFixed(2)
+                                                                )}
+                                                            </strong>
+                                                        </div>
+                                                    </div>
+                                                    <div className="col-md-3 col-sm-6">
+                                                        <div className="border rounded bg-white p-3 h-100">
+                                                            <div className="text-muted small mb-1">
+                                                                Disponible
+                                                            </div>
+                                                            <strong className="text-success">
+                                                                {currencySymbolHandling(
+                                                                    allConfigData,
+                                                                    settings.attributes &&
+                                                                        settings.attributes
+                                                                            .currency_symbol,
+                                                                    Number(
+                                                                        creditAvailability?.available_credit || 0
+                                                                    ).toFixed(2)
+                                                                )}
+                                                            </strong>
+                                                        </div>
+                                                    </div>
+                                                    <div className="col-md-3 col-sm-6">
+                                                        <div className="border rounded bg-white p-3 h-100">
+                                                            <div className="text-muted small mb-1">
+                                                                Credito a crear
+                                                            </div>
+                                                            <strong>
+                                                                {currencySymbolHandling(
+                                                                    allConfigData,
+                                                                    settings.attributes &&
+                                                                        settings.attributes
+                                                                            .currency_symbol,
+                                                                    Number(
+                                                                        creditAvailability?.requested_amount || 0
+                                                                    ).toFixed(2)
+                                                                )}
+                                                            </strong>
+                                                            <div className="small text-muted mt-1">
+                                                                Incluye interes proyectado de{" "}
+                                                                {currencySymbolHandling(
+                                                                    allConfigData,
+                                                                    settings.attributes &&
+                                                                        settings.attributes
+                                                                            .currency_symbol,
+                                                                    Number(
+                                                                        creditAvailability?.projected_interest_amount ||
+                                                                            0
+                                                                    ).toFixed(2)
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="row">
+                                                    <Form.Group className="mb-3 col-md-4">
+                                                        <Form.Label>Interes (%)</Form.Label>
+                                                        <Form.Control
+                                                            type="number"
+                                                            min={0}
+                                                            step="0.01"
+                                                            name="credit_interest_rate"
+                                                            value={
+                                                                cashPaymentValue?.credit_interest_rate
+                                                            }
+                                                            onChange={(e) => onChangeInput(e)}
+                                                        />
+                                                    </Form.Group>
+                                                    <Form.Group className="mb-3 col-md-4">
+                                                        <Form.Label>Cuotas</Form.Label>
+                                                        <Form.Control
+                                                            type="number"
+                                                            min={1}
+                                                            step="1"
+                                                            name="credit_installments"
+                                                            value={
+                                                                cashPaymentValue?.credit_installments
+                                                            }
+                                                            onChange={(e) => onChangeInput(e)}
+                                                        />
+                                                        <span className="text-danger">
+                                                            {errors["credit_installments"]
+                                                                ? errors["credit_installments"]
+                                                                : null}
+                                                        </span>
+                                                        <div className="small text-muted mt-1">
+                                                            Maximo configurado: {maxInstallments}
+                                                        </div>
+                                                    </Form.Group>
+                                                    <Form.Group className="mb-3 col-md-4">
+                                                        <Form.Label>Vence el</Form.Label>
+                                                        <Form.Control
+                                                            type="date"
+                                                            name="credit_due_date"
+                                                            value={
+                                                                cashPaymentValue?.credit_due_date
+                                                            }
+                                                            onChange={(e) => onChangeInput(e)}
+                                                        />
+                                                        <span className="text-danger">
+                                                            {errors["credit_due_date"]
+                                                                ? errors["credit_due_date"]
+                                                                : null}
+                                                        </span>
+                                                    </Form.Group>
+                                                </div>
+                                                <div
+                                                    className={`alert mb-3 ${
+                                                        creditBlocked
+                                                            ? "alert-danger"
+                                                            : "alert-success"
+                                                    }`}
+                                                >
+                                                    <div className="fw-bold mb-1">
+                                                        {selectedCustomerName ||
+                                                            "Cliente no seleccionado"}
+                                                    </div>
+                                                    <div>
+                                                        {isLoadingCreditAvailability
+                                                            ? "Validando linea de credito en tiempo real..."
+                                                            : creditAvailability?.message ||
+                                                              "Credito disponible."}
+                                                    </div>
+                                                    {creditAvailability?.has_overdue_credits ? (
+                                                        <div className="small mt-2">
+                                                            El cliente tiene creditos vencidos y
+                                                            no puede recibir nuevas ventas a
+                                                            credito.
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+                                                {false && <div className="row d-none">
                                                 <Form.Group className="mb-3 col-md-4">
                                                     <Form.Label>Interés (%)</Form.Label>
                                                     <Form.Control
@@ -216,7 +413,8 @@ const CashPaymentModel = (props) => {
                                                             : null}
                                                     </span>
                                                 </Form.Group>
-                                            </div>
+                                            </div>}
+                                            </>
                                         )}
                                     </div>
                                 </div>
@@ -397,6 +595,7 @@ const CashPaymentModel = (props) => {
                 <button
                     type="button"
                     className="btn btn-primary"
+                    disabled={creditEnabled && (creditBlocked || isLoadingCreditAvailability)}
                     onClick={(event) => {
                         if (isPaidSale && cashPaymentValue.received_amount !== undefined) {
                             if (
@@ -424,6 +623,7 @@ const CashPaymentModel = (props) => {
                 <button
                     type="button"
                     className="btn btn-primary"
+                    disabled={creditEnabled && (creditBlocked || isLoadingCreditAvailability)}
                     onClick={(event) => {
                         if (isPaidSale && cashPaymentValue.received_amount !== undefined) {
                             if (

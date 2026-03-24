@@ -1,6 +1,6 @@
 import React from "react";
 import { OverlayTrigger, Tooltip } from "react-bootstrap";
-import { currencySymbolHandling } from "../sharedMethod";
+import { currencySymbolHandling, formatCurrency } from "../sharedMethod";
 
 const Widget = (props) => {
     const {
@@ -16,7 +16,7 @@ const Widget = (props) => {
 
     const renderTooltip = (props) => (
         <Tooltip id="button-tooltip" {...props}>
-            {currency} {value}
+            {formatCurrency(allConfigData, currency, value)}
         </Tooltip>
     );
 

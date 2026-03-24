@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Image, Nav, Navbar } from 'react-bootstrap-v5';
 import { connect, useSelector } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
-import { Tokens } from '../../constants/index'
+import { Tokens, apiBaseURL } from '../../constants/index'
 import { logoutAction } from '../../store/action/authAction';
 import ChangePassword from '../auth/change-password/ChangePassword';
 import { getAvatarName } from '../../shared/sharedMethod';
@@ -25,16 +25,18 @@ import {
     faLock,
     faRightFromBracket,
     faAngleDown,
-    faBell, faLanguage
+    faBell, faFileInvoice, faLanguage
 } from '@fortawesome/free-solid-svg-icons';
 import { Dropdown, Row } from "react-bootstrap";
 import StockAlertModal from '../../frontend/components/stock/StockAlertModal';
+import CreditAlertsModal from '../credits/CreditAlertsModal';
 import { productQuantityReportAction } from '../../store/action/paymentQuantityReport';
 import { fetchStockAlert } from '../../store/action/stockAlertAction';
 import { Filters } from '../../constants';
 import LanguageModel from "../user-profile/LanguageModel";
 import PosRegisterModel from '../posRegister/PosRegisterModel.js';
 import { can } from "../../shared/can";
+import apiConfig from '../../config/apiConfig';
 
 const Header = (props) => {
     const {
@@ -64,9 +66,27 @@ const Header = (props) => {
     const [warehouseValue, setWarehouseValue] = useState({ label: 'All', value: null });
     const [showPosRegisterModel, setShowPosRegisterModel] = useState(false)
     const [showStockAlertModal, setShowStockAlertModal] = useState(false)
+    const [showCreditAlertModal, setShowCreditAlertModal] = useState(false)
+    const [creditAlertSummary, setCreditAlertSummary] = useState({
+        alert_days: 3,
+        overdue_count: 0,
+        upcoming_count: 0,
+        total_alerts: 0,
+    });
     const { allConfigData } = useSelector(state => state)
     const canViewStockAlerts = can("view_stock_alerts", { strict: true });
+    const canViewCreditAlerts = can("pos.view", { strict: true });
     const ignoreTotalRecordSync = useCallback(() => {}, []);
+    const syncCreditAlertSummaryState = useCallback((summary = {}) => {
+        setCreditAlertSummary((prev) => ({
+            ...prev,
+            ...summary,
+            alert_days: Number(summary?.alert_days ?? prev.alert_days ?? 3),
+            overdue_count: Number(summary?.overdue_count ?? prev.overdue_count ?? 0),
+            upcoming_count: Number(summary?.upcoming_count ?? prev.upcoming_count ?? 0),
+            total_alerts: Number(summary?.total_alerts ?? prev.total_alerts ?? 0),
+        }));
+    }, []);
 
     useEffect(() => {
         if (!canViewStockAlerts) {
@@ -96,6 +116,28 @@ const Header = (props) => {
         productQuantityReportAction,
         warehouseValue.value,
     ]);
+
+    useEffect(() => {
+        if (!canViewCreditAlerts) {
+            return undefined;
+        }
+
+        const syncAlerts = async () => {
+            try {
+                const response = await apiConfig.get(apiBaseURL.CREDIT_ALERTS_SUMMARY);
+                syncCreditAlertSummaryState(response?.data?.data || {});
+            } catch (error) {
+                // Keep the previous value to avoid noisy header changes on transient failures.
+            }
+        };
+
+        syncAlerts();
+        const intervalId = setInterval(syncAlerts, 30000);
+
+        return () => {
+            clearInterval(intervalId);
+        };
+    }, [canViewCreditAlerts, syncCreditAlertSummaryState]);
     const onClickDeleteModel = () => {
         setDeleteModel(!deleteModel);
     };
@@ -199,10 +241,28 @@ const Header = (props) => {
                         }
                         {canViewStockAlerts && (
                             <li className="px-sm-3 px-2 alert-badge-icon" onClick={() => setShowStockAlertModal(true)} style={{cursor: 'pointer', position: 'relative'}}>
-                                <FontAwesomeIcon icon={faBell} className='text-primary fs-2' />
+                                <FontAwesomeIcon icon={faBell} className='text-primary fs-2 header-alert-icon' />
                                 {stockAlertDetails && stockAlertDetails.length > 0 ?
                                     <span className='product-alert-badge'>{stockAlertDetails.length > 99 ? '99+' : stockAlertDetails.length}</span>
                                     : null}
+                            </li>
+                        )}
+                        {canViewCreditAlerts && (
+                            <li
+                                className="px-sm-3 px-2 alert-badge-icon credit-alert-badge-icon"
+                                onClick={() => setShowCreditAlertModal(true)}
+                                style={{cursor: 'pointer', position: 'relative'}}
+                                title='Alertas de creditos'
+                            >
+                                <FontAwesomeIcon
+                                    icon={faFileInvoice}
+                                    className='credit-alert-trigger__icon icon-credit header-alert-icon'
+                                />
+                                {creditAlertSummary.total_alerts > 0 ? (
+                                    <span className='product-alert-badge credit-alert-badge'>
+                                        {creditAlertSummary.total_alerts > 99 ? '99+' : creditAlertSummary.total_alerts}
+                                    </span>
+                                ) : null}
                             </li>
                         )}
                     </ul>
@@ -383,6 +443,14 @@ const Header = (props) => {
 
             {canViewStockAlerts && (
                 <StockAlertModal show={showStockAlertModal} onHide={() => setShowStockAlertModal(false)} warehouse={warehouseValue.value} />
+            )}
+
+            {canViewCreditAlerts && (
+                <CreditAlertsModal
+                    show={showCreditAlertModal}
+                    onHide={() => setShowCreditAlertModal(false)}
+                    onSummaryChange={syncCreditAlertSummaryState}
+                />
             )}
 
             <PosRegisterModel showPosRegisterModel={showPosRegisterModel} onClickshowPosRegisterModel={onClickshowPosRegisterModel} />

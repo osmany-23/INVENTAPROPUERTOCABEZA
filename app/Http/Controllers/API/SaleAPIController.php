@@ -21,7 +21,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Picqer\Barcode\BarcodeGeneratorPNG;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 /**
@@ -81,6 +83,10 @@ class SaleAPIController extends AppBaseController
 
         if ($request->get('payment_type') && $request->get('payment_type') != 'null') {
             $sales->where('payment_type', $request->get('payment_type'));
+        }
+
+        if (Schema::hasTable('credits')) {
+            $sales->with('credit');
         }
 
         $sales = $sales->paginate($perPage);
@@ -174,10 +180,11 @@ class SaleAPIController extends AppBaseController
             Storage::delete('pdf/Sale-' . $sale->reference_code . '.pdf');
         }
         $companyLogo = getLogoUrl();
+        $barcodeDataUri = $this->buildSaleBarcodeDataUri($sale->reference_code);
 
         $companyLogo = (string) \Image::make($companyLogo)->encode('data-url');
 
-        $pdf = PDF::loadView('pdf.sale-pdf', compact('sale', 'companyLogo'));
+        $pdf = PDF::loadView('pdf.sale-pdf', compact('sale', 'companyLogo', 'barcodeDataUri'));
         Storage::disk(config('app.media_disc'))->put('pdf/Sale-' . $sale->reference_code . '.pdf', $pdf->output());
         $data['sale_pdf_url'] = Storage::url('pdf/Sale-' . $sale->reference_code . '.pdf');
 
@@ -196,7 +203,9 @@ class SaleAPIController extends AppBaseController
         ];
 
         $sale['company_info'] = Setting::whereIn('key', $keyName)->pluck('value', 'key')->toArray();
-        $sale['barcode_url'] = Storage::url('sales/barcode-'.$sale->reference_code.'.png');
+        $sale['barcode_url'] = $sale->reference_code
+            ? route('barcode.generate', ['code' => $sale->reference_code])
+            : null;
 
         // Campos adicionales para impresión (sin tocar la lógica de venta)
         $sale['sale_time'] = optional($sale->created_at)->format('h:i A');
@@ -206,15 +215,39 @@ class SaleAPIController extends AppBaseController
         return $this->sendResponse($sale, 'Sale information retrieved successfully');
     }
 
+    private function buildSaleBarcodeDataUri(?string $referenceCode): ?string
+    {
+        if (blank($referenceCode)) {
+            return null;
+        }
+
+        $generator = new BarcodeGeneratorPNG();
+        $barcode = $generator->getBarcode(
+            $referenceCode,
+            $generator::TYPE_CODE_128,
+            3,
+            60
+        );
+
+        return 'data:image/png;base64,'.base64_encode($barcode);
+    }
+
     public function getSaleProductReport(Request $request): SaleCollection
     {
         abort_unless(hasPermissionStrict('pos.view'), 403);
 
         $perPage = getPageSize($request);
         $productId = $request->get('product_id');
-        $sales = $this->saleRepository->whereHas('saleItems', function ($q) use ($productId) {
-            $q->where('product_id', '=', $productId);
-        })->with(['saleItems.product', 'customer']);
+
+        $sales = $this->saleRepository;
+        if (Schema::hasTable('credit_items')) {
+            $sales = $sales->whereDoesntHave('credit');
+        }
+
+        $sales = $sales->whereHas('saleItems', function ($q) use ($productId) {
+                $q->where('product_id', '=', $productId);
+            })
+            ->with(['saleItems.product', 'customer']);
 
         $sales = $sales->paginate($perPage);
 

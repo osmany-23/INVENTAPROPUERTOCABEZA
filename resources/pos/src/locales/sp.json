@@ -825,5 +825,11 @@
     "globally.footer.label": "Reservados todos los derechos",
     "logout.confirmation.label": "\u00bfEst\u00e1 seguro de que desea cerrar sesi\u00f3n?",
     "addition.title": "ENTRADA",
-    "subtraction.title": "SALIDA"
+    "subtraction.title": "SALIDA",
+    "credit.collections.title": "Cobros de cr\u00e9dito",
+    "credit.interest-earned.title": "Inter\u00e9s ganado",
+    "credit.active.title": "Cr\u00e9ditos activos",
+    "credit.overdue.title": "Cr\u00e9ditos vencidos",
+    "credit.report.payments.label": "Pagos de cr\u00e9dito",
+    "credit.report.total-received.label": "Total cobrado"
 }

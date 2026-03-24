@@ -11,8 +11,17 @@ class Credit extends BaseModel
     use HasFactory;
 
     public const STATUS_PENDING = 'pendiente';
+    public const STATUS_PARTIAL = 'parcial';
     public const STATUS_PAID = 'pagado';
     public const STATUS_OVERDUE = 'vencido';
+    public const OPEN_STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_PARTIAL,
+        self::STATUS_OVERDUE,
+    ];
+    public const TYPE_AUTOMATIC = 'automatico';
+    public const TYPE_MANUAL = 'manual';
+    public const TYPE_FREE = 'libre';
 
     protected $table = 'credits';
 
@@ -25,10 +34,14 @@ class Credit extends BaseModel
         'interest_rate',
         'total_with_interest',
         'installments',
+        'credit_type',
         'status',
         'start_date',
         'due_date',
         'note',
+        'restructured',
+        'restructured_at',
+        'previous_balance',
     ];
 
     protected $casts = [
@@ -40,8 +53,11 @@ class Credit extends BaseModel
         'interest_rate' => 'double',
         'total_with_interest' => 'double',
         'installments' => 'integer',
+        'restructured' => 'boolean',
+        'previous_balance' => 'double',
         'start_date' => 'date',
         'due_date' => 'date',
+        'restructured_at' => 'datetime',
     ];
 
     public function sale(): BelongsTo
@@ -67,5 +83,20 @@ class Credit extends BaseModel
     public function logs(): HasMany
     {
         return $this->hasMany(CreditLog::class, 'credit_id', 'id')->latest('id');
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(CreditItem::class, 'credit_id', 'id')->orderBy('id');
+    }
+
+    public function itemReturns(): HasMany
+    {
+        return $this->hasMany(CreditItemReturn::class, 'credit_id', 'id')->latest('id');
+    }
+
+    public function restructures(): HasMany
+    {
+        return $this->hasMany(CreditRestructure::class, 'credit_id', 'id')->latest('id');
     }
 }

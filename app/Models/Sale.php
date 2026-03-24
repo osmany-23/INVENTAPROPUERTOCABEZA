@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -232,10 +233,10 @@ class Sale extends BaseModel implements HasMedia, JsonResourceful
             'reference_code' => $this->reference_code,
             'sale_items' => $this->saleItems,
             'created_at' => $this->created_at,
-            'barcode_url' => Storage::url('sales/barcode-'.$this->reference_code.'.png'),
+            'barcode_url' => $this->resolveBarcodeUrl(),
         ];
 
-        return $fields;
+        return array_merge($fields, $this->prepareCreditSaleAttributes());
     }
 
     public function prepareRecentSelling(): array
@@ -250,7 +251,56 @@ class Sale extends BaseModel implements HasMedia, JsonResourceful
             'status' => $this->status,
         ];
 
-        return $fields;
+        return array_merge($fields, $this->prepareCreditSaleAttributes());
+    }
+
+    private function prepareCreditSaleAttributes(): array
+    {
+        $defaultAttributes = [
+            'is_credit_sale' => false,
+            'credit_id' => null,
+            'credit_balance' => null,
+            'credit_total' => null,
+            'credit_status' => null,
+            'credit_payment_status_key' => null,
+            'credit_payment_status_label' => null,
+        ];
+
+        if (! Schema::hasTable('credits')) {
+            return $defaultAttributes;
+        }
+
+        $credit = $this->relationLoaded('credit')
+            ? $this->getRelation('credit')
+            : $this->credit()->first();
+
+        if (! $credit) {
+            return $defaultAttributes;
+        }
+
+        $balance = round((float) $credit->balance, 2);
+        $totalReference = round((float) ($credit->total_with_interest ?: $credit->balance ?: $this->grand_total), 2);
+
+        $paymentStatusKey = 'credito';
+        $paymentStatusLabel = 'Crédito';
+
+        if ($balance <= 0) {
+            $paymentStatusKey = 'pagado';
+            $paymentStatusLabel = 'Pagado';
+        } elseif ($totalReference > 0 && $balance < $totalReference) {
+            $paymentStatusKey = 'parcial';
+            $paymentStatusLabel = 'Parcial';
+        }
+
+        return [
+            'is_credit_sale' => true,
+            'credit_id' => $credit->id,
+            'credit_balance' => $balance,
+            'credit_total' => $totalReference,
+            'credit_status' => $credit->status,
+            'credit_payment_status_key' => $paymentStatusKey,
+            'credit_payment_status_label' => $paymentStatusLabel,
+        ];
     }
 
     public function user(): BelongsTo
@@ -301,5 +351,14 @@ class Sale extends BaseModel implements HasMedia, JsonResourceful
         }
 
         return $dueAmount;
+    }
+
+    private function resolveBarcodeUrl(): ?string
+    {
+        if (blank($this->reference_code)) {
+            return null;
+        }
+
+        return route('barcode.generate', ['code' => $this->reference_code]);
     }
 }

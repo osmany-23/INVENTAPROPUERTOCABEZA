@@ -375,6 +375,18 @@ const ProfitLossReport = (props) => {
                                                 frontSetting.value &&
                                                     frontSetting.value
                                                         .currency_symbol,
+                                                profitAndLossReport.credit_payment_amount
+                                                    ? profitAndLossReport.credit_payment_amount
+                                                    : "0.00"
+                                            )}
+                                            ${placeholderText(
+                                                "credit.collections.title"
+                                            )}) + (
+                                            ${currencySymbolHandling(
+                                                allConfigData,
+                                                frontSetting.value &&
+                                                    frontSetting.value
+                                                        .currency_symbol,
                                                 profitAndLossReport.purchase_returns
                                                     ? profitAndLossReport.purchase_returns
                                                     : "0.00"
@@ -394,6 +406,102 @@ const ProfitLossReport = (props) => {
                                     : "0.00"
                             }
                         />
+
+                        <ProfitLossWidget
+                            className={"bg-primary"}
+                            currency={
+                                frontSetting.value &&
+                                frontSetting.value.currency_symbol
+                            }
+                            icon={
+                                <FontAwesomeIcon
+                                    icon={faMoneyBillTransfer}
+                                    className="fs-1-xl text-white"
+                                />
+                            }
+                            title={getFormattedMessage(
+                                "credit.collections.title"
+                            )}
+                            allConfigData={allConfigData}
+                            moreText={`(
+                                            ${currencySymbolHandling(
+                                                allConfigData,
+                                                frontSetting.value &&
+                                                    frontSetting.value
+                                                        .currency_symbol,
+                                                profitAndLossReport.credit_principal_amount
+                                                    ? profitAndLossReport.credit_principal_amount
+                                                    : "0.00"
+                                            )}
+                                            ${placeholderText(
+                                                "credits.title"
+                                            )}) + (
+                                            ${currencySymbolHandling(
+                                                allConfigData,
+                                                frontSetting.value &&
+                                                    frontSetting.value
+                                                        .currency_symbol,
+                                                profitAndLossReport.credit_interest_amount
+                                                    ? profitAndLossReport.credit_interest_amount
+                                                    : "0.00"
+                                            )}
+                                            ${placeholderText(
+                                                "credit.interest-earned.title"
+                                            )})`}
+                            value={
+                                profitAndLossReport.credit_payment_amount
+                                    ? formatNumber(
+                                          parseNumber(
+                                              profitAndLossReport.credit_payment_amount,
+                                              0
+                                          ),
+                                          2
+                                      )
+                                    : "0.00"
+                            }
+                        />
+
+                        <ProfitLossWidget
+                            className={"bg-success"}
+                            currency={
+                                frontSetting.value &&
+                                frontSetting.value.currency_symbol
+                            }
+                            icon={
+                                <FontAwesomeIcon
+                                    icon={faMoneyBillTrendUp}
+                                    className="fs-1-xl text-white"
+                                />
+                            }
+                            title={getFormattedMessage(
+                                "credit.interest-earned.title"
+                            )}
+                            allConfigData={allConfigData}
+                            moreText={`(
+                                            ${currencySymbolHandling(
+                                                allConfigData,
+                                                frontSetting.value &&
+                                                    frontSetting.value
+                                                        .currency_symbol,
+                                                profitAndLossReport.credit_payment_amount
+                                                    ? profitAndLossReport.credit_payment_amount
+                                                    : "0.00"
+                                            )}
+                                            ${placeholderText(
+                                                "credit.report.payments.label"
+                                            )})`}
+                            value={
+                                profitAndLossReport.credit_interest_amount
+                                    ? formatNumber(
+                                          parseNumber(
+                                              profitAndLossReport.credit_interest_amount,
+                                              0
+                                          ),
+                                          2
+                                      )
+                                    : "0.00"
+                            }
+                        />
                         {/* <ProfitLossWidget className={'bg-dark'} currency={frontSetting.value && frontSetting.value.currency_symbol}
                                           icon={<FontAwesomeIcon icon={faShoppingCart} className='fs-1-xl text-white'/>}
                                           title={getFormattedMessage('global.payment-sent.title')} moreText={'( $ 13474.00 Payments Purchases + $ 0.00 Sales Return) + $ 350.00 Expenses)'} value={"500"}/>
@@ -402,6 +510,54 @@ const ProfitLossReport = (props) => {
                                           icon={<FontAwesomeIcon icon={faShoppingCart} className='fs-1-xl text-white'/>}
                                           title={getFormattedMessage('global.net-payment.title')} moreText={'( $ 12053.80 Recieved - $ 13824.00 Sent)'} value={"500"}/> */}
                     </Row>
+                </Col>
+            </Row>
+            <Row className="g-4 mt-1">
+                <Col md={6}>
+                    <div className="card border-0 shadow-sm h-100">
+                        <div className="card-body d-flex align-items-center justify-content-between">
+                            <div>
+                                <div className="text-muted small mb-2">
+                                    {getFormattedMessage("credit.active.title")}
+                                </div>
+                                <div className="fs-2 fw-bold text-primary">
+                                    {formatNumber(
+                                        parseNumber(
+                                            profitAndLossReport.active_credits,
+                                            0
+                                        ),
+                                        0
+                                    )}
+                                </div>
+                            </div>
+                            <div className="rounded-circle bg-light-primary text-primary d-flex align-items-center justify-content-center p-4">
+                                <FontAwesomeIcon icon={faSquarePlus} />
+                            </div>
+                        </div>
+                    </div>
+                </Col>
+                <Col md={6}>
+                    <div className="card border-0 shadow-sm h-100">
+                        <div className="card-body d-flex align-items-center justify-content-between">
+                            <div>
+                                <div className="text-muted small mb-2">
+                                    {getFormattedMessage("credit.overdue.title")}
+                                </div>
+                                <div className="fs-2 fw-bold text-danger">
+                                    {formatNumber(
+                                        parseNumber(
+                                            profitAndLossReport.overdue_credits,
+                                            0
+                                        ),
+                                        0
+                                    )}
+                                </div>
+                            </div>
+                            <div className="rounded-circle bg-light-danger text-danger d-flex align-items-center justify-content-center p-4">
+                                <FontAwesomeIcon icon={faSquareMinus} />
+                            </div>
+                        </div>
+                    </div>
                 </Col>
             </Row>
         </MasterLayout>

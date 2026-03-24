@@ -3,6 +3,7 @@ import { FormattedMessage, useIntl } from "react-intl";
 import { Navigate } from "react-router-dom";
 import { Tokens } from "../constants";
 import moment from "moment";
+import { DEFAULT_CURRENCY_SYMBOL, getCurrencySymbol } from "./currency";
 
 const NUMBER_FORMAT_LOCALE = "en-US";
 
@@ -182,41 +183,30 @@ export const currencySymbolHandling = (
     value,
     is_forment
 ) => {
-    const safeNum = parseNumber(value, 0);
-    const formattedNumber = formatMoney(safeNum);
-    if (isRightside?.is_currency_right === "true") {
-        if (is_forment) {
-            return formatAmount(safeNum) + " " + currency;
-        } else {
-            return formattedNumber + " " + currency;
-        }
-    } else {
-        if (is_forment) {
-            return currency + " " + formatAmount(safeNum);
-        } else {
-            return currency + " " + formattedNumber;
-        }
-    }
+    return formatCurrency(isRightside, currency, value, is_forment);
 };
 
 // Enforce consistent NIO-style formatting (thousands comma, decimal point)
 export const formatCurrency = (isRightside, currency, value, is_forment) => {
     const safeNum = parseNumber(value, 0);
     const formattedNumber = formatMoney(safeNum);
+    const safeCurrency = getCurrencySymbol(currency, isRightside);
     if (isRightside?.is_currency_right === "true") {
         if (is_forment) {
-            return formatAmount(safeNum) + " " + currency;
+            return formatAmount(safeNum) + " " + safeCurrency;
         } else {
-            return formattedNumber + " " + currency;
+            return formattedNumber + " " + safeCurrency;
         }
     } else {
         if (is_forment) {
-            return currency + " " + formatAmount(safeNum);
+            return safeCurrency + " " + formatAmount(safeNum);
         } else {
-            return currency + " " + formattedNumber;
+            return safeCurrency + " " + formattedNumber;
         }
     }
 };
+
+export { DEFAULT_CURRENCY_SYMBOL, getCurrencySymbol };
 
 export const getFormattedDate = (date, config) => {
     const format = config && config.date_format;

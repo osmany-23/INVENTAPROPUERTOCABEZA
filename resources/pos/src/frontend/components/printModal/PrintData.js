@@ -15,6 +15,8 @@ class PrintData extends React.PureComponent {
         const paymentPrint = this.props.updateProducts;
         const allConfigData = this.props.allConfigData;
         const paymentType = this.props.paymentType;
+        const saleReference = paymentPrint?.reference_code || "";
+        const barcodeUrl = paymentPrint?.barcode_url || "";
         const currency =
             paymentPrint.settings &&
             paymentPrint.settings.attributes &&
@@ -69,7 +71,7 @@ class PrintData extends React.PureComponent {
                         </span>
                         <span>
                             {getFormattedDate(
-                                new Date(),
+                                paymentPrint?.sale_date || new Date(),
                                 allConfigData && allConfigData
                             )}
                         </span>
@@ -510,30 +512,35 @@ class PrintData extends React.PureComponent {
                         parseInt(
                             paymentPrint.settings.attributes
                                 ?.show_barcode_in_receipt
-                        ) === 1 && (
+                        ) === 1 &&
+                        saleReference && (
                             <>
                                     <div style={{ marginTop: '30px', marginBottom: '10px' }}>
                                         <Image
-                                            src={paymentPrint && paymentPrint.barcode_url}
-                                            alt={paymentPrint && paymentPrint.reference_code}
+                                            src={barcodeUrl}
+                                            alt={saleReference}
                                             height={30}
                                             width={120}
                                             style={{ display: 'block', margin: '0 auto' }}
+                                            onError={(event) => {
+                                                event.currentTarget.style.display = "none";
+                                            }}
                                         />
                                     </div>
-                                    <span
-                                        className="d-block"
-                                        style={{
-                                            color: "#000000",
-                                            padding: "none !important",
-                                            marginTop: '20px',
-                                            fontSize: '16px',
-                                        }}
-                                    >
-                                        {paymentPrint && paymentPrint.reference_code}
-                                    </span>
                             </>
                         )}
+                    <span
+                        className="d-block"
+                        style={{
+                            color: "#000000",
+                            padding: "none !important",
+                            marginTop: "12px",
+                            fontSize: "16px",
+                            fontWeight: "600",
+                        }}
+                    >
+                        Venta: {saleReference || "N/A"}
+                    </span>
                 </div>
             </div>
         );

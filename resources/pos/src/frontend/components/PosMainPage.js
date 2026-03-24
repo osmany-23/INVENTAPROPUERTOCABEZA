@@ -48,6 +48,40 @@ import PosRegisterModel from "../../components/posRegister/PosRegisterModel.js";
 import { can } from "../../shared/can";
 import apiConfig from "../../config/apiConfig";
 
+const createInitialCashPaymentValue = (getFormattedMessage) => ({
+    notes: "",
+    credit_enabled: false,
+    use_customer_credit_config: true,
+    credit_interest_rate: "0.00",
+    credit_installments: "1",
+    credit_due_date: moment().add(1, "month").format("YYYY-MM-DD"),
+    payment_status: {
+        label: getFormattedMessage("dashboard.recentSales.paid.label"),
+        value: 1,
+    },
+});
+
+const INITIAL_CREDIT_AVAILABILITY = {
+    allowed: true,
+    message: "",
+    credit_limit: 0,
+    current_balance: 0,
+    used_credit: 0,
+    available_credit: 0,
+    requested_amount: 0,
+    requested_principal_amount: 0,
+    requested_interest_rate: 0,
+    projected_interest_amount: 0,
+    next_balance: 0,
+    interest_rate: 0,
+    max_installments: 1,
+    has_overdue_credits: false,
+    overdue_credits: 0,
+    can_create: true,
+    allow_exceed: false,
+    status: null,
+};
+
 const PosMainPage = (props) => {
     const {
         onClickFullScreen,
@@ -68,6 +102,8 @@ const PosMainPage = (props) => {
     const componentRef = useRef();
     const registerDetailsRef = useRef();
     const productRequestRef = useRef(0);
+    const creditLimitRequestRef = useRef(0);
+    const lastAppliedCreditConfigRef = useRef(null);
     // const [play] = useSound('https://s3.amazonaws.com/freecodecamp/drums/Heater-4_1.mp3');
     const [openCalculator, setOpenCalculator] = useState(false);
     const [updateProducts, setUpdateProducts] = useState([]);
@@ -96,17 +132,14 @@ const PosMainPage = (props) => {
         tax: 0,
         shipping: 0,
     });
-    const [cashPaymentValue, setCashPaymentValue] = useState({
-        notes: "",
-        credit_enabled: false,
-        credit_interest_rate: "0.00",
-        credit_installments: "1",
-        credit_due_date: moment().add(1, "month").format("YYYY-MM-DD"),
-        payment_status: {
-            label: getFormattedMessage("dashboard.recentSales.paid.label"),
-            value: 1,
-        },
-    });
+    const [cashPaymentValue, setCashPaymentValue] = useState(
+        createInitialCashPaymentValue(getFormattedMessage)
+    );
+    const [creditAvailability, setCreditAvailability] = useState(
+        INITIAL_CREDIT_AVAILABILITY
+    );
+    const [isLoadingCreditAvailability, setIsLoadingCreditAvailability] =
+        useState(false);
     const [errors, setErrors] = useState({ notes: "" });
     // const [searchString, setSearchString] = useState('');
     const [changeReturn, setChangeReturn] = useState(0);
@@ -277,6 +310,14 @@ const PosMainPage = (props) => {
             Number(cashPaymentValue?.credit_installments || 0) < 1
         ) {
             errors["credit_installments"] = "Ingrese al menos una cuota";
+        } else if (
+            cashPaymentValue?.credit_enabled &&
+            Number(cashPaymentValue?.credit_installments || 0) >
+                Number(creditAvailability?.max_installments || 1)
+        ) {
+            errors["credit_installments"] = `No puede exceder ${Number(
+                creditAvailability?.max_installments || 1
+            )} cuotas.`;
         } else {
             isValid = true;
         }
@@ -363,6 +404,12 @@ const PosMainPage = (props) => {
     }, []);
 
     const onPaymentStatusChange = useCallback((obj) => {
+        if (obj.value !== 2) {
+            lastAppliedCreditConfigRef.current = null;
+            setCreditAvailability(INITIAL_CREDIT_AVAILABILITY);
+            setIsLoadingCreditAvailability(false);
+        }
+
         setCashPaymentValue((inputs) => ({
             ...inputs,
             payment_status: obj,
@@ -370,12 +417,23 @@ const PosMainPage = (props) => {
                 ? {}
                 : {
                       credit_enabled: false,
+                      use_customer_credit_config: true,
+                      credit_interest_rate: "0.00",
+                      credit_installments: "1",
+                      credit_due_date: moment()
+                          .add(1, "month")
+                          .format("YYYY-MM-DD"),
                       received_amount: undefined,
                   }),
         }));
     }, []);
 
     const onCreditToggleChange = useCallback((event) => {
+        if (!event.target.checked) {
+            setCreditAvailability(INITIAL_CREDIT_AVAILABILITY);
+            setIsLoadingCreditAvailability(false);
+        }
+        lastAppliedCreditConfigRef.current = null;
         setCashPaymentValue((inputs) => ({
             ...inputs,
             credit_enabled: event.target.checked,
@@ -392,7 +450,139 @@ const PosMainPage = (props) => {
             : selectedCustomerOption && selectedCustomerOption.value;
     }, [selectedCustomerOption]);
 
+    const getSelectedCustomerName = useCallback(() => {
+        return selectedCustomerOption && selectedCustomerOption[0]
+            ? selectedCustomerOption[0].label
+            : selectedCustomerOption && selectedCustomerOption.label;
+    }, [selectedCustomerOption]);
+
+    const onUseCustomerCreditConfigChange = useCallback((event) => {
+        const shouldUseCustomerConfig = event.target.checked;
+        if (shouldUseCustomerConfig) {
+            lastAppliedCreditConfigRef.current = null;
+        }
+
+        setCashPaymentValue((inputs) => ({
+            ...inputs,
+            use_customer_credit_config: shouldUseCustomerConfig,
+        }));
+    }, []);
+
+    const fetchCreditAvailability = useCallback(
+        async ({ showErrors = false } = {}) => {
+            if (!cashPaymentValue?.credit_enabled) {
+                setCreditAvailability(INITIAL_CREDIT_AVAILABILITY);
+                setIsLoadingCreditAvailability(false);
+                return true;
+            }
+
+            const customerId = getSelectedCustomerId();
+            if (!customerId) {
+                const message = "Seleccione un cliente para vender al credito.";
+                setCreditAvailability({
+                    ...INITIAL_CREDIT_AVAILABILITY,
+                    allowed: false,
+                    can_create: false,
+                    message,
+                });
+
+                if (showErrors) {
+                    dispatch(
+                        addToast({
+                            text: message,
+                            type: toastType.ERROR,
+                        })
+                    );
+                }
+
+                return false;
+            }
+
+            const requestId = ++creditLimitRequestRef.current;
+            setIsLoadingCreditAvailability(true);
+
+            try {
+                const requestParams = {
+                    customer_id: customerId,
+                    amount: grandTotal,
+                };
+
+                if (!cashPaymentValue?.use_customer_credit_config) {
+                    requestParams.interest_rate = Number(
+                        cashPaymentValue?.credit_interest_rate || 0
+                    );
+                }
+
+                const response = await apiConfig.get("/credits/check-limit", {
+                    params: requestParams,
+                });
+
+                if (requestId !== creditLimitRequestRef.current) {
+                    return true;
+                }
+
+                const payload = {
+                    ...INITIAL_CREDIT_AVAILABILITY,
+                    ...(response?.data?.data || {}),
+                };
+
+                setCreditAvailability(payload);
+                setIsLoadingCreditAvailability(false);
+
+                if (!payload.allowed && showErrors) {
+                    dispatch(
+                        addToast({
+                            text:
+                                payload.message ||
+                                "El cliente no tiene credito disponible.",
+                            type: toastType.ERROR,
+                        })
+                    );
+                }
+
+                return Boolean(payload.allowed);
+            } catch (error) {
+                if (requestId !== creditLimitRequestRef.current) {
+                    return false;
+                }
+
+                const message =
+                    error?.response?.data?.message ||
+                    "No se pudo validar el credito del cliente.";
+
+                setCreditAvailability({
+                    ...INITIAL_CREDIT_AVAILABILITY,
+                    allowed: false,
+                    can_create: false,
+                    message,
+                });
+                setIsLoadingCreditAvailability(false);
+
+                if (showErrors) {
+                    dispatch(
+                        addToast({
+                            text: message,
+                            type: toastType.ERROR,
+                        })
+                    );
+                }
+
+                return false;
+            }
+        },
+        [
+            cashPaymentValue?.credit_enabled,
+            cashPaymentValue?.credit_interest_rate,
+            cashPaymentValue?.use_customer_credit_config,
+            dispatch,
+            getSelectedCustomerId,
+            grandTotal,
+        ]
+    );
+
     const verifyCreditAvailability = useCallback(async () => {
+        return fetchCreditAvailability({ showErrors: true });
+        /*
         if (!cashPaymentValue?.credit_enabled) {
             return true;
         }
@@ -441,11 +631,60 @@ const PosMainPage = (props) => {
             );
             return false;
         }
+        */
+    }, [fetchCreditAvailability]);
+
+    useEffect(() => {
+        if (!cashPayment || !cashPaymentValue?.credit_enabled) {
+            return;
+        }
+
+        fetchCreditAvailability();
+    }, [
+        cashPayment,
+        cashPaymentValue?.credit_enabled,
+        fetchCreditAvailability,
+        grandTotal,
+        selectedCustomerOption,
+    ]);
+
+    useEffect(() => {
+        const customerId = getSelectedCustomerId();
+        if (
+            !cashPaymentValue?.credit_enabled ||
+            !cashPaymentValue?.use_customer_credit_config ||
+            !customerId
+        ) {
+            return;
+        }
+
+        const nextSignature = `${customerId}:${Number(
+            creditAvailability?.interest_rate || 0
+        ).toFixed(2)}:${Math.max(
+            Number(creditAvailability?.max_installments || 1),
+            1
+        )}`;
+
+        if (lastAppliedCreditConfigRef.current === nextSignature) {
+            return;
+        }
+
+        lastAppliedCreditConfigRef.current = nextSignature;
+        setCashPaymentValue((inputs) => ({
+            ...inputs,
+            credit_interest_rate: Number(
+                creditAvailability?.interest_rate || 0
+            ).toFixed(2),
+            credit_installments: String(
+                Math.max(Number(creditAvailability?.max_installments || 1), 1)
+            ),
+        }));
     }, [
         cashPaymentValue?.credit_enabled,
-        dispatch,
+        cashPaymentValue?.use_customer_credit_config,
+        creditAvailability?.interest_rate,
+        creditAvailability?.max_installments,
         getSelectedCustomerId,
-        grandTotal,
     ]);
 
     // payment type dropdown functionality
@@ -542,13 +781,10 @@ const PosMainPage = (props) => {
 
     //payment slip model onchange
     const handleCashPayment = useCallback(() => {
-        setCashPaymentValue({
-            notes: "",
-            payment_status: {
-                label: getFormattedMessage("dashboard.recentSales.paid.label"),
-                value: 1,
-            },
-        });
+        lastAppliedCreditConfigRef.current = null;
+        setCreditAvailability(INITIAL_CREDIT_AVAILABILITY);
+        setIsLoadingCreditAvailability(false);
+        setCashPaymentValue(createInitialCashPaymentValue(getFormattedMessage));
         setCashPayment((previous) => !previous);
     }, [getFormattedMessage]);
 
@@ -720,7 +956,7 @@ const PosMainPage = (props) => {
     }, []);
 
     //prepare data for print Model
-    const preparePrintData = () => {
+    const preparePrintData = (saleData = paymentDetails) => {
         const formValue = {
             products: updateProducts,
             discount: cartItemValue.discount ? cartItemValue.discount : 0,
@@ -736,7 +972,13 @@ const PosMainPage = (props) => {
             note: cashPaymentValue.notes,
             changeReturn,
             payment_status: cashPaymentValue.payment_status,
-            received_amount: cashPaymentValue.received_amount // <-- Asegura que se pase el valor recibido
+            received_amount: cashPaymentValue.received_amount,
+            barcode_url: saleData?.attributes?.barcode_url || "",
+            reference_code: saleData?.attributes?.reference_code || "",
+            sale_date:
+                saleData?.attributes?.created_at ||
+                saleData?.attributes?.date ||
+                new Date(),
         };
         return formValue;
     };
@@ -806,7 +1048,7 @@ const PosMainPage = (props) => {
             }
 
             setCashPayment(false);
-            setPaymentPrint(preparePrintData);
+            setPaymentPrint(preparePrintData(saleResponse));
             setCartItemValue({
                 discount_type: discountType.FIXED,
                 discount_value: 0,
@@ -814,19 +1056,12 @@ const PosMainPage = (props) => {
                 tax: 0,
                 shipping: 0,
             });
-            setCashPaymentValue({
-                notes: "",
-                credit_enabled: false,
-                credit_interest_rate: "0.00",
-                credit_installments: "1",
-                credit_due_date: moment().add(1, "month").format("YYYY-MM-DD"),
-                payment_status: {
-                    label: getFormattedMessage(
-                        "dashboard.recentSales.paid.label"
-                    ),
-                    value: 1,
-                },
-            });
+            lastAppliedCreditConfigRef.current = null;
+            setCreditAvailability(INITIAL_CREDIT_AVAILABILITY);
+            setIsLoadingCreditAvailability(false);
+            setCashPaymentValue(
+                createInitialCashPaymentValue(getFormattedMessage)
+            );
         }
     };
 
@@ -1158,6 +1393,12 @@ const PosMainPage = (props) => {
                     paymentTypeFilterOptions={paymentTypeFilterOptions}
                     onChangeReturnChange={onChangeReturnChange}
                     onCreditToggleChange={onCreditToggleChange}
+                    onUseCustomerCreditConfigChange={
+                        onUseCustomerCreditConfigChange
+                    }
+                    creditAvailability={creditAvailability}
+                    isLoadingCreditAvailability={isLoadingCreditAvailability}
+                    selectedCustomerName={getSelectedCustomerName()}
                     setPaymentValue={setPaymentValue}
                 />
             )}

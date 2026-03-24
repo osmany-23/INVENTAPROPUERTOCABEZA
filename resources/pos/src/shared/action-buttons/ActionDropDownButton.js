@@ -13,7 +13,7 @@ const ActionDropDownButton = (props) => {
     const {
         goToEditProduct, item, onClickDeleteModel = true, goToDetailScreen, isViewIcon = false, isPdfIcon = false,isCreateSaleReturn,onCreateSaleReturnClick,
         isCreatePayment = false, onPdfClick, title, isPaymentShow = false, onShowPaymentClick, onCreatePaymentClick, onCreateSaleClick, isCreatesSales,
-        isPrintReceipt = false, onPrintReceiptClick, showEdit = true, showDelete = true
+        isPrintReceipt = false, onPrintReceiptClick, showEdit = true, showDelete = true, isViewCredit = false, onViewCreditClick
     } = props;
 
     const {config} = useSelector(state => state)
@@ -54,6 +54,15 @@ const ActionDropDownButton = (props) => {
                     }} eventKey='2-print' className='py-3 px-4 d-flex align-items-center fs-6'>
                         <FontAwesomeIcon icon={faPrint}
                                          className='me-2'/> Imprimir Recibo
+                    </Dropdown.Item> : null
+                }
+                {isViewCredit ?
+                    <Dropdown.Item onClick={(e) => {
+                        e.stopPropagation();
+                        onViewCreditClick && onViewCreditClick(item);
+                    }} eventKey='2-credit' className='py-3 px-4 d-flex align-items-center fs-6'>
+                        <FontAwesomeIcon icon={faEye}
+                                         className='me-2'/> Ver crédito
                     </Dropdown.Item> : null
                 }
                 {item.payment_status !== 2 && isPaymentShow  ?

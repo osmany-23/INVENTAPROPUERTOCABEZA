@@ -8,6 +8,7 @@ import {useParams} from 'react-router-dom';
 import SaleReturnTabs from './stockDetails/SaleReturnTabs';
 import PurchaseTab from './stockDetails/PurchaseTabs';
 import PurchaseReturnTabs from './stockDetails/PurchaseReturnTabs';
+import CreditTabs from './stockDetails/CreditTabs';
 import HeaderTitle from '../../header/HeaderTitle';
 import {connect} from 'react-redux';
 import {stockDetailsWarehouseAction} from '../../../store/action/stockDetailsWarehouse';
@@ -86,6 +87,12 @@ const StockDetails = (props) => {
                          tabClassName='position-relative mb-3 me-7'>
                         <div className='w-100 mx-auto'>
                             {key === 'purchase-return' && <PurchaseReturnTabs allConfigData={allConfigData} id={id}/>}
+                        </div>
+                    </Tab>
+                    <Tab eventKey='credits' title='Creditos'
+                         tabClassName='position-relative mb-3 me-7'>
+                        <div className='w-100 mx-auto'>
+                            {key === 'credits' && <CreditTabs id={id}/>}
                         </div>
                     </Tab>
                 </Tabs>

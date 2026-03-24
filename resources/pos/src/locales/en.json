@@ -833,5 +833,11 @@
     "globally.footer.label":"All Rights Reserved",
     "logout.confirmation.label":"Are you sure you want to Logout?",
     "addition.title":"Addition",
-    "subtraction.title":"Subtraction"
+    "subtraction.title":"Subtraction",
+    "credit.collections.title":"Credit Collections",
+    "credit.interest-earned.title":"Interest Earned",
+    "credit.active.title":"Active Credits",
+    "credit.overdue.title":"Overdue Credits",
+    "credit.report.payments.label":"Credit Payments",
+    "credit.report.total-received.label":"Total Collected"
 }

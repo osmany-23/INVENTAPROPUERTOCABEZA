@@ -27,6 +27,9 @@ import { apiBaseURL, toastType } from "../../constants";
 import { addToast } from "../../store/action/toastAction";
 import { can } from "../../shared/can";
 
+const CREDIT_PAYMENT_REDIRECT_MESSAGE =
+    "Esta venta es a crédito. Los pagos deben realizarse desde el módulo de créditos.";
+
 const Sales = (props) => {
     const {
         sales,
@@ -63,6 +66,35 @@ const Sales = (props) => {
         frontSetting.value &&
         frontSetting.value.currency_symbol;
 
+    const showCreditPaymentRedirectMessage = () => {
+        dispatch(
+            addToast({
+                text: CREDIT_PAYMENT_REDIRECT_MESSAGE,
+                type: toastType.ERROR,
+            })
+        );
+    };
+
+    const getCreditStatusBadgeClass = (statusKey) => {
+        if (statusKey === "pagado") {
+            return "bg-light-success";
+        }
+
+        if (statusKey === "parcial") {
+            return "bg-light-warning";
+        }
+
+        return "bg-light-info";
+    };
+
+    const goToCreditDetail = (creditId) => {
+        if (!creditId) {
+            return;
+        }
+
+        window.location.href = "#/app/creditos/" + creditId;
+    };
+
     const onChange = (filter) => {
         fetchSales(filter, true);
     };
@@ -81,6 +113,11 @@ const Sales = (props) => {
     const dispatch = useDispatch();
 
     const onShowPaymentClick = (item) => {
+        if (item?.is_credit_sale) {
+            showCreditPaymentRedirectMessage();
+            return;
+        }
+
         setIsShowPaymentModel(!isShowPaymentModel);
         setCreatePaymentItem(item);
         if (item) {
@@ -89,6 +126,11 @@ const Sales = (props) => {
     };
 
     const onCreatePaymentClick = (item) => {
+        if (item?.is_credit_sale) {
+            showCreditPaymentRedirectMessage();
+            return;
+        }
+
         setIsCreatePaymentOpen(!isCreatePaymentOpen);
         setCreatePaymentItem(item);
         if (item) {
@@ -140,7 +182,9 @@ const Sales = (props) => {
         const barcodeUrl =
             saleInfo?.barcode_url ||
             (referenceCode
-                ? `${window.location.origin}/storage/sales/barcode-${referenceCode}.png`
+                ? `${window.location.origin}/barcode?code=${encodeURIComponent(
+                      referenceCode
+                  )}`
                 : "");
 
         const receivedAmount = Number(saleInfo?.received_amount || 0);
@@ -250,6 +294,13 @@ const Sales = (props) => {
             paid_amount: sale.attributes.paid_amount
                 ? sale.attributes.paid_amount
                 : (0.0).toFixed(2),
+            is_credit_sale: Boolean(sale.attributes.is_credit_sale),
+            credit_id: sale.attributes.credit_id,
+            credit_status: sale.attributes.credit_status,
+            credit_payment_status_key:
+                sale.attributes.credit_payment_status_key,
+            credit_payment_status_label:
+                sale.attributes.credit_payment_status_label,
             id: sale.id,
             currency: currencySymbol,
             is_return: sale.attributes.is_return,
@@ -284,6 +335,11 @@ const Sales = (props) => {
                 status: "",
                 payment_status: "",
                 payment_type: "",
+                is_credit_sale: false,
+                credit_id: null,
+                credit_status: null,
+                credit_payment_status_key: null,
+                credit_payment_status_label: null,
                 grand_total: grandTotalSum(itemsValue),
                 paid_amount: paidTotalSum(itemsValue),
                 id: "",
@@ -418,6 +474,18 @@ const Sales = (props) => {
             sortField: "payment_status",
             sortable: false,
             cell: (row) => {
+                if (row.is_credit_sale && row.credit_payment_status_label) {
+                    return (
+                        <span
+                            className={`badge ${getCreditStatusBadgeClass(
+                                row.credit_payment_status_key
+                            )}`}
+                        >
+                            <span>{row.credit_payment_status_label}</span>
+                        </span>
+                    );
+                }
+
                 return (
                     (row.payment_status === 1 && (
                         <span className="badge bg-light-success">
@@ -455,6 +523,14 @@ const Sales = (props) => {
             sortField: "payment_type",
             sortable: false,
             cell: (row) => {
+                if (row.is_credit_sale) {
+                    return (
+                        <span className="badge bg-light-info">
+                            <span>Crédito</span>
+                        </span>
+                    );
+                }
+
                 return (
                     (row.payment_status !== 2 && row.payment_type === 1 && (
                         <span className="badge bg-light-primary">
@@ -525,11 +601,13 @@ const Sales = (props) => {
                         onClickDeleteModel={onClickDeleteModel}
                         onPdfClick={onPdfClick}
                         title={getFormattedMessage("sale.title")}
-                        isPaymentShow={true}
-                        isCreatePayment={true}
+                        isPaymentShow={!row.is_credit_sale}
+                        isCreatePayment={!row.is_credit_sale}
+                        isViewCredit={row.is_credit_sale && !!row.credit_id}
                         isViewIcon={true}
                         goToDetailScreen={goToDetailScreen}
                         onShowPaymentClick={onShowPaymentClick}
+                        onViewCreditClick={() => goToCreditDetail(row.credit_id)}
                         isCreateSaleReturn={true}
                         onCreatePaymentClick={onCreatePaymentClick}
                         onCreateSaleReturnClick={onCreateSaleReturnClick}

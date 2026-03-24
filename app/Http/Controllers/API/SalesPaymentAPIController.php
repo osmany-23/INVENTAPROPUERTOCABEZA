@@ -64,6 +64,8 @@ class SalesPaymentAPIController extends AppBaseController
 
             $salePayment = SalesPayment::whereId($id)->firstOrFail();
             $saleID = $salePayment->sale_id;
+            $sale = Sale::findOrFail($saleID);
+            $this->salesPaymentRepository->ensureSalePaymentAllowed($sale);
 
             SalesPayment::findOrFail($id)->delete();
             $this->salesPaymentRepository->recalculateSalePaymentSummary((int) $saleID);

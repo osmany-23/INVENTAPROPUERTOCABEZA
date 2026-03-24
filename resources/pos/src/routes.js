@@ -323,6 +323,16 @@ export const route = [
         permission: Permissions.MANAGE_SALE,
     },
     {
+        path: "credits/:creditId",
+        ele: <Credits />,
+        permission: Permissions.MANAGE_SALE,
+    },
+    {
+        path: "creditos/:creditId",
+        ele: <Credits />,
+        permission: Permissions.MANAGE_SALE,
+    },
+    {
         path: "sales/create",
         ele: <CreateSale />,
         permission: Permissions.MANAGE_SALE,

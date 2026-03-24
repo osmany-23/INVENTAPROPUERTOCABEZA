@@ -7,6 +7,7 @@ use App\Models\SaleReturn;
 use App\Models\SalesPayment;
 use Exception;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 /**
@@ -14,6 +15,8 @@ use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
  */
 class SalesPaymentRepository extends BaseRepository
 {
+    public const CREDIT_SALE_PAYMENT_MESSAGE = 'Esta venta es a crédito. Los pagos deben realizarse desde el módulo de créditos.';
+
     /**
      * @var string[]
      */
@@ -57,6 +60,7 @@ class SalesPaymentRepository extends BaseRepository
         try {
             DB::beginTransaction();
 
+            $this->ensureSalePaymentAllowed($sale);
             $input['sale_id'] = $sale->id;
             $salePayment = SalesPayment::create($input);
             $this->recalculateSalePaymentSummary((int) $sale->id);
@@ -78,6 +82,8 @@ class SalesPaymentRepository extends BaseRepository
         try {
             DB::beginTransaction();
 
+            $sale = Sale::findOrFail((int) $salesPayment->sale_id);
+            $this->ensureSalePaymentAllowed($sale);
             $salesPayment->update($input);
             $this->recalculateSalePaymentSummary((int) $salesPayment->sale_id);
 
@@ -119,5 +125,12 @@ class SalesPaymentRepository extends BaseRepository
             'paid_amount' => $retainedAmount,
             'payment_type' => $latestPayment ? $latestPayment->payment_type : null,
         ]);
+    }
+
+    public function ensureSalePaymentAllowed(Sale $sale): void
+    {
+        if (Schema::hasTable('credits') && $sale->credit()->exists()) {
+            throw new UnprocessableEntityHttpException(self::CREDIT_SALE_PAYMENT_MESSAGE);
+        }
     }
 }

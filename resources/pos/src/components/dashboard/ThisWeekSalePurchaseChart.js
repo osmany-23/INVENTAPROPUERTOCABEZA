@@ -11,6 +11,7 @@ import {
 } from "chart.js";
 import { Card, NavDropdown } from "react-bootstrap";
 import {
+    getCurrencySymbol,
     getFormattedMessage,
     placeholderText,
     currencySymbolHandling,
@@ -52,9 +53,7 @@ const ThisWeekSalePurchaseChart = (props) => {
         yearlyTopProduct();
     }, []);
 
-    const currency = frontSetting
-        ? frontSetting.value && frontSetting.value.currency_symbol
-        : "$";
+    const currency = getCurrencySymbol(frontSetting);
 
     const valueFormatter = (tooltipItems) => {
         const value = tooltipItems.dataset.data[tooltipItems.dataIndex];

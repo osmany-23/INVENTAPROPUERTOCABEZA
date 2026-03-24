@@ -87,6 +87,7 @@ class User extends Authenticatable implements HasMedia, JsonResourceful, CanRese
         'phone',
         'password',
         'language',
+        'credit_alert_days',
     ];
 
     public static $rules = [
@@ -127,6 +128,7 @@ class User extends Authenticatable implements HasMedia, JsonResourceful, CanRese
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'credit_alert_days' => 'integer',
     ];
 
     public function prepareLinks(): array
@@ -147,6 +149,7 @@ class User extends Authenticatable implements HasMedia, JsonResourceful, CanRese
             'role' => $this->roles,
             'created_at' => $this->created_at,
             'language' => $this->language,
+            'credit_alert_days' => $this->credit_alert_days,
         ];
 
         return $fields;

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from 'react-bootstrap';
 import moment from 'moment';
-import { getFormattedMessage } from '../../shared/sharedMethod';
+import { formatCurrency, getCurrencySymbol, getFormattedMessage } from '../../shared/sharedMethod';
 import ReactECharts from 'echarts-for-react';
 
 const TopCustomersChart = ( props ) => {
   const { frontSetting, topCustomers, allConfigData, languageCode } = props;
   const month = new Date();
-  const currency = frontSetting ? frontSetting.value && frontSetting.value.currency_symbol : ' $'
+  const currency = getCurrencySymbol(frontSetting);
   const allAopCustomersNames = topCustomers ? topCustomers.name : [];
   const allAopCustomers = topCustomers ? topCustomers.grand_total : [];
   const [ allData, setAllData ] = useState( [] )
@@ -45,7 +45,8 @@ const TopCustomersChart = ( props ) => {
     },
     tooltip: {
       trigger: 'item',
-      formatter: allConfigData.is_currency_right === 'true' ? `{b} : {c} ${currency} ({d}%)` : `{b} : ${currency} {c} ({d}%)`,
+      formatter: ({ name, value, percent }) =>
+          `${name} : ${formatCurrency(allConfigData, currency, value)} (${percent}%)`,
     },
     legend: {
       orient: 'vertical',

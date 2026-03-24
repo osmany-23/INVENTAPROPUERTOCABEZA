@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\BarcodeController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -16,5 +17,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::get('/barcode', [BarcodeController::class, 'show'])->name('barcode.generate');
 
 include 'upgrade.php';

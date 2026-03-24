@@ -132,7 +132,14 @@ const RegisterReport = () => {
             cash_in_hand_while_closing:
                 registerReport?.attributes?.cash_in_hand_while_closing,
             total_sale: registerReport?.attributes?.total_sale,
+            total_return: registerReport?.attributes?.total_return,
             total_amount: registerReport?.attributes?.total_amount,
+            credit_collections_total:
+                registerReport?.attributes?.credit_collections_total,
+            credit_interest_amount:
+                registerReport?.attributes?.credit_interest_amount,
+            gross_income_amount:
+                registerReport?.attributes?.gross_income_amount,
             currency: frontSetting?.value?.currency_symbol,
             notes: registerReport?.attributes?.notes,
         }))
@@ -240,6 +247,39 @@ const RegisterReport = () => {
                     row.cash_in_hand_while_closing
                 ),
             sortField: "cash_in_hand_while_closing",
+            sortable: false,
+        },
+        {
+            name: getFormattedMessage("register.total-sales.label"),
+            selector: (row) =>
+                currencySymbolHandling(
+                    allConfigData,
+                    row.currency,
+                    row.total_sale
+                ),
+            sortField: "total_sale",
+            sortable: false,
+        },
+        {
+            name: getFormattedMessage("credit.collections.title"),
+            selector: (row) =>
+                currencySymbolHandling(
+                    allConfigData,
+                    row.currency,
+                    row.credit_collections_total
+                ),
+            sortField: "credit_collections_total",
+            sortable: false,
+        },
+        {
+            name: getFormattedMessage("credit.report.total-received.label"),
+            selector: (row) =>
+                currencySymbolHandling(
+                    allConfigData,
+                    row.currency,
+                    row.gross_income_amount
+                ),
+            sortField: "gross_income_amount",
             sortable: false,
         },
         {

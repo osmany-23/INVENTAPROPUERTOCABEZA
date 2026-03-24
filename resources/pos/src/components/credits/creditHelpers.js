@@ -1,10 +1,5 @@
 import React from "react";
-import {
-    Button,
-    OverlayTrigger,
-    ProgressBar,
-    Tooltip,
-} from "react-bootstrap-v5";
+import { Button, ProgressBar } from "react-bootstrap-v5";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faCircleCheck,
@@ -19,7 +14,6 @@ import {
 export const DEFAULT_CONFIG_FORM = {
     customer_id: null,
     credit_limit: "0.00",
-    allow_exceed: false,
     interest_rate: "0.00",
     max_installments: "1",
     status: "activo",
@@ -27,12 +21,15 @@ export const DEFAULT_CONFIG_FORM = {
 
 export const DEFAULT_MANUAL_FORM = {
     customer_id: null,
+    warehouse_id: null,
+    product_search: "",
     total_amount: "0.00",
     interest_rate: "0.00",
     installments: "1",
     start_date: "",
     due_date: "",
     note: "",
+    items: [],
 };
 
 export const DEFAULT_PAYMENT_FORM = {
@@ -40,6 +37,37 @@ export const DEFAULT_PAYMENT_FORM = {
     payment_type: "1",
     note: "",
 };
+
+export const DEFAULT_RETURN_FORM = {
+    quantities: {},
+    note: "",
+};
+
+export const DEFAULT_EDIT_CREDIT_FORM = {
+    credit_type: "automatico",
+    installments: "1",
+    interest_rate: "0.00",
+    start_date: "",
+    due_date: "",
+    note: "",
+    confirm: false,
+};
+
+export const DEFAULT_RESTRUCTURE_CREDIT_FORM = {
+    credit_type: "automatico",
+    installments: "1",
+    interest_rate: "0.00",
+    start_date: "",
+    due_date: "",
+    note: "",
+    reason: "",
+    confirm: false,
+};
+
+export const createManualCreditItem = () => ({
+    product_id: "",
+    quantity: "1",
+});
 
 const clampPercent = (value) => {
     const safeValue = Number.isFinite(value) ? value : 0;
@@ -88,6 +116,10 @@ const getProgressVariant = (percent, status) => {
         return "danger";
     }
 
+    if (normalizedStatus === "parcial") {
+        return "warning";
+    }
+
     if (percent >= 90) {
         return "danger";
     }
@@ -110,22 +142,15 @@ export const TooltipWrap = React.memo(
         const WrapperTag = block ? "div" : "span";
 
         return (
-            <OverlayTrigger
-                placement={placement}
-                overlay={
-                    <Tooltip id={tooltipId(text)} className="credits-tooltip">
-                        {text}
-                    </Tooltip>
-                }
+            <WrapperTag
+                className={`credits-tooltip-trigger${
+                    block ? " credits-tooltip-trigger--block" : ""
+                }`}
+                title={text}
+                aria-label={text}
             >
-                <WrapperTag
-                    className={`credits-tooltip-trigger${
-                        block ? " credits-tooltip-trigger--block" : ""
-                    }`}
-                >
-                    {children}
-                </WrapperTag>
-            </OverlayTrigger>
+                {children}
+            </WrapperTag>
         );
     }
 );
@@ -140,11 +165,25 @@ const iconMap = {
     paid: faCircleCheck,
 };
 
+const iconToneMap = {
+    balance: "credit",
+    capital: "usage",
+    overdue: "alert",
+    interest: "positive",
+    credit: "credit",
+    customer: "credit",
+    paid: "positive",
+};
+
 const CardIcon = React.memo(({ icon }) => {
     const resolvedIcon = iconMap[icon] || faCreditCard;
+    const tone = iconToneMap[icon] || "credit";
 
     return (
-        <span className="credits-card-icon" aria-hidden="true">
+        <span
+            className={`credits-card-icon credits-card-icon--${tone}`}
+            aria-hidden="true"
+        >
             <FontAwesomeIcon icon={resolvedIcon} />
         </span>
     );
@@ -152,32 +191,44 @@ const CardIcon = React.memo(({ icon }) => {
 
 const StatusDot = () => <span className="credits-status-dot" />;
 
-const MetricItem = React.memo(({ label, value, highlight = false, tooltip }) => {
-    const content = (
-        <div
-            className={`credits-metric${
-                highlight ? " credits-metric--highlight" : ""
-            }`}
-        >
-            <span>{label}</span>
-            <strong>{safeText(value, "0.00")}</strong>
-        </div>
-    );
+const MetricItem = React.memo(
+    ({ label, value, highlight = false, tooltip, tone = "default" }) => {
+        const content = (
+            <div
+                className={`credits-metric${
+                    highlight ? " credits-metric--highlight" : ""
+                } credits-metric--${tone}`}
+            >
+                <span>{label}</span>
+                <strong>{safeText(value, "0.00")}</strong>
+            </div>
+        );
 
-    return (
-        <TooltipWrap text={tooltip} block>
-            {content}
-        </TooltipWrap>
-    );
-});
+        return (
+            <TooltipWrap text={tooltip} block>
+                {content}
+            </TooltipWrap>
+        );
+    }
+);
 
 const ProgressBlock = React.memo(
-    ({ label, percent, variant, caption, tooltip, moneySummary }) => (
+    ({
+        label,
+        percent,
+        variant,
+        caption,
+        tooltip,
+        moneySummary,
+        tone = "default",
+    }) => (
         <TooltipWrap
             text={tooltip || moneySummary || "Indicador de progreso del credito"}
             block
         >
-            <div className="credits-progress-block">
+            <div
+                className={`credits-progress-block credits-progress-block--${tone}`}
+            >
                 <div className="credits-progress-heading">
                     <span>{label}</span>
                     <strong>{Math.round(percent)}%</strong>
@@ -232,9 +283,20 @@ export const PAYMENT_METHOD_OPTIONS = [
 export const STATUS_FILTER_OPTIONS = [
     { value: "", label: "Todos" },
     { value: "pendiente", label: "Pendiente" },
+    { value: "parcial", label: "Parcial" },
     { value: "pagado", label: "Pagado" },
     { value: "vencido", label: "Vencido" },
 ];
+
+export const CREDIT_TYPE_OPTIONS = [
+    { value: "automatico", label: "Automatico" },
+    { value: "manual", label: "Manual" },
+    { value: "libre", label: "Libre" },
+];
+
+export const getCreditTypeLabel = (creditType) =>
+    CREDIT_TYPE_OPTIONS.find((option) => option.value === creditType)?.label ||
+    "Automatico";
 
 export const SummaryCard = React.memo(({ label, value, icon, tooltip }) => (
     <div className="card credits-summary-card credits-interactive-card">
@@ -265,7 +327,8 @@ export const StatusBadge = React.memo(({ status }) => {
     );
 });
 
-export const CreditCard = React.memo(({ row, money, onView, onPay }) => {
+export const CreditCard = React.memo(
+    ({ row, money, onView, onPay, onEdit, onRestructure }) => {
     const normalizedStatus = normalizeStatus(row.status);
     const collectionPercent = getCollectionPercent(
         row.paid_total,
@@ -307,6 +370,7 @@ export const CreditCard = React.memo(({ row, money, onView, onPay }) => {
                     label="Saldo"
                     value={money(row.balance)}
                     highlight
+                    tone="available"
                     tooltip="Monto pendiente por pagar en este credito"
                 />
                 <MetricItem
@@ -336,16 +400,33 @@ export const CreditCard = React.memo(({ row, money, onView, onPay }) => {
                     {safeText(row.installments, "0")} cuotas
                 </span>
                 <span className="credits-card-pill">
+                    {getCreditTypeLabel(row.credit_type)}
+                </span>
+                <span className="credits-card-pill">
                     Interes {Number(row.interest_rate || 0).toFixed(2)}%
                 </span>
             </div>
 
             <div className="credits-card-actions">
                 <TooltipWrap text="Ver detalle completo del credito">
-                    <Button size="sm" variant="light-primary" onClick={onView}>
-                        Ver detalle
-                    </Button>
-                </TooltipWrap>
+                        <Button size="sm" variant="light-primary" onClick={onView}>
+                            Ver detalle
+                        </Button>
+                    </TooltipWrap>
+                {row.can_edit_directly ? (
+                    <TooltipWrap text="Actualizar cuotas, fechas o tipo de credito sin alterar pagos">
+                        <Button size="sm" variant="light-primary" onClick={onEdit}>
+                            Editar credito
+                        </Button>
+                    </TooltipWrap>
+                ) : null}
+                {!row.can_edit_directly && row.can_restructure ? (
+                    <TooltipWrap text="Crear un nuevo plan sobre el saldo pendiente y conservar historial">
+                        <Button size="sm" variant="light-primary" onClick={onRestructure}>
+                            Reestructurar
+                        </Button>
+                    </TooltipWrap>
+                ) : null}
                 {Number(row.balance) > 0 ? (
                     <TooltipWrap text="Registrar un abono o pago sobre este credito">
                         <Button size="sm" onClick={onPay}>
@@ -356,7 +437,8 @@ export const CreditCard = React.memo(({ row, money, onView, onPay }) => {
             </div>
         </article>
     );
-});
+    }
+);
 
 export const CustomerCreditCard = React.memo(({ row, money, onEdit }) => {
     const normalizedStatus = normalizeStatus(row.status);
@@ -389,17 +471,20 @@ export const CustomerCreditCard = React.memo(({ row, money, onEdit }) => {
                 <MetricItem
                     label="Limite"
                     value={money(row.credit_limit)}
+                    tone="usage"
                     tooltip="Monto maximo autorizado para este cliente"
                 />
                 <MetricItem
                     label="Usado"
                     value={money(row.used)}
+                    tone="usage"
                     tooltip="Monto del limite actualmente comprometido"
                 />
                 <MetricItem
                     label="Disponible"
                     value={money(row.available)}
                     highlight
+                    tone="available"
                     tooltip="Monto disponible para nuevas ventas a credito"
                 />
                 <MetricItem
@@ -412,12 +497,9 @@ export const CustomerCreditCard = React.memo(({ row, money, onEdit }) => {
             <ProgressBlock
                 label="Uso de linea"
                 percent={usagePercent}
-                variant={getProgressVariant(usagePercent, row.status)}
-                caption={
-                    row.allow_exceed
-                        ? "Puede exceder el limite"
-                        : "Limite estricto"
-                }
+                variant="primary"
+                tone="usage"
+                caption="Limite estricto"
                 tooltip={`Porcentaje utilizado del limite de credito. Usado: ${money(
                     row.used || 0
                 )} / Limite: ${money(row.credit_limit || 0)}`}
@@ -467,6 +549,7 @@ export const OverdueCustomerCard = React.memo(({ row, money }) => (
                 label="Saldo vencido"
                 value={money(row.overdue_balance)}
                 highlight
+                tone="alert"
                 tooltip="Monto total vencido pendiente de cobro"
             />
             <MetricItem

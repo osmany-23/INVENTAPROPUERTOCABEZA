@@ -93,6 +93,26 @@
 
     </tr>
 </table>
+<table width="100%" style="margin-top: 25px;">
+    <tr>
+        <td align="center">
+            <div style="font-size: 16px; font-weight: bold; color: #111827; margin-bottom: 8px;">
+                Venta: {{ $sale->reference_code ?: 'N/A' }}
+            </div>
+            @if(!empty($barcodeDataUri))
+                <img
+                    src="{{ $barcodeDataUri }}"
+                    alt="Barcode {{ $sale->reference_code }}"
+                    style="display: block; margin: 0 auto; width: 240px; height: 60px;"
+                >
+            @else
+                <div style="font-size: 13px; color: #6b7280;">
+                    Codigo de barras no disponible
+                </div>
+            @endif
+        </td>
+    </tr>
+</table>
 <table width="100%" style="margin-top: 40px;">
     <tr style="vertical-align: top;">
         <td style="width: 50%;">

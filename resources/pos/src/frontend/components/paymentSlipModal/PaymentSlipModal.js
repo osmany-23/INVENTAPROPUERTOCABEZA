@@ -29,6 +29,14 @@ const PaymentSlipModal = (props) => {
         updateProducts.settings &&
         updateProducts.settings.attributes &&
         updateProducts.settings.attributes.currency_symbol;
+    const saleReference =
+        updateProducts?.reference_code ||
+        paymentDetails?.attributes?.reference_code ||
+        "";
+    const barcodeUrl =
+        updateProducts?.barcode_url ||
+        paymentDetails?.attributes?.barcode_url ||
+        "";
         
     return (
         <Modal
@@ -348,20 +356,20 @@ const PaymentSlipModal = (props) => {
                 </h5>}
                 <div className="text-center d-block">
                     {parseInt(settings.attributes?.show_barcode_in_receipt) ===
-                        1 && (
+                        1 &&
+                        saleReference && (
                         <Image
-                            src={
-                                paymentDetails &&
-                                paymentDetails.attributes.barcode_url
-                            }
+                            src={barcodeUrl}
                             className=""
                             height={25}
                             width={100}
+                            onError={(event) => {
+                                event.currentTarget.style.display = "none";
+                            }}
                         />
                     )}
                     <span className="d-block">
-                        {paymentDetails &&
-                            paymentDetails.attributes.reference_code}
+                        Venta: {saleReference || "N/A"}
                     </span>
                 </div>
             </Modal.Body>

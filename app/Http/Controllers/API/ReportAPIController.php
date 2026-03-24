@@ -18,6 +18,7 @@ use App\Exports\TopSellingProductReportExport;
 use App\Http\Controllers\AppBaseController;
 use App\Models\BaseUnit;
 use App\Models\Brand;
+use App\Models\Credit;
 use App\Models\Customer;
 use App\Models\Expense;
 use App\Models\ManageStock;
@@ -36,6 +37,7 @@ use App\Repositories\ManageStockRepository;
 use App\Repositories\PurchaseRepository;
 use App\Repositories\PurchaseReturnRepository;
 use App\Repositories\SupplierRepository;
+use App\Services\CreditCashMovementService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -43,6 +45,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use Spatie\QueryBuilder\QueryBuilder;
@@ -57,6 +60,8 @@ class ReportAPIController extends AppBaseController
 
     private $supplierRepository;
 
+    private CreditCashMovementService $creditCashMovementService;
+
     /**
      * ReportAPIController constructor.
      */
@@ -65,13 +70,15 @@ class ReportAPIController extends AppBaseController
         PurchaseRepository $purchaseRepository,
         PurchaseReturnRepository $purchaseReturnRepository,
         SupplierRepository $supplierRepository,
-        CustomerRepository $customerRepository
+        CustomerRepository $customerRepository,
+        CreditCashMovementService $creditCashMovementService
     ) {
         $this->manageStockRepository = $manageStockRepository;
         $this->purchaseRepository = $purchaseRepository;
         $this->purchaseReturnRepository = $purchaseReturnRepository;
         $this->supplierRepository = $supplierRepository;
         $this->customerRepository = $customerRepository;
+        $this->creditCashMovementService = $creditCashMovementService;
     }
 
     public function getWarehouseSaleReportExcel(Request $request): JsonResponse
@@ -357,32 +364,46 @@ class ReportAPIController extends AppBaseController
     {
         $data = [];
         $today = Carbon::today();
+        $todayStart = $today->copy()->startOfDay();
+        $todayEnd = $today->copy()->endOfDay();
 
         $salesDiscount = Sale::where('date', $today)->sum('discount');
         $salesTax = Sale::where('date', $today)->sum('tax_amount');
         $salesShippingAmount = Sale::where('date', $today)->sum('shipping');
         $totalGrandTotalAmount = Sale::where('date', $today)->sum('grand_total');
 
-        $data['today_sales_cash_payment'] = SalesPayment::where('payment_date', $today)->where(
-            'payment_type',
-            SalesPayment::CASH
-        )->sum('amount');
-        $data['today_sales_cheque_payment'] = SalesPayment::where('payment_date', $today)->where(
-            'payment_type',
-            SalesPayment::CHEQUE
-        )->sum('amount');
-        $data['today_sales_bank_transfer_payment'] = SalesPayment::where('payment_date', $today)->where(
-            'payment_type',
-            SalesPayment::BANK_TRANSFER
-        )->sum('amount');
-        $data['today_sales_other_payment'] = SalesPayment::where('payment_date', $today)->where(
-            'payment_type',
-            SalesPayment::OTHER
-        )->sum('amount');
+        $salesPaymentsQuery = $this->creditCashMovementService->getRegularSalesPaymentsQuery()
+            ->whereDate('payment_date', $today);
+
+        $data['today_sales_cash_payment'] = (clone $salesPaymentsQuery)
+            ->where('payment_type', SalesPayment::CASH)
+            ->sum('amount');
+        $data['today_sales_cheque_payment'] = (clone $salesPaymentsQuery)
+            ->where('payment_type', SalesPayment::CHEQUE)
+            ->sum('amount');
+        $data['today_sales_bank_transfer_payment'] = (clone $salesPaymentsQuery)
+            ->where('payment_type', SalesPayment::BANK_TRANSFER)
+            ->sum('amount');
+        $data['today_sales_other_payment'] = (clone $salesPaymentsQuery)
+            ->where('payment_type', SalesPayment::OTHER)
+            ->sum('amount');
 
         $data['today_sales_total_amount'] = $totalGrandTotalAmount;
         $data['today_sales_total_return_amount'] = SaleReturn::where('date', $today)->sum('grand_total');
-        $data['today_sales_payment_amount'] = SalesPayment::where('payment_date', $today)->sum('amount');
+        $data['today_sales_payment_amount'] = (clone $salesPaymentsQuery)->sum('amount');
+
+        $creditTotals = $this->creditCashMovementService->getTotalsBetween($todayStart, $todayEnd);
+        $data['today_credit_payment_amount'] = $creditTotals['credit_payment_amount'];
+        $data['today_credit_principal_amount'] = $creditTotals['credit_principal_amount'];
+        $data['today_credit_interest_amount'] = $creditTotals['credit_interest_amount'];
+        $data['today_credit_cash_payment'] = $creditTotals['credit_cash_payment'];
+        $data['today_credit_cheque_payment'] = $creditTotals['credit_cheque_payment'];
+        $data['today_credit_bank_transfer_payment'] = $creditTotals['credit_bank_transfer_payment'];
+        $data['today_credit_other_payment'] = $creditTotals['credit_other_payment'];
+        $data['today_total_income_amount'] = round(
+            (float) $data['today_sales_payment_amount'] + (float) $data['today_credit_payment_amount'],
+            2
+        );
 
         $productsData = Product::leftJoin(
             'sale_items',
@@ -436,7 +457,7 @@ class ReportAPIController extends AppBaseController
         }
 
         $data['cash_in_hand'] = $cashInHand;
-        $data['total_cash_amount'] = $cashInHand + $data['today_sales_cash_payment'];
+        $data['total_cash_amount'] = $cashInHand + $data['today_sales_cash_payment'] + $data['today_credit_cash_payment'];
 
         return $this->sendResponse($data, 'Today sales register overall report retrieved successfully');
     }
@@ -565,44 +586,63 @@ class ReportAPIController extends AppBaseController
     public function getProfitLossReport(Request $request)
     {
         $data = [];
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
+        $startDateTime = Carbon::parse($startDate)->startOfDay();
+        $endDateTime = Carbon::parse($endDate)->endOfDay();
+
         $data['sales'] = Sale::whereBetween(
             'date',
-            [$request->get('start_date'), $request->get('end_date')]
+            [$startDate, $endDate]
         )->sum('grand_total');
         $data['purchase_returns'] = PurchaseReturn::whereBetween(
             'date',
-            [$request->get('start_date'), $request->get('end_date')]
+            [$startDate, $endDate]
         )->sum('grand_total');
         $data['purchases'] = Purchase::whereBetween(
             'date',
-            [$request->get('start_date'), $request->get('end_date')]
+            [$startDate, $endDate]
         )->sum('grand_total') - $data['purchase_returns'];
         $data['sale_returns'] = SaleReturn::whereBetween(
             'date',
-            [$request->get('start_date'), $request->get('end_date')]
+            [$startDate, $endDate]
         )->sum('grand_total');
         $data['expenses'] = Expense::whereBetween(
             'date',
-            [$request->get('start_date'), $request->get('end_date')]
+            [$startDate, $endDate]
         )->sum('amount');
-        $data['sales_payment_amount'] = SalesPayment::whereBetween(
-            'payment_date',
-            [$request->get('start_date'), $request->get('end_date')]
-        )->sum('amount');
+        $data['sales_payment_amount'] = $this->creditCashMovementService->getRegularSalesPaymentsQuery()
+            ->whereBetween('payment_date', [$startDate, $endDate])
+            ->sum('amount');
+
+        $creditTotals = $this->creditCashMovementService->getTotalsBetween($startDateTime, $endDateTime);
+        $data['credit_payment_amount'] = $creditTotals['credit_payment_amount'];
+        $data['credit_principal_amount'] = $creditTotals['credit_principal_amount'];
+        $data['credit_interest_amount'] = $creditTotals['credit_interest_amount'];
         $data['Revenue'] = $data['sales'] - $data['sale_returns'];
-        $data['payments_received'] = $data['sales_payment_amount'] + $data['purchase_returns'];
+        $data['payments_received'] = $data['sales_payment_amount'] + $data['credit_payment_amount'] + $data['purchase_returns'];
+
+        $data['active_credits'] = 0;
+        $data['overdue_credits'] = 0;
+        if (Schema::hasTable('credits')) {
+            $today = Carbon::today()->toDateString();
+            $data['active_credits'] = Credit::where('balance', '>', 0)->count();
+            $data['overdue_credits'] = Credit::where('balance', '>', 0)
+                ->whereDate('due_date', '<', $today)
+                ->count();
+        }
 
         $productCost = 0;
         $productItemCost = 0;
 
         $sales = Sale::whereBetween(
             'date',
-            [$request->get('start_date'), $request->get('end_date')]
+            [$startDate, $endDate]
         )->with('saleItems')->get();
 
         $allSaleReturnsItems = SaleReturnItem::join('sales_return', 'sales_return.id', '=', 'sale_return_items.sale_return_id')
             ->join('sales', 'sales.id', '=', 'sales_return.sale_id')
-            ->whereBetween('sales.date', [$request->get('start_date'), $request->get('end_date')])
+            ->whereBetween('sales.date', [$startDate, $endDate])
             ->select('sale_return_items.quantity', 'sale_return_items.product_id')
             ->with('product')
             ->get();

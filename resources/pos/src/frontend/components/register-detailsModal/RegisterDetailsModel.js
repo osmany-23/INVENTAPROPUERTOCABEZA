@@ -154,6 +154,21 @@ function RegisterDetailsModel(props) {
                                     )}
                                 </td>
                             </tr>
+                            <tr>
+                                <td>
+                                    {getFormattedMessage(
+                                        "credit.collections.title"
+                                    )}
+                                    :{" "}
+                                </td>
+                                <td>
+                                    {currencySymbolHandling(
+                                        allConfigData,
+                                        currencySymbol,
+                                        closeRegisterDetails?.today_credit_payment_amount
+                                    )}
+                                </td>
+                            </tr>
                         </tbody>
                     </Table>
 
@@ -206,6 +221,36 @@ function RegisterDetailsModel(props) {
                                         allConfigData,
                                         currencySymbol,
                                         closeRegisterDetails?.today_sales_payment_amount
+                                    )}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    {getFormattedMessage(
+                                        "credit.collections.title"
+                                    )}
+                                    :
+                                </td>
+                                <td>
+                                    {currencySymbolHandling(
+                                        allConfigData,
+                                        currencySymbol,
+                                        closeRegisterDetails?.today_credit_payment_amount
+                                    )}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    {getFormattedMessage(
+                                        "credit.report.total-received.label"
+                                    )}
+                                    :
+                                </td>
+                                <td>
+                                    {currencySymbolHandling(
+                                        allConfigData,
+                                        currencySymbol,
+                                        closeRegisterDetails?.today_total_income_amount
                                     )}
                                 </td>
                             </tr>

@@ -18,9 +18,11 @@ import TabTitle from "../../shared/tab-title/TabTitle";
 import ProductImageLightBox from "./ProductImageLightBox";
 import user from "../../assets/images/brand_logo.png";
 import {
+    formatCurrency,
     formatQuantity,
     getFormattedDate,
     getFormattedMessage,
+    getCurrencySymbol,
     placeholderText,
 } from "../../shared/sharedMethod";
 import ActionButton from "../../shared/action-buttons/ActionButton";
@@ -549,25 +551,13 @@ const Product = (props) => {
         setIsOpen(true);
     }, []);
 
-    const currencySymbol = frontSetting?.value?.currency_symbol;
+    const currencySymbol = getCurrencySymbol(frontSetting);
 
     const formattedPrice = useCallback(
         (productPrice) => {
-            const numericPrice = Number(productPrice);
-            if (!Number.isFinite(numericPrice)) {
-                return "";
-            }
-
-            const formattedNumber = new Intl.NumberFormat("en-US", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-            }).format(numericPrice);
-
-            return currencySymbol
-                ? `${formattedNumber} ${currencySymbol}`
-                : formattedNumber;
+            return formatCurrency(allConfigData, currencySymbol, productPrice);
         },
-        [currencySymbol]
+        [allConfigData, currencySymbol]
     );
 
     const itemsValue = useMemo(() => {
@@ -591,7 +581,7 @@ const Product = (props) => {
                     ? minPrice === maxPrice
                         ? formattedPrice(minPrice)
                         : `${formattedPrice(minPrice)} - ${formattedPrice(maxPrice)}`
-                    : "";
+                    : formattedPrice(0);
 
             const createdAt = attributes.created_at || firstVariation.created_at;
             const description =

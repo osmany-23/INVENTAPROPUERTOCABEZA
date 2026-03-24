@@ -194,11 +194,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('sales/{id}/payment', [SalesPaymentAPIController::class, 'deletePayment']);
 
         Route::get('credits/dashboard', [CreditAPIController::class, 'dashboard']);
+        Route::get('credits/alerts/summary', [CreditAPIController::class, 'alertSummary']);
+        Route::get('credits/alerts', [CreditAPIController::class, 'alertFeed']);
+        Route::put('credits/alerts/settings', [CreditAPIController::class, 'updateAlertSettings']);
         Route::get('credits/check-limit', [CreditAPIController::class, 'checkLimit']);
         Route::post('credits/customer-config', [CreditAPIController::class, 'upsertCustomerConfig']);
         Route::post('credits/manual', [CreditAPIController::class, 'storeManual']);
         Route::get('credits/{credit}', [CreditAPIController::class, 'show']);
+        Route::put('credits/{credit}', [CreditAPIController::class, 'updateTerms']);
+        Route::post('credits/{credit}/restructure', [CreditAPIController::class, 'restructure']);
         Route::post('credits/{credit}/payments', [CreditAPIController::class, 'capturePayment']);
+        Route::post('credits/{credit}/returns', [CreditAPIController::class, 'captureReturn']);
     });
 
     Route::resource('holds', HoldAPIController::class);
@@ -396,6 +402,7 @@ Route::middleware('auth:sanctum')->group(function () {
         PurchaseReturnAPIController::class,
         'getPurchaseReturnProductReport',
     ]);
+    Route::get('get-credit-product-report', [CreditAPIController::class, 'productReport']);
 
     // Today sale overall report
 

@@ -250,6 +250,37 @@ class PrintRegisterDetailsData extends React.PureComponent {
                                 {/*<span>{(productName.quantity * (calculateProductCost(productName))).toFixed(2)}</span>*/}
                             </td>
                         </tr>
+                        <tr
+                            style={{
+                                width: "100%",
+                                borderBottom: "1px solid #DEE2E6",
+                            }}
+                        >
+                            <td
+                                style={{
+                                    fontSize: "12px",
+                                    border: "none",
+                                    padding: "8px 15px",
+                                }}
+                            >
+                                {getFormattedMessage("credit.collections.title")}
+                            </td>
+                            <td
+                                style={{
+                                    fontSize: "12px",
+                                    border: "none",
+                                    padding: "8px 15px",
+                                }}
+                            >
+                                <span>
+                                    {currencySymbolHandling(
+                                        allConfigData,
+                                        currencySymbol,
+                                        closeRegisterDetails?.today_credit_payment_amount
+                                    )}
+                                </span>
+                            </td>
+                        </tr>
                     </tbody>
                 </Table>
 
@@ -358,6 +389,70 @@ class PrintRegisterDetailsData extends React.PureComponent {
                                         allConfigData,
                                         currencySymbol,
                                         closeRegisterDetails?.today_sales_payment_amount
+                                    )}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr
+                            style={{
+                                width: "100%",
+                                borderBottom: "1px solid #DEE2E6",
+                            }}
+                        >
+                            <td
+                                style={{
+                                    fontSize: "12px",
+                                    border: "none",
+                                    padding: "8px 15px",
+                                }}
+                            >
+                                {getFormattedMessage("credit.collections.title")}
+                            </td>
+                            <td
+                                style={{
+                                    fontSize: "12px",
+                                    border: "none",
+                                    padding: "8px 15px",
+                                }}
+                            >
+                                <span>
+                                    {currencySymbolHandling(
+                                        allConfigData,
+                                        currencySymbol,
+                                        closeRegisterDetails?.today_credit_payment_amount
+                                    )}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr
+                            style={{
+                                width: "100%",
+                                borderBottom: "1px solid #DEE2E6",
+                            }}
+                        >
+                            <td
+                                style={{
+                                    fontSize: "12px",
+                                    border: "none",
+                                    padding: "8px 15px",
+                                }}
+                            >
+                                {getFormattedMessage(
+                                    "credit.report.total-received.label"
+                                )}
+                            </td>
+                            <td
+                                style={{
+                                    fontSize: "12px",
+                                    border: "none",
+                                    padding: "8px 15px",
+                                }}
+                            >
+                                <span>
+                                    {currencySymbolHandling(
+                                        allConfigData,
+                                        currencySymbol,
+                                        closeRegisterDetails?.today_total_income_amount
                                     )}
                                 </span>
                             </td>

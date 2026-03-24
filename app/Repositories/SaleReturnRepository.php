@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
@@ -83,6 +84,10 @@ class SaleReturnRepository extends BaseRepository
 
             if (empty($sale)) {
                 throw new UnprocessableEntityHttpException('Sale Does Not exist');
+            }
+
+            if ($sale->credit()->exists() && $this->hasCreditInventoryReturnFlow()) {
+                throw new UnprocessableEntityHttpException('Las ventas a credito deben devolverse desde el modulo de creditos.');
             }
 
             $input['date'] = $input['date'] ?? date('Y/m/d');
@@ -301,6 +306,10 @@ class SaleReturnRepository extends BaseRepository
             DB::beginTransaction();
             $saleReturn = SaleReturn::findOrFail($id);
             $saleId = (int) $input['sale_id'];
+            $sale = Sale::whereId($saleId)->first();
+            if ($sale && $sale->credit()->exists() && $this->hasCreditInventoryReturnFlow()) {
+                throw new UnprocessableEntityHttpException('Las ventas a credito deben devolverse desde el modulo de creditos.');
+            }
             $saleReturnItemIds = SaleReturnItem::whereSaleReturnId($id)->pluck('id')->toArray();
             $saleReturnItemOldIds = [];
 
@@ -550,5 +559,10 @@ class SaleReturnRepository extends BaseRepository
             'paid_amount' => $retainedAmount,
             'payment_status' => $paymentStatus,
         ]);
+    }
+
+    private function hasCreditInventoryReturnFlow(): bool
+    {
+        return Schema::hasTable('credit_items') && Schema::hasTable('credit_item_returns');
     }
 }
