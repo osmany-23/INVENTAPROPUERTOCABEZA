@@ -189,6 +189,8 @@ const Sales = (props) => {
 
         const receivedAmount = Number(saleInfo?.received_amount || 0);
         const grandTotalAmount = Number(saleInfo?.grand_total || 0);
+        const paidAmount = Number(saleInfo?.paid_amount || 0);
+        const dueAmount = Number(saleInfo?.due_amount || 0);
 
         // Preferimos el cálculo del backend (source of truth) para el vuelto
         const changeReturn = Number(
@@ -239,6 +241,12 @@ const Sales = (props) => {
             barcode_url: barcodeUrl,
             reference_code: referenceCode,
             date: saleInfo?.date || saleInfo?.created_at || new Date(),
+            is_credit_sale: Boolean(saleInfo?.is_credit_sale),
+            paid_amount: paidAmount,
+            due_amount: dueAmount,
+            credit_receipt_status:
+                saleInfo?.credit_payment_status_label ||
+                (paidAmount > 0 ? "PARCIAL" : "CRÉDITO"),
             // Nuevos campos para el ticket
             sale_time: saleInfo?.sale_time,
             served_by: saleInfo?.served_by,

@@ -10,6 +10,89 @@ import PurchaseReturnForm from './PurchaseReturnForm';
 import {addPurchaseReturn} from '../../store/action/purchaseReturnAction';
 import {getFormattedMessage} from '../../shared/sharedMethod';
 
+const normalizePurchaseLots = (item) => {
+    const purchaseLotsRaw = item?.purchase_lots?.data || item?.purchase_lots || [];
+    const purchaseLots = Array.isArray(purchaseLotsRaw) ? purchaseLotsRaw : [];
+
+    if (!purchaseLots.length) {
+        return [
+            {
+                name: item.product?.name,
+                code: item.product?.code,
+                product_unit: item.product?.product_unit,
+                product_id: item.product_id,
+                short_name: item.purchase_unit?.short_name,
+                stock_alert: item.product?.stock_alert,
+                product_cost: item.product_cost,
+                fix_net_unit: item.product_cost,
+                net_unit_cost: item.product_cost,
+                tax_type: item.tax_type,
+                tax_value: item.tax_value,
+                tax_amount: item.tax_amount,
+                discount_type: item.discount_type,
+                discount_value: item.discount_value,
+                discount_amount: item.discount_amount,
+                purchase_unit: item.purchase_unit?.id || item.purchase_unit,
+                quantity: 0,
+                purchased_quantity: Number(item.quantity || 0),
+                max_return_quantity: Number(item.max_return_quantity ?? item.quantity ?? 0),
+                returned_quantity: Number(item.returned_quantity || 0),
+                sub_total: 0,
+                id: item.id,
+                purchase_return_item_id: "",
+                newItem: "",
+                isEdit: true,
+                stocks:
+                    item.product?.stocks?.filter(
+                        (s) => s.warehouse_id === item?.purchase?.warehouse_id
+                    ) || [],
+            },
+        ];
+    }
+
+    return purchaseLots.map((lot, lotIndex) => {
+        const batch = lot?.batch?.data?.attributes || lot?.batch || null;
+
+        return {
+            name: item.product?.name,
+            code: item.product?.code,
+            product_unit: item.product?.product_unit,
+            product_id: item.product_id,
+            short_name: item.purchase_unit?.short_name,
+            stock_alert: item.product?.stock_alert,
+            product_cost: lot?.costo_unitario ?? item.product_cost,
+            fix_net_unit: lot?.costo_unitario ?? item.product_cost,
+            net_unit_cost: lot?.costo_unitario ?? item.product_cost,
+            tax_type: item.tax_type,
+            tax_value: item.tax_value,
+            tax_amount: item.tax_amount,
+            discount_type: item.discount_type,
+            discount_value: item.discount_value,
+            discount_amount: item.discount_amount,
+            purchase_unit: item.purchase_unit?.id || item.purchase_unit,
+            quantity: 0,
+            purchased_quantity: Number(lot?.cantidad ?? item.quantity ?? 0),
+            max_return_quantity: Number(
+                lot?.max_return_quantity ?? lot?.cantidad ?? item.max_return_quantity ?? item.quantity ?? 0
+            ),
+            returned_quantity: Number(lot?.returned_quantity ?? 0),
+            sub_total: 0,
+            id: `purchase-lot-${lot?.id ?? `${item.id}-${lotIndex}`}`,
+            purchase_lot_id: lot?.id || null,
+            product_batch_id: lot?.lote_id || batch?.id || null,
+            codigo_lote_sistema: batch?.codigo_lote_sistema || null,
+            lote_fabricante: batch?.lote_fabricante || batch?.lot_code || null,
+            purchase_return_item_id: "",
+            newItem: "",
+            isEdit: true,
+            stocks:
+                item.product?.stocks?.filter(
+                    (s) => s.warehouse_id === batch?.warehouse_id || s.warehouse_id === item?.purchase?.warehouse_id
+                ) || [],
+        };
+    });
+};
+
 const CreatePurchaseReturn = (props) => {
     const {
         addPurchaseReturn,
@@ -93,37 +176,14 @@ const CreatePurchaseReturn = (props) => {
         tax_amount: purchaseData?.tax_amount || '0.00',
         shipping: purchaseData?.shipping || '0.00',
         notes: purchaseData?.notes || '',
-        purchase_return_items: purchaseItems.map((item) => ({
-            name: item.product?.name,
-            code: item.product?.code,
-            product_unit: item.product?.product_unit,
-            product_id: item.product_id,
-            short_name: item.purchase_unit?.short_name,
-            stock_alert: item.product?.stock_alert,
-            product_cost: item.product_cost,
-            fix_net_unit: item.product_cost,
-            net_unit_cost: item.product_cost,
-            tax_type: item.tax_type,
-            tax_value: item.tax_value,
-            tax_amount: item.tax_amount,
-            discount_type: item.discount_type,
-            discount_value: item.discount_value,
-            discount_amount: item.discount_amount,
-            purchase_unit: item.purchase_unit?.id || item.purchase_unit,
-            quantity: 0,
-            purchased_quantity: Number(item.quantity || 0),
-            max_return_quantity: Number(item.max_return_quantity ?? item.quantity ?? 0),
-            returned_quantity: Number(item.returned_quantity || 0),
-            sub_total: 0,
-            id: item.id,
-            purchase_return_item_id: item.id,
-            newItem: '',
-            isEdit: true,
-            stocks:
-                item.product?.stocks?.filter(
-                    (s) => s.warehouse_id === purchaseData?.warehouse_id
-                ) || [],
-        })),
+        purchase_return_items: purchaseItems.flatMap((item) =>
+            normalizePurchaseLots({
+                ...item,
+                purchase: {
+                    warehouse_id: purchaseData?.warehouse_id,
+                },
+            })
+        ),
     };
 
     return (

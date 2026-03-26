@@ -185,16 +185,13 @@ const PosCloseRegisterDetailsModel = ({
                             <tr>
                                 {/* <td>#</td> */}
                                 <td>
-                                    {getFormattedMessage(
-                                        "register.total-sales.label"
-                                    )}
-                                    :
+                                    Ventas contado:
                                 </td>
                                 <td>
                                     {currencySymbolHandling(
                                         allConfigData,
                                         currencySymbol,
-                                        closeRegisterDetails?.today_sales_amount
+                                        closeRegisterDetails?.today_sales_payment_amount
                                     )}
                                 </td>
                             </tr>
@@ -215,25 +212,7 @@ const PosCloseRegisterDetailsModel = ({
                             </tr>
                             <tr>
                                 <td>
-                                    {getFormattedMessage(
-                                        "register.total-payment.title"
-                                    )}
-                                    :
-                                </td>
-                                <td>
-                                    {currencySymbolHandling(
-                                        allConfigData,
-                                        currencySymbol,
-                                        closeRegisterDetails?.today_sales_payment_amount
-                                    )}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    {getFormattedMessage(
-                                        "credit.collections.title"
-                                    )}
-                                    :
+                                    Cobros de crédito:
                                 </td>
                                 <td>
                                     {currencySymbolHandling(

@@ -250,7 +250,7 @@ const RegisterReport = () => {
             sortable: false,
         },
         {
-            name: getFormattedMessage("register.total-sales.label"),
+            name: "Ventas contado",
             selector: (row) =>
                 currencySymbolHandling(
                     allConfigData,

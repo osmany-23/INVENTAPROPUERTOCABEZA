@@ -25,6 +25,7 @@ class MainProduct extends Model implements HasMedia, JsonResourceful
 
     const SINGLE_PRODUCT = 1;
     const VARIATION_PRODUCT = 2;
+    const BATCH_PRODUCT = 3;
 
     const PATH = 'main_product';
 

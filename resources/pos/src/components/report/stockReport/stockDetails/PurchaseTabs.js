@@ -54,6 +54,9 @@ const PurchaseTab = (props) => {
                 sub_total: item.sub_total,
                 quantity: item.quantity,
                 product_id: item.product_id,
+                batch_reference: item.batch_reference || null,
+                purchase_lots:
+                    item.purchase_lots?.data || item.purchase_lots || [],
             })),
             currency: currencySymbol,
         }));
@@ -102,6 +105,45 @@ const PurchaseTab = (props) => {
             selector: (row) => row.supplier_name,
             sortField: "supplier_name",
             sortable: false,
+        },
+        {
+            name: "Lote",
+            sortable: false,
+            cell: (row) => {
+                return row.purchase_items.map((item, itemIndex) =>
+                    item.product_id === Number(id) ? (
+                        <span key={`batch-${item.product_id}-${itemIndex}`} className="d-block">
+                            {Array.isArray(item.purchase_lots) && item.purchase_lots.length > 0
+                                ? item.purchase_lots.map((purchaseLot, lotIndex) => {
+                                      const batch =
+                                          purchaseLot?.batch?.data?.attributes ||
+                                          purchaseLot?.batch ||
+                                          item.batch_reference ||
+                                          null;
+
+                                      return (
+                                          <span
+                                              key={`purchase-lot-${item.product_id}-${itemIndex}-${purchaseLot.id || lotIndex}`}
+                                              className="d-block"
+                                          >
+                                              {batch?.codigo_lote_sistema ||
+                                                  batch?.lot_code ||
+                                                  batch?.lote_fabricante ||
+                                                  "N/A"}{" "}
+                                              ({purchaseLot?.cantidad || 0})
+                                          </span>
+                                      );
+                                  })
+                                : item.batch_reference?.codigo_lote_sistema ||
+                                  item.batch_reference?.lot_code ||
+                                  item.batch_reference?.lote_fabricante ||
+                                  "N/A"}
+                        </span>
+                    ) : (
+                        ""
+                    )
+                );
+            },
         },
         {
             name: getFormattedMessage("warehouse.title"),

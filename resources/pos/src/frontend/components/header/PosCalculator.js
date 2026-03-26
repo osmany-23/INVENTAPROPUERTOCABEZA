@@ -2,6 +2,8 @@ import React from "react";
 import { CloseButton } from "react-bootstrap-v5";
 
 class PosCalculator extends React.Component {
+    documentKeyHandler = null;
+
     state = {
         firstVal: "",
         secondVal: "",
@@ -11,9 +13,16 @@ class PosCalculator extends React.Component {
 
     componentDidMount() {
         const { keypressHandler } = this;
-        document.addEventListener("keyup", (ev) => {
+        this.documentKeyHandler = (ev) => {
             keypressHandler(ev);
-        });
+        };
+        document.addEventListener("keyup", this.documentKeyHandler);
+    }
+
+    componentWillUnmount() {
+        if (this.documentKeyHandler) {
+            document.removeEventListener("keyup", this.documentKeyHandler);
+        }
     }
 
     keypressHandler = (ev) => {

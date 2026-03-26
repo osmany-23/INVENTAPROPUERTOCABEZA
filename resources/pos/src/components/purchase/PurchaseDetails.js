@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Col, Row, Table } from "react-bootstrap-v5";
 import Form from "react-bootstrap/Form";
 import { connect } from "react-redux";
+import moment from "moment";
 import {
     faUser,
     faEnvelope,
@@ -23,6 +24,73 @@ import {
 } from "../../shared/sharedMethod";
 import { purchaseDetailsAction } from "../../store/action/purchaseDetailsAction";
 import { fetchFrontSetting } from "../../store/action/frontSettingAction";
+
+const normalizePurchaseLots = (details) => {
+    const rawLots = details?.purchase_lots?.data || details?.purchase_lots || [];
+
+    return Array.isArray(rawLots) ? rawLots : [];
+};
+
+const resolveBatchRecord = (purchaseLot, details) =>
+    purchaseLot?.batch?.data?.attributes || purchaseLot?.batch || details?.batch_reference || null;
+
+const resolveBatchStatus = (batch) => {
+    const expiryDate = batch?.fecha_vencimiento || batch?.expires_at || null;
+    const expired =
+        expiryDate && moment(expiryDate).endOf("day").isBefore(moment());
+
+    return expired
+        ? {
+              label: "Vencido",
+              pillClass: "batch-manager__status-pill batch-manager__status-pill--danger",
+              cardClass: "purchase-lot-card purchase-lot-card--danger",
+          }
+        : {
+              label: "Disponible",
+              pillClass: "batch-manager__status-pill batch-manager__status-pill--success",
+              cardClass: "purchase-lot-card purchase-lot-card--success",
+          };
+};
+
+const formatBatchDate = (value) =>
+    value ? moment(value).format("YYYY-MM-DD") : "Sin fecha";
+
+const formatBatchTax = (batch) =>
+    `${batch?.impuesto_tipo || "EXCLUSIVO"} ${formatNumber(
+        parseNumber(batch?.impuesto_valor, 0),
+        2
+    )}%`;
+
+const createPurchaseLotCards = (details) => {
+    const purchaseLots = normalizePurchaseLots(details);
+
+    if (purchaseLots.length) {
+        return purchaseLots.map((purchaseLot, index) => ({
+            id: purchaseLot?.id || `purchase-lot-${details.id}-${index}`,
+            quantity: purchaseLot?.cantidad ?? 0,
+            purchasePrice: purchaseLot?.costo_unitario ?? details.product_cost,
+            salePrice:
+                purchaseLot?.precio_venta ??
+                details?.product?.product_price ??
+                null,
+            batch: resolveBatchRecord(purchaseLot, details),
+        }));
+    }
+
+    if (details?.batch_reference) {
+        return [
+            {
+                id: `purchase-batch-reference-${details.id}`,
+                quantity: details?.quantity ?? 0,
+                purchasePrice: details?.product_cost ?? 0,
+                salePrice: details?.product?.product_price ?? null,
+                batch: details.batch_reference,
+            },
+        ];
+    }
+
+    return [];
+};
 
 const PurchaseDetails = (props) => {
     const {
@@ -210,6 +278,14 @@ const PurchaseDetails = (props) => {
                                                 purchaseDetails.warehouse.name}
                                         </span>
                                     </div>
+                                    {purchaseDetails?.tipo_origen ? (
+                                        <div className="pb-1">
+                                            <span className="me-2">Origen :</span>
+                                            <span className="badge bg-light-info">
+                                                {purchaseDetails.tipo_origen}
+                                            </span>
+                                        </div>
+                                    ) : null}
                                 </div>
                             </Col>
                         </Row>
@@ -263,6 +339,9 @@ const PurchaseDetails = (props) => {
                                     {purchaseDetails.purchase_items &&
                                         purchaseDetails.purchase_items.map(
                                             (details, index) => {
+                                                const purchaseLotCards =
+                                                    createPurchaseLotCards(details);
+
                                                 return (
                                                     <tr
                                                         key={index}
@@ -277,6 +356,148 @@ const PurchaseDetails = (props) => {
                                                                 details.product
                                                                     .name}{" "}
                                                             )
+                                                            {purchaseLotCards.length > 0 ? (
+                                                                <div className="purchase-lot-card-grid mt-3">
+                                                                    {purchaseLotCards.map(
+                                                                        (purchaseLot) => {
+                                                                            const batch =
+                                                                                purchaseLot.batch;
+                                                                            const status =
+                                                                                resolveBatchStatus(
+                                                                                    batch
+                                                                                );
+                                                                            const highlightedCode =
+                                                                                batch?.lote_fabricante ||
+                                                                                batch?.lot_barcode ||
+                                                                                "Lote sin referencia";
+
+                                                                            return (
+                                                                                <div
+                                                                                    key={purchaseLot.id}
+                                                                                    className={
+                                                                                        status.cardClass
+                                                                                    }
+                                                                                >
+                                                                                    <div className="purchase-lot-card__top">
+                                                                                        <div>
+                                                                                            <span className="purchase-lot-card__eyebrow">
+                                                                                                Lote
+                                                                                            </span>
+                                                                                            <h6 className="purchase-lot-card__title">
+                                                                                                {highlightedCode}
+                                                                                            </h6>
+                                                                                            {batch?.lot_barcode ? (
+                                                                                                <div className="purchase-lot-card__barcode">
+                                                                                                    Codigo barra:{" "}
+                                                                                                    {
+                                                                                                        batch.lot_barcode
+                                                                                                    }
+                                                                                                </div>
+                                                                                            ) : null}
+                                                                                        </div>
+                                                                                        <span
+                                                                                            className={
+                                                                                                status.pillClass
+                                                                                            }
+                                                                                        >
+                                                                                            {
+                                                                                                status.label
+                                                                                            }
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <div className="purchase-lot-card__grid">
+                                                                                        <div>
+                                                                                            <span>
+                                                                                                Cantidad
+                                                                                            </span>
+                                                                                            <strong>
+                                                                                                {formatQuantityAuto(
+                                                                                                    purchaseLot.quantity
+                                                                                                )}
+                                                                                            </strong>
+                                                                                        </div>
+                                                                                        <div>
+                                                                                            <span>
+                                                                                                Precio compra
+                                                                                            </span>
+                                                                                            <strong>
+                                                                                                {currencySymbolHandling(
+                                                                                                    allConfigData,
+                                                                                                    frontSetting.value &&
+                                                                                                        frontSetting
+                                                                                                            .value
+                                                                                                            .currency_symbol,
+                                                                                                    purchaseLot.purchasePrice
+                                                                                                )}
+                                                                                            </strong>
+                                                                                        </div>
+                                                                                        <div>
+                                                                                            <span>
+                                                                                                Precio venta
+                                                                                            </span>
+                                                                                            <strong>
+                                                                                                {purchaseLot.salePrice !==
+                                                                                                null &&
+                                                                                                purchaseLot.salePrice !==
+                                                                                                    undefined
+                                                                                                    ? currencySymbolHandling(
+                                                                                                          allConfigData,
+                                                                                                          frontSetting.value &&
+                                                                                                              frontSetting
+                                                                                                                  .value
+                                                                                                                  .currency_symbol,
+                                                                                                          purchaseLot.salePrice
+                                                                                                      )
+                                                                                                    : "N/A"}
+                                                                                            </strong>
+                                                                                        </div>
+                                                                                        <div>
+                                                                                            <span>
+                                                                                                Ubicacion
+                                                                                            </span>
+                                                                                            <strong>
+                                                                                                {batch?.ubicacion ||
+                                                                                                    "Sin ubicacion"}
+                                                                                            </strong>
+                                                                                        </div>
+                                                                                        <div>
+                                                                                            <span>
+                                                                                                Fabricacion
+                                                                                            </span>
+                                                                                            <strong>
+                                                                                                {formatBatchDate(
+                                                                                                    batch?.fecha_fabricacion
+                                                                                                )}
+                                                                                            </strong>
+                                                                                        </div>
+                                                                                        <div>
+                                                                                            <span>
+                                                                                                Vencimiento
+                                                                                            </span>
+                                                                                            <strong>
+                                                                                                {formatBatchDate(
+                                                                                                    batch?.fecha_vencimiento ||
+                                                                                                        batch?.expires_at
+                                                                                                )}
+                                                                                            </strong>
+                                                                                        </div>
+                                                                                        <div className="purchase-lot-card__wide">
+                                                                                            <span>
+                                                                                                Impuesto
+                                                                                            </span>
+                                                                                            <strong>
+                                                                                                {formatBatchTax(
+                                                                                                    batch
+                                                                                                )}
+                                                                                            </strong>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        }
+                                                                    )}
+                                                                </div>
+                                                            ) : null}
                                                         </td>
                                                         <td>
                                                             {currencySymbolHandling(

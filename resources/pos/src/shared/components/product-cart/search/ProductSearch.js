@@ -8,6 +8,11 @@ import { addToast } from "../../../../store/action/toastAction";
 import { apiBaseURL, toastType } from "../../../../constants";
 import { searchPurchaseProduct } from "../../../../store/action/purchaseProductAction";
 import { getFormattedMessage, placeholderText } from "../../../sharedMethod";
+import {
+    createPurchaseRowId,
+    decoratePurchaseRow,
+    PURCHASE_PRODUCT_KIND,
+} from "../../../purchaseLineHelpers";
 
 const DEFAULT_FAST_SEARCH_LIMIT = 25;
 const DEFAULT_FAST_SEARCH_MIN_CHARS = 2;
@@ -36,7 +41,11 @@ const buildFastSearchCartItem = (product) => {
     const attributes = product?.attributes || {};
     const numericPrice = Number(attributes?.product_price || 0);
     const saleUnitValue =
-        attributes?.sale_unit?.id ?? attributes?.sale_unit ?? null;
+        attributes?.purchase_unit?.id ??
+        attributes?.purchase_unit ??
+        attributes?.sale_unit?.id ??
+        attributes?.sale_unit ??
+        null;
 
     return {
         name: attributes?.name || "",
@@ -44,6 +53,7 @@ const buildFastSearchCartItem = (product) => {
         barcode_url: attributes?.barcode_url || "",
         stock: Number(attributes?.stock?.quantity || 0),
         short_name:
+            attributes?.purchase_unit_name?.short_name ||
             attributes?.sale_unit_name?.short_name ||
             attributes?.product_unit_name?.short_name ||
             attributes?.product_unit_name?.name ||
@@ -75,6 +85,15 @@ const buildFastSearchCartItem = (product) => {
         quotation_item_id: "",
         quantity_limit: attributes?.quantity_limit,
         warehouse_id: attributes?.stock?.warehouse_id,
+        batch_enabled: Boolean(attributes?.batch_enabled),
+        is_batch_product: Boolean(attributes?.is_batch_product),
+        is_variant_product: Boolean(attributes?.is_variant_product),
+        product_type: attributes?.product_type ?? attributes?.main_product_type,
+        main_product_type:
+            attributes?.main_product_type ?? attributes?.product_type,
+        variation_product: attributes?.variation_product || null,
+        variation_type_name:
+            attributes?.variation_product?.variation_type_name || "",
     };
 };
 
@@ -94,6 +113,8 @@ const ProductSearch = (props) => {
         fastSearchDebounceMs = DEFAULT_FAST_SEARCH_DEBOUNCE_MS,
         fastSearchIncludeNoStock = false,
         resultDisplayMode = DEFAULT_RESULT_DISPLAY_MODE,
+        enableBatchDrafts = false,
+        blockBatchProductsWithoutDrafts = false,
     } = props;
 
     const warehouseId = resolveWarehouseId(values);
@@ -421,13 +442,51 @@ const ProductSearch = (props) => {
                 return;
             }
 
+            const decoratedProduct = decoratePurchaseRow(
+                {
+                    ...newProduct,
+                    id: newProduct.id ?? productId,
+                    product_id: newProduct.product_id ?? productId,
+                },
+                product?.attributes || {},
+                {
+                    rowId: createPurchaseRowId(
+                        newProduct.product_id ?? productId,
+                        enableBatchDrafts &&
+                            Boolean(
+                                product?.attributes?.is_batch_product ||
+                                    product?.attributes?.batch_enabled
+                            )
+                            ? "batch"
+                            : "line"
+                    ),
+                }
+            );
+            const isBatchDraft =
+                enableBatchDrafts &&
+                decoratedProduct.product_kind === PURCHASE_PRODUCT_KIND.BATCH;
+
+            if (
+                !isBatchDraft &&
+                blockBatchProductsWithoutDrafts &&
+                decoratedProduct.product_kind === PURCHASE_PRODUCT_KIND.BATCH
+            ) {
+                dispatch(
+                    addToast({
+                        text: "Los productos por lote solo pueden agregarse en compras nuevas.",
+                        type: toastType.ERROR,
+                    })
+                );
+                return;
+            }
+
             setUpdateProducts((prev) => {
                 const existingProduct = prev.find(
                     (item) =>
                         Number(item?.product_id ?? item?.id) === productId
                 );
 
-                if (existingProduct) {
+                if (!isBatchDraft && existingProduct) {
                     if (incrementOnDuplicate) {
                         return prev.map((item) =>
                             Number(item?.product_id ?? item?.id) === productId
@@ -449,14 +508,7 @@ const ProductSearch = (props) => {
                     return prev;
                 }
 
-                return [
-                    ...prev,
-                    {
-                        ...newProduct,
-                        id: newProduct.id ?? productId,
-                        product_id: newProduct.product_id ?? productId,
-                    },
-                ];
+                return [...prev, decoratedProduct];
             });
 
             removeSearchClass();
@@ -476,6 +528,8 @@ const ProductSearch = (props) => {
             searchPurchaseProduct,
             setUpdateProducts,
             warehouseId,
+            enableBatchDrafts,
+            blockBatchProductsWithoutDrafts,
         ]
     );
 

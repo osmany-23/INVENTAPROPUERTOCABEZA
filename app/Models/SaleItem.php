@@ -6,6 +6,7 @@ use App\Models\Contracts\JsonResourceful;
 use App\Traits\HasJsonResourcefulData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * App\Models\SaleItem
@@ -143,5 +144,10 @@ class SaleItem extends BaseModel implements JsonResourceful
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class, 'product_id', 'id');
+    }
+
+    public function batchAllocations(): HasMany
+    {
+        return $this->hasMany(SaleItemBatch::class, 'sale_item_id', 'id');
     }
 }

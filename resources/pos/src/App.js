@@ -134,13 +134,17 @@ function App() {
             require("./assets/css/frontend.rtl.css");
             require("./assets/css/responsive.css");
             require("./assets/css/credits.css");
+            require("./assets/css/product-batches.css");
         } else {
             require("./assets/css/custom.css");
             require("./assets/css/style.css");
             require("./assets/css/frontend.css");
             require("./assets/css/responsive.css");
             require("./assets/css/credits.css");
+            require("./assets/css/product-batches.css");
         }
+
+        require("./assets/css/pos-ui-overrides.css");
     };
 
     useEffect(() => {

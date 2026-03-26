@@ -300,6 +300,35 @@ const SaleDetails = (props) => {
                                                                 details.product
                                                                     .name}
                                                             )
+                                                            {Array.isArray(
+                                                                details.batch_allocations
+                                                            ) &&
+                                                            details.batch_allocations.length >
+                                                                0 ? (
+                                                                <div className="small text-muted mt-1">
+                                                                    {details.batch_allocations.map(
+                                                                        (
+                                                                            allocation,
+                                                                            allocationIndex
+                                                                        ) => (
+                                                                            <div
+                                                                                key={`${allocation.id || allocationIndex}`}
+                                                                            >
+                                                                                Lote:{" "}
+                                                                                {allocation.codigo_lote_sistema ||
+                                                                                    allocation.lot_code}{" "}
+                                                                                / Fab:{" "}
+                                                                                {allocation.lote_fabricante ||
+                                                                                    allocation.lot_code}{" "}
+                                                                                / Qty:{" "}
+                                                                                {formatQuantityAuto(
+                                                                                    allocation.quantity
+                                                                                )}
+                                                                            </div>
+                                                                        )
+                                                                    )}
+                                                                </div>
+                                                            ) : null}
                                                         </td>
                                                         <td>
                                                             {currencySymbolHandling(

@@ -18,6 +18,15 @@ import {
 import { useIntl } from "react-intl";
 import { Tokens } from "../../constants";
 
+const SIDEBAR_SEARCH_DEBOUNCE_MS = 180;
+
+const getMenuItemKey = (item, fallbackPrefix = "menu-item") =>
+    item?.to ||
+    item?.path ||
+    item?.title ||
+    item?.permission ||
+    `${fallbackPrefix}-${item?.subPath?.userSubPath || "default"}`;
+
 const AsideMenu = (props) => {
     const {
         asideConfig,
@@ -32,11 +41,31 @@ const AsideMenu = (props) => {
     const intl = useIntl();
     const { id } = useParams();
     const [searchTerm, setSearchTerm] = useState("");
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
     const updatedLanguage = localStorage.getItem(Tokens.UPDATED_LANGUAGE);
 
     useEffect(() => {
         updateMenu();
     }, [updatedLanguage]);
+
+    useEffect(() => {
+        const timerId = window.setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm.trim());
+        }, SIDEBAR_SEARCH_DEBOUNCE_MS);
+
+        return () => {
+            window.clearTimeout(timerId);
+        };
+    }, [searchTerm]);
+
+    useEffect(() => {
+        if (!isMenuCollapse) {
+            return;
+        }
+
+        setSearchTerm("");
+        setDebouncedSearchTerm("");
+    }, [isMenuCollapse]);
 
     // ar MenuHendling
     const updateMenu = () => {
@@ -81,7 +110,7 @@ const AsideMenu = (props) => {
         });
     };
 
-    const filteredMenu = filterMenu(asideConfig, searchTerm);
+    const filteredMenu = filterMenu(asideConfig || [], debouncedSearchTerm);
 
     // side sub-menu handling
     useEffect(() => {
@@ -91,7 +120,7 @@ const AsideMenu = (props) => {
             var arrow = document.getElementsByClassName("pro-arrow-wrapper");
             filteredMenu.map((SubMenus) => {
                 for (let index = 0; index < element.length; index++) {
-                    if (SubMenus.newRoute && searchTerm.length > 0) {
+                    if (SubMenus.newRoute && debouncedSearchTerm.length > 0) {
                         element[index].lastChild.classList.remove("closed");
                         element[index].lastChild.style.height = "auto";
                         element[index].classList.add("open");
@@ -100,7 +129,7 @@ const AsideMenu = (props) => {
                         }
                         // element[index].classList.add("pro-active-sub-search")
                     } else {
-                        if (!searchTerm) {
+                        if (!debouncedSearchTerm) {
                             element[index].lastChild.classList.add("closed");
                             element[index].classList.remove("open");
                             if (updatedLanguage === "ar") {
@@ -111,12 +140,14 @@ const AsideMenu = (props) => {
                     }
                 }
                 for (let index = 0; index < content.length; index++) {
-                    if (SubMenus.newRoute && searchTerm.length) {
+                    if (SubMenus.newRoute && debouncedSearchTerm.length) {
                         const postName =
                             content[index].children[0]?.innerText.toLowerCase();
                         if (postName !== undefined) {
                             if (
-                                postName.includes(searchTerm.toLowerCase()) ===
+                                postName.includes(
+                                    debouncedSearchTerm.toLowerCase()
+                                ) ===
                                     true ||
                                 postName === "reports"
                             ) {
@@ -134,7 +165,7 @@ const AsideMenu = (props) => {
                             }
                         }
                     } else {
-                        if (!searchTerm) {
+                        if (!debouncedSearchTerm) {
                             const showElement =
                                 content[index].parentElement.parentElement;
                             showElement.classList.remove("notShow");
@@ -143,12 +174,14 @@ const AsideMenu = (props) => {
                 }
             });
         }
-    }, [filteredMenu && searchTerm.length]);
+    }, [filteredMenu, debouncedSearchTerm, updatedLanguage]);
 
     // default open side-menu handling
     useEffect(() => {
         var content = document.getElementsByClassName("pro-item-content");
         var element = document.getElementsByClassName("myDIV");
+        const cleanupListeners = [];
+
         for (let index = 0; index < content.length; index++) {
             const hideElementOne =
                 content[index].firstChild.parentElement.parentElement
@@ -173,7 +206,7 @@ const AsideMenu = (props) => {
                 } else {
                     closeMenu.style.transform = "rotate(45deg)";
                 }
-                element[index].addEventListener("click", () => {
+                const handleMenuClick = () => {
                     let opneElement = element[index].lastChild;
                     if (
                         opneElement.classList.value.includes(
@@ -203,10 +236,22 @@ const AsideMenu = (props) => {
                         opneElement.classList.toggle("openMenu", "openMenu");
                         opneElement.classList.add("closed");
                     }
+                };
+
+                element[index].addEventListener("click", handleMenuClick);
+                cleanupListeners.push(() => {
+                    element[index].removeEventListener(
+                        "click",
+                        handleMenuClick
+                    );
                 });
             }
         }
-    }, [location.pathname]);
+
+        return () => {
+            cleanupListeners.forEach((cleanup) => cleanup());
+        };
+    }, [location.pathname, updatedLanguage]);
 
     return (
         <>
@@ -258,35 +303,36 @@ const AsideMenu = (props) => {
                     </button>
                 </SidebarHeader>
                 <SidebarContent className="sidebar-scrolling">
-                    <div
-                        className={`d-flex position-relative aside-menu-container__aside-search search-control ${
-                            isMenuCollapse ? "d-none" : ""
-                        } py-3 mt-1`}
-                    >
-                        <div className="position-relative d-flex w-100">
-                            <input
-                                className={`form-control ps-8 ${
-                                    isMenuCollapse ? "d-none" : ""
-                                }`}
-                                type="search"
-                                id="search"
-                                placeholder={placeholderText(
-                                    "react-data-table.searchbar.placeholder"
-                                )}
-                                aria-label="Search"
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                            <span className="position-absolute d-flex align-items-center top-0 bottom-0 left-0 text-gray-600 ms-3">
-                                <FontAwesomeIcon icon={faSearch} />
-                            </span>
+                    {!isMenuCollapse && (
+                        <div className="d-flex position-relative aside-menu-container__aside-search search-control py-3 mt-1">
+                            <div className="position-relative d-flex w-100">
+                                <input
+                                    className="form-control ps-8"
+                                    type="search"
+                                    id="search"
+                                    placeholder={placeholderText(
+                                        "react-data-table.searchbar.placeholder"
+                                    )}
+                                    aria-label="Search"
+                                    value={searchTerm}
+                                    onChange={(e) =>
+                                        setSearchTerm(e.target.value)
+                                    }
+                                />
+                                <span className="position-absolute d-flex align-items-center top-0 bottom-0 left-0 text-gray-600 ms-3">
+                                    <FontAwesomeIcon icon={faSearch} />
+                                </span>
+                            </div>
                         </div>
-                    </div>
+                    )}
                     <Menu>
                         {filteredMenu.length ? (
-                            filteredMenu.map((mainItems, index) => {
+                            filteredMenu.map((mainItems) => {
+                                const menuItemKey = getMenuItemKey(mainItems);
+
                                 return mainItems.newRoute ? (
                                     <SubMenu
-                                        key={index}
+                                        key={`${menuItemKey}-submenu`}
                                         title={intl.formatMessage({
                                             id: `${mainItems.title}`,
                                         })}
@@ -351,11 +397,14 @@ const AsideMenu = (props) => {
                                         icon={mainItems.fontIcon}
                                     >
                                         {mainItems.newRoute.map(
-                                            (subMainItems, index) => {
-                                                // subPath.push(subMainItems.to)
+                                            (subMainItems) => {
                                                 return (
                                                     <MenuItem
-                                                        key={index}
+                                                        key={`${menuItemKey}-${
+                                                            subMainItems.to ||
+                                                            subMainItems.path ||
+                                                            subMainItems.title
+                                                        }`}
                                                         icon={
                                                             subMainItems.fontIcon
                                                         }
@@ -406,7 +455,7 @@ const AsideMenu = (props) => {
                                 ) : (
                                     mainItems.to !== "/app/pos" && (
                                         <MenuItem
-                                            key={index}
+                                            key={menuItemKey}
                                             icon={mainItems.fontIcon}
                                             className={`${
                                                 isMenuCollapse === false

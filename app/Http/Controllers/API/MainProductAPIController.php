@@ -14,6 +14,7 @@ use App\Models\SaleItem;
 use App\Models\VariationProduct;
 use App\Repositories\MainProductRepository;
 use App\Repositories\ProductRepository;
+use App\Services\ProductBatchService;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,9 +31,15 @@ class MainProductAPIController extends AppBaseController
     /** @var MainProductRepository */
     private $mainProductRepository;
 
-    public function __construct(MainProductRepository $mainProductRepository)
+    private ProductBatchService $productBatchService;
+
+    public function __construct(
+        MainProductRepository $mainProductRepository,
+        ProductBatchService $productBatchService
+    )
     {
         $this->mainProductRepository = $mainProductRepository;
+        $this->productBatchService = $productBatchService;
     }
 
     public function fastList(Request $request): JsonResponse
@@ -425,7 +432,7 @@ class MainProductAPIController extends AppBaseController
             }
 
             $input['main_product_id'] = $mainProduct->id;
-            if ($input['product_type'] == 2) {
+            if ($input['product_type'] == MainProduct::VARIATION_PRODUCT) {
                 $commonProductInput = Arr::except($input, 'variation_data');
 
                 $variationData = $input['variation_data'];
@@ -440,6 +447,8 @@ class MainProductAPIController extends AppBaseController
                         'main_product_id' => $mainProduct->id,
                     ]);
                 }
+            } elseif ((int) $input['product_type'] === MainProduct::BATCH_PRODUCT) {
+                $product = $this->storeBatchProduct($input, $productRepo);
             } else {
                 $product = $productRepo->storeProduct($input);
             }
@@ -450,6 +459,62 @@ class MainProductAPIController extends AppBaseController
         }
 
         return new MainProductResource($product);
+    }
+
+    private function storeBatchProduct(array $input, ProductRepository $productRepo): Product
+    {
+        $this->productBatchService->ensureBatchTablesExist();
+
+        $batchData = collect($input['batch_data'] ?? [])->values();
+        $primaryBatch = $batchData->first();
+
+        if (! $primaryBatch) {
+            throw new UnprocessableEntityHttpException('Debe agregar al menos un lote para crear este producto.');
+        }
+
+        $batchProductInput = array_merge(
+            Arr::except($input, ['batch_data']),
+            [
+                'code' => $input['code'],
+                'product_cost' => (float) $primaryBatch['product_cost'],
+                'product_price' => (float) $primaryBatch['product_price'],
+                'stock_alert' => $input['stock_alert'] ?? 0,
+                'order_tax' => $primaryBatch['impuesto_valor'] ?? $input['order_tax'] ?? 0,
+                'tax_type' => in_array((string) ($primaryBatch['impuesto_tipo'] ?? ''), ['2', 'INCLUSIVO'], true)
+                    ? 2
+                    : ($input['tax_type'] ?? 1),
+            ]
+        );
+
+        $product = $productRepo->storeProduct($batchProductInput);
+
+        $this->productBatchService->updateSettings($product, [
+            'track_batches' => true,
+        ]);
+
+        foreach ($batchData as $batch) {
+            $this->productBatchService->createBatch($product, [
+                'warehouse_id' => (int) $input['purchase_warehouse_id'],
+                'lot_code' => $batch['lot_code'] ?? $batch['lote_fabricante'] ?? null,
+                'lote_fabricante' => $batch['lote_fabricante'] ?? $batch['lot_code'] ?? null,
+                'lot_barcode' => $batch['lot_barcode'] ?? null,
+                'ubicacion' => $batch['ubicacion'] ?? null,
+                'descripcion' => $batch['descripcion'] ?? null,
+                'quantity' => $batch['quantity'] ?? 0,
+                'received_at' => $batch['received_at'] ?? $input['purchase_date'] ?? null,
+                'fecha_fabricacion' => $batch['fecha_fabricacion'] ?? $batch['manufactured_at'] ?? null,
+                'fecha_vencimiento' => $batch['fecha_vencimiento'] ?? $batch['expires_at'] ?? null,
+                'product_cost' => $batch['product_cost'] ?? null,
+                'product_price' => $batch['product_price'] ?? null,
+                'impuesto_tipo' => $batch['impuesto_tipo'] ?? $input['tax_type'] ?? null,
+                'impuesto_valor' => $batch['impuesto_valor'] ?? $input['order_tax'] ?? null,
+                'purchase_supplier_id' => $input['purchase_supplier_id'] ?? null,
+                'purchase_status' => $input['purchase_status'] ?? null,
+                'source' => 'main-product-create',
+            ]);
+        }
+
+        return $product->fresh();
     }
 
     public function update(UpdateMainProductRequest $request, $id): MainProductResource

@@ -16,6 +16,7 @@ import { productUnitDropdown } from "../../store/action/productUnitAction";
 import ReactSelect from "../../shared/select/reactSelect";
 import { calculateProductCost } from "./SharedMethod";
 import { taxMethodOptions, discountMethodOptions } from "../../constants";
+import { getCartRowId } from "../../shared/batchHelpers";
 
 const keepTwoDecimals = (value) => {
     if (value === "") {
@@ -236,7 +237,7 @@ const ProductDetailsModel = (props) => {
             return;
         }
 
-        if (Number(productModelId) !== Number(product.id)) {
+        if (String(productModelId) !== getCartRowId(product)) {
             return;
         }
 

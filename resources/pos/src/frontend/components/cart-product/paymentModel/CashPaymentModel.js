@@ -7,7 +7,6 @@ import {
     getFormattedMessage,
     getFormattedOptions,
     numFloatValidate,
-    numValidate,
     parseNumber,
     placeholderText,
 } from "../../../../shared/sharedMethod";
@@ -36,7 +35,7 @@ const CashPaymentModel = (props) => {
         paymentTypeFilterOptions,
         allConfigData,
         onChangeReturnChange,
-        onCreditToggleChange,
+        onCreditTypeChange,
         onUseCustomerCreditConfigChange,
         creditAvailability,
         isLoadingCreditAvailability,
@@ -46,39 +45,55 @@ const CashPaymentModel = (props) => {
     const [summation, setSummation] = useState(0);
     const dispatch = useDispatch();
     const isPaidSale = cashPaymentValue?.payment_status?.value === 1;
+    const isCreditSale = cashPaymentValue?.payment_status?.value === 2;
     const maxInstallments = Math.max(
         Number(creditAvailability?.max_installments || 1),
         1
     );
-    const creditEnabled =
-        cashPaymentValue?.payment_status?.value === 2 &&
-        cashPaymentValue?.credit_enabled;
+    const creditInitialPayment = parseNumber(
+        cashPaymentValue?.credit_initial_payment,
+        0
+    );
+    const showCreditInitialPaymentMethod =
+        isCreditSale && creditInitialPayment > 0;
+    const usesInstallments = cashPaymentValue?.credit_type !== "libre";
     const creditBlocked =
-        creditEnabled &&
+        isCreditSale &&
         !isLoadingCreditAvailability &&
         !creditAvailability?.allowed;
 
     useEffect(() => {
-        cashPaymentValue.received_amount !== undefined
-            ? setSummation(cashPaymentValue.received_amount - grandTotal)
-            : setSummation(summation);
-    }, [cashPaymentValue.received_amount, grandTotal]);
+        if (!isPaidSale) {
+            setSummation(0);
+            return;
+        }
+
+        const receivedAmount =
+            cashPaymentValue?.received_amount !== undefined
+                ? parseNumber(cashPaymentValue.received_amount, 0)
+                : parseNumber(grandTotal, 0);
+
+        setSummation(receivedAmount - parseNumber(grandTotal, 0));
+    }, [cashPaymentValue?.received_amount, grandTotal, isPaidSale]);
 
     useEffect(() => {
         onChangeReturnChange(summation);
-    }, [summation]);
+    }, [summation, onChangeReturnChange]);
 
     const paymentStatusFilterOptions = getFormattedOptions(
         salePaymentStatusOptions
-    );
+    ).map((option) => ({
+        ...option,
+        name: option.id === 2 ? "Venta a crédito" : option.name,
+    }));
     const paymentStatusDefaultValue = paymentStatusFilterOptions.map(
-        (option) => {
-            return {
-                value: option.id,
-                label: option.name,
-            };
-        }
+        (option) => ({
+            value: option.id,
+            label: option.name,
+        })
     );
+    const currencySymbol =
+        settings.attributes && settings.attributes.currency_symbol;
 
     return (
         <Modal
@@ -96,291 +111,299 @@ const CashPaymentModel = (props) => {
                 <div className="row">
                     <div className="col-lg-8 col-12">
                         <div className="row">
-                            {isPaidSale && <Form.Group
-                                className="mb-3 col-6"
-                                controlId="formBasicReceived_amount"
-                            >
-                                <Form.Label>
-                                    {getFormattedMessage(
-                                        "pos-received-amount.title"
-                                    )}
-                                    :{" "}
-                                </Form.Label>
-                                <Form.Control
-                                    type="text"
-                                    min={0}
-                                    onKeyPress={(event) => numFloatValidate(event)}
-                                    name="received_amount"
-                                    autoComplete="off"
-                                    className="form-control-solid"
-                                    defaultValue={grandTotal}
-                                    onChange={(e) => onChangeInput(e)}
-                                />
-                            </Form.Group>}
-                            {isPaidSale && <Form.Group className="mb-3 col-6">
-                                <Form.Label>
-                                    {getFormattedMessage(
-                                        "pos-paying-amount.title"
-                                    )}
-                                    :{" "}
-                                </Form.Label>
-                                <Form.Control
-                                    type="text"
-                                    name="paying_amount"
-                                    autoComplete="off"
-                                    readOnly={true}
-                                    className="form-control-solid"
-                                    value={grandTotal}
-                                />
-                            </Form.Group>}
-                            {isPaidSale && <Form.Group className="mb-3 col-6">
-                                <Form.Label>
-                                    {getFormattedMessage(
-                                        "pos.change-return.label"
-                                    )}{" "}
-                                    :{" "}
-                                </Form.Label>
-                                <Form.Control
-                                    type="number"
-                                    autoComplete="off"
-                                    readOnly={true}
-                                    className="form-control-solid"
-                                    value={formatNumber(summation, 2)}
-                                />
-                            </Form.Group>}
-                            {cashPaymentValue?.payment_status?.value === 1 &&<Form.Group
-                                className="mb-3 col-6"
-                                controlId="formBasicType"
-                            >
-                                <Form.Label>
-                                    {getFormattedMessage(
-                                        "globally.react-table.column.payment-type.label"
-                                    )}
-                                    :
-                                </Form.Label>
-                                <ReactSelect
-                                    multiLanguageOption={
-                                        paymentTypeFilterOptions
-                                    }
-                                    onChange={onPaymentTypeChange}
-                                    name="payment_type"
-                                    isRequired
-                                    defaultValue={paymentTypeDefaultValue[0]}
-                                    placeholder={getFormattedMessage(
-                                        "select.payment-type.label"
-                                    )}
-                                />
-                            </Form.Group>}
-                            {cashPaymentValue?.payment_status?.value === 2 && (
+                            {isPaidSale && (
+                                <Form.Group
+                                    className="mb-3 col-6"
+                                    controlId="formBasicReceived_amount"
+                                >
+                                    <Form.Label>
+                                        {getFormattedMessage(
+                                            "pos-received-amount.title"
+                                        )}
+                                        :{" "}
+                                    </Form.Label>
+                                    <Form.Control
+                                        type="text"
+                                        min={0}
+                                        onKeyPress={(event) =>
+                                            numFloatValidate(event)
+                                        }
+                                        name="received_amount"
+                                        autoComplete="off"
+                                        className="form-control-solid"
+                                        defaultValue={grandTotal}
+                                        onChange={(e) => onChangeInput(e)}
+                                    />
+                                </Form.Group>
+                            )}
+                            {isPaidSale && (
+                                <Form.Group className="mb-3 col-6">
+                                    <Form.Label>
+                                        {getFormattedMessage(
+                                            "pos-paying-amount.title"
+                                        )}
+                                        :{" "}
+                                    </Form.Label>
+                                    <Form.Control
+                                        type="text"
+                                        name="paying_amount"
+                                        autoComplete="off"
+                                        readOnly={true}
+                                        className="form-control-solid"
+                                        value={grandTotal}
+                                    />
+                                </Form.Group>
+                            )}
+                            {isPaidSale && (
+                                <Form.Group className="mb-3 col-6">
+                                    <Form.Label>
+                                        {getFormattedMessage(
+                                            "pos.change-return.label"
+                                        )}{" "}
+                                        :{" "}
+                                    </Form.Label>
+                                    <Form.Control
+                                        type="number"
+                                        autoComplete="off"
+                                        readOnly={true}
+                                        className="form-control-solid"
+                                        value={formatNumber(summation, 2)}
+                                    />
+                                </Form.Group>
+                            )}
+                            {isPaidSale && (
+                                <Form.Group
+                                    className="mb-3 col-6"
+                                    controlId="formBasicType"
+                                >
+                                    <Form.Label>
+                                        {getFormattedMessage(
+                                            "globally.react-table.column.payment-type.label"
+                                        )}
+                                        :
+                                    </Form.Label>
+                                    <ReactSelect
+                                        multiLanguageOption={
+                                            paymentTypeFilterOptions
+                                        }
+                                        onChange={onPaymentTypeChange}
+                                        name="payment_type"
+                                        isRequired
+                                        defaultValue={paymentTypeDefaultValue[0]}
+                                        placeholder={getFormattedMessage(
+                                            "select.payment-type.label"
+                                        )}
+                                    />
+                                </Form.Group>
+                            )}
+                            {isCreditSale && (
                                 <div className="col-12 mb-3">
                                     <div className="border rounded p-4 bg-light-primary">
-                                        <Form.Check
-                                            type="switch"
-                                            id="posCreateCreditSwitch"
-                                            className="mb-4"
-                                            label="Crear crédito para esta venta"
-                                            checked={cashPaymentValue?.credit_enabled}
-                                            onChange={onCreditToggleChange}
-                                        />
-                                        {cashPaymentValue?.credit_enabled && (
-                                            <>
-                                                <Form.Check
-                                                    type="switch"
-                                                    id="posUseCustomerCreditConfigSwitch"
-                                                    className="mb-3"
-                                                    label="Usar configuracion del cliente"
-                                                    checked={
-                                                        cashPaymentValue?.use_customer_credit_config
+                                        <div className="fw-semibold mb-3">
+                                            Venta a crédito
+                                        </div>
+                                        <div className="row">
+                                            <Form.Group className="mb-3 col-md-4">
+                                                <Form.Label>
+                                                    Pago inicial
+                                                </Form.Label>
+                                                <Form.Control
+                                                    type="text"
+                                                    min={0}
+                                                    onKeyPress={(event) =>
+                                                        numFloatValidate(event)
                                                     }
-                                                    onChange={
-                                                        onUseCustomerCreditConfigChange
+                                                    name="credit_initial_payment"
+                                                    autoComplete="off"
+                                                    value={
+                                                        cashPaymentValue?.credit_initial_payment
+                                                    }
+                                                    onChange={(e) =>
+                                                        onChangeInput(e)
                                                     }
                                                 />
-                                                <div className="small text-muted mb-3">
-                                                    Se autocompletan interes y cuotas desde la
-                                                    linea de credito del cliente, pero puede
-                                                    editarlos antes de guardar.
-                                                </div>
-                                                <div className="row g-3 mb-3">
-                                                    <div className="col-md-3 col-sm-6">
-                                                        <div className="border rounded bg-white p-3 h-100">
-                                                            <div className="text-muted small mb-1">
-                                                                Limite
-                                                            </div>
-                                                            <strong>
-                                                                {currencySymbolHandling(
-                                                                    allConfigData,
-                                                                    settings.attributes &&
-                                                                        settings.attributes
-                                                                            .currency_symbol,
-                                                                    Number(
-                                                                        creditAvailability?.credit_limit || 0
-                                                                    ).toFixed(2)
-                                                                )}
-                                                            </strong>
-                                                        </div>
-                                                    </div>
-                                                    <div className="col-md-3 col-sm-6">
-                                                        <div className="border rounded bg-white p-3 h-100">
-                                                            <div className="text-muted small mb-1">
-                                                                Usado
-                                                            </div>
-                                                            <strong>
-                                                                {currencySymbolHandling(
-                                                                    allConfigData,
-                                                                    settings.attributes &&
-                                                                        settings.attributes
-                                                                            .currency_symbol,
-                                                                    Number(
-                                                                        creditAvailability?.used_credit || 0
-                                                                    ).toFixed(2)
-                                                                )}
-                                                            </strong>
-                                                        </div>
-                                                    </div>
-                                                    <div className="col-md-3 col-sm-6">
-                                                        <div className="border rounded bg-white p-3 h-100">
-                                                            <div className="text-muted small mb-1">
-                                                                Disponible
-                                                            </div>
-                                                            <strong className="text-success">
-                                                                {currencySymbolHandling(
-                                                                    allConfigData,
-                                                                    settings.attributes &&
-                                                                        settings.attributes
-                                                                            .currency_symbol,
-                                                                    Number(
-                                                                        creditAvailability?.available_credit || 0
-                                                                    ).toFixed(2)
-                                                                )}
-                                                            </strong>
-                                                        </div>
-                                                    </div>
-                                                    <div className="col-md-3 col-sm-6">
-                                                        <div className="border rounded bg-white p-3 h-100">
-                                                            <div className="text-muted small mb-1">
-                                                                Credito a crear
-                                                            </div>
-                                                            <strong>
-                                                                {currencySymbolHandling(
-                                                                    allConfigData,
-                                                                    settings.attributes &&
-                                                                        settings.attributes
-                                                                            .currency_symbol,
-                                                                    Number(
-                                                                        creditAvailability?.requested_amount || 0
-                                                                    ).toFixed(2)
-                                                                )}
-                                                            </strong>
-                                                            <div className="small text-muted mt-1">
-                                                                Incluye interes proyectado de{" "}
-                                                                {currencySymbolHandling(
-                                                                    allConfigData,
-                                                                    settings.attributes &&
-                                                                        settings.attributes
-                                                                            .currency_symbol,
-                                                                    Number(
-                                                                        creditAvailability?.projected_interest_amount ||
-                                                                            0
-                                                                    ).toFixed(2)
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="row">
-                                                    <Form.Group className="mb-3 col-md-4">
-                                                        <Form.Label>Interes (%)</Form.Label>
-                                                        <Form.Control
-                                                            type="number"
-                                                            min={0}
-                                                            step="0.01"
-                                                            name="credit_interest_rate"
-                                                            value={
-                                                                cashPaymentValue?.credit_interest_rate
-                                                            }
-                                                            onChange={(e) => onChangeInput(e)}
-                                                        />
-                                                    </Form.Group>
-                                                    <Form.Group className="mb-3 col-md-4">
-                                                        <Form.Label>Cuotas</Form.Label>
-                                                        <Form.Control
-                                                            type="number"
-                                                            min={1}
-                                                            step="1"
-                                                            name="credit_installments"
-                                                            value={
-                                                                cashPaymentValue?.credit_installments
-                                                            }
-                                                            onChange={(e) => onChangeInput(e)}
-                                                        />
-                                                        <span className="text-danger">
-                                                            {errors["credit_installments"]
-                                                                ? errors["credit_installments"]
-                                                                : null}
-                                                        </span>
-                                                        <div className="small text-muted mt-1">
-                                                            Maximo configurado: {maxInstallments}
-                                                        </div>
-                                                    </Form.Group>
-                                                    <Form.Group className="mb-3 col-md-4">
-                                                        <Form.Label>Vence el</Form.Label>
-                                                        <Form.Control
-                                                            type="date"
-                                                            name="credit_due_date"
-                                                            value={
-                                                                cashPaymentValue?.credit_due_date
-                                                            }
-                                                            onChange={(e) => onChangeInput(e)}
-                                                        />
-                                                        <span className="text-danger">
-                                                            {errors["credit_due_date"]
-                                                                ? errors["credit_due_date"]
-                                                                : null}
-                                                        </span>
-                                                    </Form.Group>
-                                                </div>
-                                                <div
-                                                    className={`alert mb-3 ${
-                                                        creditBlocked
-                                                            ? "alert-danger"
-                                                            : "alert-success"
-                                                    }`}
+                                                <span className="text-danger">
+                                                    {errors[
+                                                        "credit_initial_payment"
+                                                    ]
+                                                        ? errors[
+                                                              "credit_initial_payment"
+                                                          ]
+                                                        : null}
+                                                </span>
+                                            </Form.Group>
+                                            <Form.Group className="mb-3 col-md-4">
+                                                <Form.Label>
+                                                    Tipo de crédito
+                                                </Form.Label>
+                                                <Form.Select
+                                                    name="credit_type"
+                                                    value={
+                                                        cashPaymentValue?.credit_type ||
+                                                        "automatico"
+                                                    }
+                                                    onChange={
+                                                        onCreditTypeChange
+                                                    }
                                                 >
-                                                    <div className="fw-bold mb-1">
-                                                        {selectedCustomerName ||
-                                                            "Cliente no seleccionado"}
-                                                    </div>
-                                                    <div>
-                                                        {isLoadingCreditAvailability
-                                                            ? "Validando linea de credito en tiempo real..."
-                                                            : creditAvailability?.message ||
-                                                              "Credito disponible."}
-                                                    </div>
-                                                    {creditAvailability?.has_overdue_credits ? (
-                                                        <div className="small mt-2">
-                                                            El cliente tiene creditos vencidos y
-                                                            no puede recibir nuevas ventas a
-                                                            credito.
-                                                        </div>
-                                                    ) : null}
-                                                </div>
-                                                {false && <div className="row d-none">
-                                                <Form.Group className="mb-3 col-md-4">
-                                                    <Form.Label>Interés (%)</Form.Label>
-                                                    <Form.Control
-                                                        type="number"
-                                                        min={0}
-                                                        step="0.01"
-                                                        name="credit_interest_rate"
-                                                        value={
-                                                            cashPaymentValue?.credit_interest_rate
+                                                    <option value="automatico">
+                                                        Con cuotas
+                                                    </option>
+                                                    <option value="libre">
+                                                        Sin cuotas
+                                                    </option>
+                                                </Form.Select>
+                                            </Form.Group>
+                                            {showCreditInitialPaymentMethod && (
+                                                <Form.Group
+                                                    className="mb-3 col-md-4"
+                                                    controlId="formBasicCreditType"
+                                                >
+                                                    <Form.Label>
+                                                        Método del abono inicial
+                                                    </Form.Label>
+                                                    <ReactSelect
+                                                        multiLanguageOption={
+                                                            paymentTypeFilterOptions
                                                         }
-                                                        onChange={(e) => onChangeInput(e)}
+                                                        onChange={
+                                                            onPaymentTypeChange
+                                                        }
+                                                        name="payment_type"
+                                                        isRequired
+                                                        defaultValue={
+                                                            paymentTypeDefaultValue[0]
+                                                        }
+                                                        placeholder={getFormattedMessage(
+                                                            "select.payment-type.label"
+                                                        )}
                                                     />
                                                 </Form.Group>
+                                            )}
+                                        </div>
+                                        <Form.Check
+                                            type="switch"
+                                            id="posUseCustomerCreditConfigSwitch"
+                                            className="mb-3"
+                                            label="Usar configuración del cliente"
+                                            checked={
+                                                cashPaymentValue?.use_customer_credit_config
+                                            }
+                                            onChange={
+                                                onUseCustomerCreditConfigChange
+                                            }
+                                        />
+                                        <div className="small text-muted mb-3">
+                                            Se autocompletan interés y cuotas
+                                            desde la línea de crédito del
+                                            cliente, pero puede editarlos antes
+                                            de guardar.
+                                        </div>
+                                        <div className="row g-3 mb-3">
+                                            <div className="col-md-3 col-sm-6">
+                                                <div className="border rounded bg-white p-3 h-100">
+                                                    <div className="text-muted small mb-1">
+                                                        Límite
+                                                    </div>
+                                                    <strong>
+                                                        {currencySymbolHandling(
+                                                            allConfigData,
+                                                            currencySymbol,
+                                                            Number(
+                                                                creditAvailability?.credit_limit ||
+                                                                    0
+                                                            ).toFixed(2)
+                                                        )}
+                                                    </strong>
+                                                </div>
+                                            </div>
+                                            <div className="col-md-3 col-sm-6">
+                                                <div className="border rounded bg-white p-3 h-100">
+                                                    <div className="text-muted small mb-1">
+                                                        Usado
+                                                    </div>
+                                                    <strong>
+                                                        {currencySymbolHandling(
+                                                            allConfigData,
+                                                            currencySymbol,
+                                                            Number(
+                                                                creditAvailability?.used_credit ||
+                                                                    0
+                                                            ).toFixed(2)
+                                                        )}
+                                                    </strong>
+                                                </div>
+                                            </div>
+                                            <div className="col-md-3 col-sm-6">
+                                                <div className="border rounded bg-white p-3 h-100">
+                                                    <div className="text-muted small mb-1">
+                                                        Disponible
+                                                    </div>
+                                                    <strong className="text-success">
+                                                        {currencySymbolHandling(
+                                                            allConfigData,
+                                                            currencySymbol,
+                                                            Number(
+                                                                creditAvailability?.available_credit ||
+                                                                    0
+                                                            ).toFixed(2)
+                                                        )}
+                                                    </strong>
+                                                </div>
+                                            </div>
+                                            <div className="col-md-3 col-sm-6">
+                                                <div className="border rounded bg-white p-3 h-100">
+                                                    <div className="text-muted small mb-1">
+                                                        Saldo a crédito
+                                                    </div>
+                                                    <strong>
+                                                        {currencySymbolHandling(
+                                                            allConfigData,
+                                                            currencySymbol,
+                                                            Number(
+                                                                creditAvailability?.requested_principal_amount ||
+                                                                    creditAvailability?.requested_amount ||
+                                                                    0
+                                                            ).toFixed(2)
+                                                        )}
+                                                    </strong>
+                                                    <div className="small text-muted mt-1">
+                                                        Interés proyectado:{" "}
+                                                        {currencySymbolHandling(
+                                                            allConfigData,
+                                                            currencySymbol,
+                                                            Number(
+                                                                creditAvailability?.projected_interest_amount ||
+                                                                    0
+                                                            ).toFixed(2)
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="row">
+                                            <Form.Group className="mb-3 col-md-4">
+                                                <Form.Label>
+                                                    Interés (%)
+                                                </Form.Label>
+                                                <Form.Control
+                                                    type="number"
+                                                    min={0}
+                                                    step="0.01"
+                                                    name="credit_interest_rate"
+                                                    value={
+                                                        cashPaymentValue?.credit_interest_rate
+                                                    }
+                                                    onChange={(e) =>
+                                                        onChangeInput(e)
+                                                    }
+                                                />
+                                            </Form.Group>
+                                            {usesInstallments ? (
                                                 <Form.Group className="mb-3 col-md-4">
-                                                    <Form.Label>Cuotas</Form.Label>
+                                                    <Form.Label>
+                                                        Cuotas
+                                                    </Form.Label>
                                                     <Form.Control
                                                         type="number"
                                                         min={1}
@@ -389,33 +412,82 @@ const CashPaymentModel = (props) => {
                                                         value={
                                                             cashPaymentValue?.credit_installments
                                                         }
-                                                        onChange={(e) => onChangeInput(e)}
-                                                    />
-                                                    <span className="text-danger">
-                                                        {errors["credit_installments"]
-                                                            ? errors["credit_installments"]
-                                                            : null}
-                                                    </span>
-                                                </Form.Group>
-                                                <Form.Group className="mb-3 col-md-4">
-                                                    <Form.Label>Vence el</Form.Label>
-                                                    <Form.Control
-                                                        type="date"
-                                                        name="credit_due_date"
-                                                        value={
-                                                            cashPaymentValue?.credit_due_date
+                                                        onChange={(e) =>
+                                                            onChangeInput(e)
                                                         }
-                                                        onChange={(e) => onChangeInput(e)}
                                                     />
                                                     <span className="text-danger">
-                                                        {errors["credit_due_date"]
-                                                            ? errors["credit_due_date"]
+                                                        {errors[
+                                                            "credit_installments"
+                                                        ]
+                                                            ? errors[
+                                                                  "credit_installments"
+                                                              ]
                                                             : null}
                                                     </span>
+                                                    <div className="small text-muted mt-1">
+                                                        Máximo configurado:{" "}
+                                                        {maxInstallments}
+                                                    </div>
                                                 </Form.Group>
-                                            </div>}
-                                            </>
-                                        )}
+                                            ) : (
+                                                <Form.Group className="mb-3 col-md-4">
+                                                    <Form.Label>
+                                                        Cuotas
+                                                    </Form.Label>
+                                                    <Form.Control
+                                                        type="text"
+                                                        readOnly
+                                                        value="Sin cuotas"
+                                                    />
+                                                </Form.Group>
+                                            )}
+                                            <Form.Group className="mb-3 col-md-4">
+                                                <Form.Label>Vence el</Form.Label>
+                                                <Form.Control
+                                                    type="date"
+                                                    name="credit_due_date"
+                                                    value={
+                                                        cashPaymentValue?.credit_due_date
+                                                    }
+                                                    onChange={(e) =>
+                                                        onChangeInput(e)
+                                                    }
+                                                />
+                                                <span className="text-danger">
+                                                    {errors["credit_due_date"]
+                                                        ? errors[
+                                                              "credit_due_date"
+                                                          ]
+                                                        : null}
+                                                </span>
+                                            </Form.Group>
+                                        </div>
+                                        <div
+                                            className={`alert mb-0 ${
+                                                creditBlocked
+                                                    ? "alert-danger"
+                                                    : "alert-success"
+                                            }`}
+                                        >
+                                            <div className="fw-bold mb-1">
+                                                {selectedCustomerName ||
+                                                    "Cliente no seleccionado"}
+                                            </div>
+                                            <div>
+                                                {isLoadingCreditAvailability
+                                                    ? "Validando línea de crédito en tiempo real..."
+                                                    : creditAvailability?.message ||
+                                                      "Crédito disponible."}
+                                            </div>
+                                            {creditAvailability?.has_overdue_credits ? (
+                                                <div className="small mt-2">
+                                                    El cliente tiene créditos
+                                                    vencidos y no puede recibir
+                                                    nuevas ventas a crédito.
+                                                </div>
+                                            ) : null}
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -485,7 +557,9 @@ const CashPaymentModel = (props) => {
                                             </td>
                                             <td className="px-3">
                                                 <span className="btn btn-primary cursor-default rounded-circle total-qty-text d-flex align-items-center justify-content-center p-2">
-                                                    {formatQuantityAuto(totalQty)}
+                                                    {formatQuantityAuto(
+                                                        totalQty
+                                                    )}
                                                 </span>
                                             </td>
                                         </tr>
@@ -498,9 +572,7 @@ const CashPaymentModel = (props) => {
                                             <td className="px-3">
                                                 {currencySymbolHandling(
                                                     allConfigData,
-                                                    settings.attributes &&
-                                                        settings.attributes
-                                                            .currency_symbol,
+                                                    currencySymbol,
                                                     subTotal ? subTotal : "0.00"
                                                 )}
                                             </td>
@@ -514,9 +586,7 @@ const CashPaymentModel = (props) => {
                                             <td className="px-3">
                                                 {currencySymbolHandling(
                                                     allConfigData,
-                                                    settings.attributes &&
-                                                        settings.attributes
-                                                            .currency_symbol,
+                                                    currencySymbol,
                                                     taxTotal ? taxTotal : "0.00"
                                                 )}{" "}
                                                 (
@@ -541,9 +611,7 @@ const CashPaymentModel = (props) => {
                                             <td className="px-3">
                                                 {currencySymbolHandling(
                                                     allConfigData,
-                                                    settings.attributes &&
-                                                        settings.attributes
-                                                            .currency_symbol,
+                                                    currencySymbol,
                                                     cartItemValue.discount
                                                         ? cartItemValue.discount
                                                         : "0.00"
@@ -559,9 +627,7 @@ const CashPaymentModel = (props) => {
                                             <td className="px-3">
                                                 {currencySymbolHandling(
                                                     allConfigData,
-                                                    settings.attributes &&
-                                                        settings.attributes
-                                                            .currency_symbol,
+                                                    currencySymbol,
                                                     cartItemValue.shipping
                                                         ? cartItemValue.shipping
                                                         : "0.00"
@@ -577,9 +643,7 @@ const CashPaymentModel = (props) => {
                                             <td className="px-3">
                                                 {currencySymbolHandling(
                                                     allConfigData,
-                                                    settings.attributes &&
-                                                        settings.attributes
-                                                            .currency_symbol,
+                                                    currencySymbol,
                                                     grandTotal
                                                 )}
                                             </td>
@@ -595,12 +659,17 @@ const CashPaymentModel = (props) => {
                 <button
                     type="button"
                     className="btn btn-primary"
-                    disabled={creditEnabled && (creditBlocked || isLoadingCreditAvailability)}
+                    disabled={isCreditSale && (creditBlocked || isLoadingCreditAvailability)}
                     onClick={(event) => {
-                        if (isPaidSale && cashPaymentValue.received_amount !== undefined) {
+                        if (
+                            isPaidSale &&
+                            cashPaymentValue.received_amount !== undefined
+                        ) {
                             if (
-                                parseNumber(cashPaymentValue.received_amount, 0) <
-                                parseNumber(grandTotal, 0)
+                                parseNumber(
+                                    cashPaymentValue.received_amount,
+                                    0
+                                ) < parseNumber(grandTotal, 0)
                             ) {
                                 dispatch(
                                     addToast({
@@ -623,12 +692,17 @@ const CashPaymentModel = (props) => {
                 <button
                     type="button"
                     className="btn btn-primary"
-                    disabled={creditEnabled && (creditBlocked || isLoadingCreditAvailability)}
+                    disabled={isCreditSale && (creditBlocked || isLoadingCreditAvailability)}
                     onClick={(event) => {
-                        if (isPaidSale && cashPaymentValue.received_amount !== undefined) {
+                        if (
+                            isPaidSale &&
+                            cashPaymentValue.received_amount !== undefined
+                        ) {
                             if (
-                                parseNumber(cashPaymentValue.received_amount, 0) <
-                                parseNumber(grandTotal, 0)
+                                parseNumber(
+                                    cashPaymentValue.received_amount,
+                                    0
+                                ) < parseNumber(grandTotal, 0)
                             ) {
                                 dispatch(
                                     addToast({
@@ -639,10 +713,10 @@ const CashPaymentModel = (props) => {
                                     })
                                 );
                             } else {
-                                onCashPayment(event,true);
+                                onCashPayment(event, true);
                             }
                         } else {
-                            onCashPayment(event,true);
+                            onCashPayment(event, true);
                         }
                     }}
                 >
@@ -659,4 +733,5 @@ const CashPaymentModel = (props) => {
         </Modal>
     );
 };
+
 export default CashPaymentModel;

@@ -17,7 +17,7 @@ import Spinner from "../../shared/components/loaders/Spinner";
 import TopProgressBar from "../../shared/components/loaders/TopProgressBar";
 import WareHouseDetailsModal from "./WareHouseDetailsModal";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEdit, faEye, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faBoxOpen, faEdit, faEye, faTrash } from "@fortawesome/free-solid-svg-icons";
 import EditSubProductModal from "./EditSubProductModal";
 import DeleteProduct from "./DeleteProduct";
 import CreateSubProductModal from "./CreateSubProductModal";
@@ -30,6 +30,8 @@ const ProductDetail = (props) => {
     const canCreateProduct = can("products.create", { strict: true });
     const canUpdateProduct = can("products.update", { strict: true });
     const canDeleteProduct = can("products.delete", { strict: true });
+    const canManageBatches =
+        can("products.view", { strict: true }) || can("pos.view", { strict: true });
     const { id } = useParams();
     const result =
         products &&
@@ -51,6 +53,17 @@ const ProductDetail = (props) => {
     const deleteTooltipLabel = intl.formatMessage({
         id: "globally.delete.tooltip.label",
     });
+    const productTypeLabel =
+        product && product.attributes
+            ? Number(product.attributes.product_type) === 1
+                ? getFormattedMessage("products.type.single-type.label")
+                : Number(product.attributes.product_type) === 2
+                ? getFormattedMessage("variation.title")
+                : intl.formatMessage({
+                      id: "product.type.batch.label",
+                      defaultMessage: "Por lote",
+                  })
+            : "";
 
    const sliderImage =
         product &&
@@ -99,6 +112,10 @@ const ProductDetail = (props) => {
     const openCreateSubProductModal = () => {
         setProductData(commonDataForNewProduct);
         setShowCreateSubProductModal(true);
+    }
+
+    const goToBatchManager = (productId) => {
+        window.location.href = `#/app/products/batches/${productId}`;
     }
 
     return (
@@ -150,9 +167,7 @@ const ProductDetail = (props) => {
                                                 )}
                                             </th>
                                             <td className="py-4">
-                                                {product &&
-                                                    product.attributes &&
-                                                    product.attributes.product_type == 1 ? getFormattedMessage('products.type.single-type.label') : getFormattedMessage('variation.title')}
+                                                {productTypeLabel}
                                             </td>
                                         </tr>
                                         <tr>
@@ -342,6 +357,17 @@ const ProductDetail = (props) => {
                                                         openEditSubProductModal(data)
                                                     }}>
                                                     <FontAwesomeIcon icon={faEdit} />
+                                                </button>
+                                            )}
+                                            {canManageBatches && (
+                                                <button title="Gestionar lotes"
+                                                    className='btn px-2 fs-3 ps-0 border-0'
+                                                    style={{ color: '#6571FF' }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        goToBatchManager(data.id);
+                                                    }}>
+                                                    <FontAwesomeIcon icon={faBoxOpen} />
                                                 </button>
                                             )}
                                             {canDeleteProduct && product.attributes.product_type == 2 && allProducts.length > 1 &&

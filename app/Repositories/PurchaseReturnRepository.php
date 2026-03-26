@@ -6,8 +6,10 @@ use App\Models\ManageStock;
 use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
+use App\Models\PurchaseLot;
 use App\Models\PurchaseReturn;
 use App\Models\PurchaseReturnItem;
+use App\Services\ProductBatchService;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
@@ -87,6 +89,15 @@ class PurchaseReturnRepository extends BaseRepository
                     throw new UnprocessableEntityHttpException('Please Enter Attlist One Quantity.');
                 }
             }
+            $this->assertTrackedBatchReturnsAreExplicit($input['purchase_return_items'] ?? []);
+
+            $hasBatchLinkedItems = $this->containsBatchLinkedItems($input['purchase_return_items'] ?? []);
+            if ($hasBatchLinkedItems) {
+                $input['purchase_return_items'] = $this->enrichBatchPurchaseReturnItems(
+                    $input['purchase_return_items'] ?? [],
+                    ! empty($input['purchase_id']) ? (int) $input['purchase_id'] : null
+                );
+            }
 
             $purchaseReturnInputArray = Arr::only($input, [
                 'supplier_id', 'warehouse_id', 'date', 'tax_rate', 'tax_amount', 'discount', 'shipping', 'grand_total',
@@ -96,46 +107,18 @@ class PurchaseReturnRepository extends BaseRepository
             $purchaseReturn = PurchaseReturn::create($purchaseReturnInputArray);
 
             if (!empty($input['purchase_id'])) {
-                $this->validatePurchaseReturnQuantities(
-                    (int) $input['purchase_id'],
-                    $input['purchase_return_items']
-                );
+                if ($hasBatchLinkedItems) {
+                    $this->validateBatchPurchaseReturnQuantities($input['purchase_return_items']);
+                } else {
+                    $this->validatePurchaseReturnQuantities(
+                        (int) $input['purchase_id'],
+                        $input['purchase_return_items']
+                    );
+                }
             }
 
             $purchaseReturn = $this->storePurchaseReturnItems($purchaseReturn, $input);
-            $productIds = collect($input['purchase_return_items'])->pluck('product_id')->filter()->unique()->values()->toArray();
-            $stockByProduct = ManageStock::whereWarehouseId($input['warehouse_id'])
-                ->whereIn('product_id', $productIds)
-                ->get()
-                ->keyBy('product_id');
-            $purchasedProductIds = PurchaseItem::whereIn('product_id', $productIds)
-                ->whereHas('purchase', function (Builder $q) use ($input) {
-                    $q->where('supplier_id', $input['supplier_id'])
-                        ->where('warehouse_id', $input['warehouse_id']);
-                })
-                ->pluck('product_id')
-                ->unique()
-                ->toArray();
-            $purchasedProductLookup = array_flip($purchasedProductIds);
-
-            foreach ($input['purchase_return_items'] as $saleItem) {
-                $productId = (int) ($saleItem['product_id'] ?? 0);
-                $product = $stockByProduct->get($productId);
-                $purchaseExist = isset($purchasedProductLookup[$productId]);
-                if ($purchaseExist) {
-                    if ($product && $product->quantity >= $saleItem['quantity']) {
-                        $totalQuantity = $product->quantity - $saleItem['quantity'];
-                        $product->update([
-                            'quantity' => $totalQuantity,
-                        ]);
-                        $stockByProduct->put($productId, $product);
-                    } else {
-                        throw new UnprocessableEntityHttpException('Quantity must be less than Available quantity.');
-                    }
-                } else {
-                    throw new UnprocessableEntityHttpException('Purchase Does Not exist');
-                }
-            }
+            $this->applyPurchaseReturnInventory($purchaseReturn, $input['purchase_return_items']);
             DB::commit();
 
             return $purchaseReturn;
@@ -252,7 +235,33 @@ class PurchaseReturnRepository extends BaseRepository
                     throw new UnprocessableEntityHttpException('Please Enter Attlist One Quantity.');
                 }
             }
+            $this->assertTrackedBatchReturnsAreExplicit($input['purchase_return_items'] ?? []);
             $purchaseReturn = PurchaseReturn::findOrFail($id);
+            $hasBatchLinkedItems = $this->containsBatchLinkedItems($input['purchase_return_items'] ?? []);
+
+            if ($hasBatchLinkedItems) {
+                $input['purchase_return_items'] = $this->enrichBatchPurchaseReturnItems(
+                    $input['purchase_return_items'] ?? [],
+                    ! empty($input['purchase_id']) ? (int) $input['purchase_id'] : null,
+                    (int) $purchaseReturn->id
+                );
+                $this->validateBatchPurchaseReturnQuantities(
+                    $input['purchase_return_items'],
+                    (int) $purchaseReturn->id
+                );
+
+                $purchaseReturn->load('purchaseReturnItems');
+                $this->revertPurchaseReturnStock($purchaseReturn);
+                $purchaseReturn->purchaseReturnItems()->delete();
+
+                $purchaseReturn = $this->storePurchaseReturnItems($purchaseReturn, $input);
+                $this->applyPurchaseReturnInventory($purchaseReturn, $input['purchase_return_items']);
+
+                DB::commit();
+
+                return $purchaseReturn;
+            }
+
             $purchaseId = !empty($input['purchase_id']) ? (int) $input['purchase_id'] : null;
             if (!empty($purchaseId)) {
                 $this->validatePurchaseReturnQuantities(
@@ -429,6 +438,231 @@ class PurchaseReturnRepository extends BaseRepository
         return $purchaseReturn;
     }
 
+    public function revertPurchaseReturnStock(PurchaseReturn $purchaseReturn): void
+    {
+        $purchaseReturn->loadMissing('purchaseReturnItems');
+
+        $this->applyPurchaseReturnInventory($purchaseReturn, $purchaseReturn->purchaseReturnItems, true);
+    }
+
+    private function applyPurchaseReturnInventory(PurchaseReturn $purchaseReturn, iterable $items, bool $reverse = false): void
+    {
+        foreach ($items as $item) {
+            $quantity = round((float) data_get($item, 'quantity', 0), 2);
+            if ($quantity <= 0) {
+                continue;
+            }
+
+            $productId = (int) data_get($item, 'product_id', 0);
+            if ($productId <= 0) {
+                continue;
+            }
+
+            if ($reverse) {
+                $this->increaseWarehouseStock((int) $purchaseReturn->warehouse_id, $productId, $quantity);
+            } else {
+                $this->decreaseWarehouseStock((int) $purchaseReturn->warehouse_id, $productId, $quantity);
+            }
+
+            $batchId = (int) (data_get($item, 'product_batch_id', 0)
+                ?: data_get($item, 'batch.id', 0)
+                ?: data_get($item, 'purchaseLot.lote_id', 0));
+
+            if ($batchId <= 0) {
+                continue;
+            }
+
+            app(ProductBatchService::class)->applyBatchStockDelta(
+                $batchId,
+                $reverse ? $quantity : -$quantity,
+                $reverse ? 'purchase_return_reversal' : 'purchase_return',
+                $reverse
+                    ? 'Reversion de devolucion de compra por lote.'
+                    : 'Salida por devolucion de compra por lote.',
+                array_filter([
+                    'purchase_lot_id' => data_get($item, 'purchase_lot_id')
+                        ?: data_get($item, 'purchaseLot.id'),
+                    'purchase_return_item_id' => data_get($item, 'id')
+                        ?: data_get($item, 'purchase_return_item_id'),
+                    'codigo_lote_sistema' => data_get($item, 'codigo_lote_sistema')
+                        ?: data_get($item, 'purchaseLot.batch.codigo_lote_sistema')
+                        ?: data_get($item, 'batch.codigo_lote_sistema'),
+                    'lote_fabricante' => data_get($item, 'lote_fabricante')
+                        ?: data_get($item, 'purchaseLot.batch.lote_fabricante')
+                        ?: data_get($item, 'batch.lote_fabricante'),
+                    'kardex_type' => 'DEVOLUCION_COMPRA',
+                ], static fn ($value) => $value !== null && $value !== ''),
+                PurchaseReturn::class,
+                (int) $purchaseReturn->id
+            );
+        }
+    }
+
+    private function containsBatchLinkedItems(array $items): bool
+    {
+        foreach ($items as $item) {
+            if ((int) ($item['purchase_lot_id'] ?? 0) > 0 || (int) ($item['product_batch_id'] ?? 0) > 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function assertTrackedBatchReturnsAreExplicit(array $items): void
+    {
+        $productIdsWithoutLot = collect($items)
+            ->filter(function ($item) {
+                return (int) ($item['purchase_lot_id'] ?? 0) <= 0
+                    && (int) ($item['product_batch_id'] ?? 0) <= 0;
+            })
+            ->pluck('product_id')
+            ->filter()
+            ->all();
+
+        if (empty($productIdsWithoutLot)) {
+            return;
+        }
+
+        $this->assertNoTrackedBatchProducts(
+            $productIdsWithoutLot,
+            'Los productos con control por lote no pueden devolverse desde compras sin especificar lote.'
+        );
+    }
+
+    private function enrichBatchPurchaseReturnItems(
+        array $items,
+        ?int $purchaseId = null,
+        ?int $excludePurchaseReturnId = null
+    ): array {
+        $lotIds = collect($items)
+            ->pluck('purchase_lot_id')
+            ->filter(fn ($value) => (int) $value > 0)
+            ->map(fn ($value) => (int) $value)
+            ->unique()
+            ->values()
+            ->all();
+
+        $purchaseLots = PurchaseLot::query()
+            ->with(['purchaseItem.purchase', 'batch'])
+            ->whereIn('id', $lotIds)
+            ->get()
+            ->keyBy('id');
+
+        $requestedByLot = [];
+        $enrichedItems = [];
+
+        foreach ($items as $item) {
+            $quantity = round((float) ($item['quantity'] ?? 0), 2);
+            if ($quantity <= 0) {
+                continue;
+            }
+
+            $purchaseLotId = (int) ($item['purchase_lot_id'] ?? 0);
+            if ($purchaseLotId <= 0) {
+                throw new UnprocessableEntityHttpException('Seleccione el lote de compra para registrar la devolucion.');
+            }
+
+            /** @var PurchaseLot|null $purchaseLot */
+            $purchaseLot = $purchaseLots->get($purchaseLotId);
+            if (! $purchaseLot || ! $purchaseLot->purchaseItem || ! $purchaseLot->batch) {
+                throw new UnprocessableEntityHttpException('El lote de compra seleccionado ya no esta disponible.');
+            }
+
+            if ($purchaseId && (int) $purchaseLot->purchaseItem->purchase_id !== $purchaseId) {
+                throw new UnprocessableEntityHttpException('El lote seleccionado no pertenece a la compra indicada.');
+            }
+
+            if (! empty($item['product_id']) && (int) $item['product_id'] !== (int) $purchaseLot->purchaseItem->product_id) {
+                throw new UnprocessableEntityHttpException('El producto no coincide con el lote seleccionado.');
+            }
+
+            if (! empty($item['product_batch_id']) && (int) $item['product_batch_id'] !== (int) $purchaseLot->lote_id) {
+                throw new UnprocessableEntityHttpException('El lote fisico no coincide con la compra seleccionada.');
+            }
+
+            $returnedQuantity = (float) PurchaseReturnItem::query()
+                ->where('purchase_lot_id', $purchaseLotId)
+                ->when($excludePurchaseReturnId, function ($query) use ($excludePurchaseReturnId) {
+                    $query->where('purchase_return_id', '!=', $excludePurchaseReturnId);
+                })
+                ->sum('quantity');
+
+            $requestedByLot[$purchaseLotId] = round(($requestedByLot[$purchaseLotId] ?? 0) + $quantity, 2);
+
+            $remainingPurchaseQuantity = round(max((float) $purchaseLot->cantidad - $returnedQuantity, 0), 2);
+            if ($requestedByLot[$purchaseLotId] > $remainingPurchaseQuantity) {
+                throw new UnprocessableEntityHttpException(
+                    'La devolucion excede la cantidad disponible del lote de compra seleccionado.'
+                );
+            }
+
+            if ((float) $purchaseLot->batch->available_quantity < $requestedByLot[$purchaseLotId]) {
+                throw new UnprocessableEntityHttpException(
+                    'El lote seleccionado no tiene stock suficiente para completar la devolucion.'
+                );
+            }
+
+            $enrichedItems[] = array_merge($item, [
+                'product_id' => (int) $purchaseLot->purchaseItem->product_id,
+                'purchase_lot_id' => $purchaseLotId,
+                'product_batch_id' => (int) $purchaseLot->lote_id,
+                'codigo_lote_sistema' => $purchaseLot->batch->codigo_lote_sistema,
+                'lote_fabricante' => $purchaseLot->batch->lote_fabricante ?: $purchaseLot->batch->lot_code,
+                'product_cost' => array_key_exists('product_cost', $item)
+                    ? $item['product_cost']
+                    : $purchaseLot->costo_unitario,
+                'purchase_unit' => $item['purchase_unit'] ?? $purchaseLot->purchaseItem->purchase_unit,
+            ]);
+        }
+
+        return $enrichedItems;
+    }
+
+    private function validateBatchPurchaseReturnQuantities(array $items): void
+    {
+        foreach ($items as $item) {
+            $purchaseLotId = (int) ($item['purchase_lot_id'] ?? 0);
+            if ($purchaseLotId <= 0) {
+                throw new UnprocessableEntityHttpException('Seleccione el lote de compra para registrar la devolucion.');
+            }
+        }
+    }
+
+    private function increaseWarehouseStock(int $warehouseId, int $productId, float $qty): void
+    {
+        if ($qty <= 0) {
+            return;
+        }
+
+        $stock = ManageStock::whereWarehouseId($warehouseId)->whereProductId($productId)->first();
+        if ($stock) {
+            $stock->update(['quantity' => (float) $stock->quantity + $qty]);
+
+            return;
+        }
+
+        ManageStock::create([
+            'warehouse_id' => $warehouseId,
+            'product_id' => $productId,
+            'quantity' => $qty,
+        ]);
+    }
+
+    private function decreaseWarehouseStock(int $warehouseId, int $productId, float $qty): void
+    {
+        if ($qty <= 0) {
+            return;
+        }
+
+        $stock = ManageStock::whereWarehouseId($warehouseId)->whereProductId($productId)->first();
+        if (! $stock || (float) $stock->quantity < $qty) {
+            throw new UnprocessableEntityHttpException('Quantity must be less than Available quantity.');
+        }
+
+        $stock->update(['quantity' => (float) $stock->quantity - $qty]);
+    }
+
     /**
      * Validate returned quantity per product against original purchase quantity.
      * Max return qty = purchased qty for the selected purchase.
@@ -471,5 +705,14 @@ class PurchaseReturnRepository extends BaseRepository
                 );
             }
         }
+    }
+
+    private function assertNoTrackedBatchProducts(array $productIds, string $message): void
+    {
+        if (! app(ProductBatchService::class)->batchTablesExist()) {
+            return;
+        }
+
+        app(ProductBatchService::class)->assertTrackedProductsNotPresent($productIds, $message);
     }
 }

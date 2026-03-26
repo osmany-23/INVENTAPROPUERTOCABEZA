@@ -25,10 +25,11 @@ import {
     faLock,
     faRightFromBracket,
     faAngleDown,
-    faBell, faFileInvoice, faLanguage
+    faBell, faBoxOpen, faFileInvoice, faLanguage
 } from '@fortawesome/free-solid-svg-icons';
 import { Dropdown, Row } from "react-bootstrap";
 import StockAlertModal from '../../frontend/components/stock/StockAlertModal';
+import BatchAlertsModal from '../product/BatchAlertsModal';
 import CreditAlertsModal from '../credits/CreditAlertsModal';
 import { productQuantityReportAction } from '../../store/action/paymentQuantityReport';
 import { fetchStockAlert } from '../../store/action/stockAlertAction';
@@ -66,7 +67,14 @@ const Header = (props) => {
     const [warehouseValue, setWarehouseValue] = useState({ label: 'All', value: null });
     const [showPosRegisterModel, setShowPosRegisterModel] = useState(false)
     const [showStockAlertModal, setShowStockAlertModal] = useState(false)
+    const [showBatchAlertModal, setShowBatchAlertModal] = useState(false)
     const [showCreditAlertModal, setShowCreditAlertModal] = useState(false)
+    const [batchAlertSummary, setBatchAlertSummary] = useState({
+        alert_days: 30,
+        overdue_count: 0,
+        upcoming_count: 0,
+        total_alerts: 0,
+    });
     const [creditAlertSummary, setCreditAlertSummary] = useState({
         alert_days: 3,
         overdue_count: 0,
@@ -75,8 +83,20 @@ const Header = (props) => {
     });
     const { allConfigData } = useSelector(state => state)
     const canViewStockAlerts = can("view_stock_alerts", { strict: true });
+    const canViewBatchAlerts =
+        can("products.view", { strict: true }) || can("pos.view", { strict: true });
     const canViewCreditAlerts = can("pos.view", { strict: true });
     const ignoreTotalRecordSync = useCallback(() => {}, []);
+    const syncBatchAlertSummaryState = useCallback((summary = {}) => {
+        setBatchAlertSummary((prev) => ({
+            ...prev,
+            ...summary,
+            alert_days: Number(summary?.alert_days ?? prev.alert_days ?? 30),
+            overdue_count: Number(summary?.overdue_count ?? prev.overdue_count ?? 0),
+            upcoming_count: Number(summary?.upcoming_count ?? prev.upcoming_count ?? 0),
+            total_alerts: Number(summary?.total_alerts ?? prev.total_alerts ?? 0),
+        }));
+    }, []);
     const syncCreditAlertSummaryState = useCallback((summary = {}) => {
         setCreditAlertSummary((prev) => ({
             ...prev,
@@ -116,6 +136,28 @@ const Header = (props) => {
         productQuantityReportAction,
         warehouseValue.value,
     ]);
+
+    useEffect(() => {
+        if (!canViewBatchAlerts) {
+            return undefined;
+        }
+
+        const syncAlerts = async () => {
+            try {
+                const response = await apiConfig.get(apiBaseURL.PRODUCT_BATCH_ALERTS_SUMMARY);
+                syncBatchAlertSummaryState(response?.data?.data || {});
+            } catch (error) {
+                // Preserve the previous summary on transient failures.
+            }
+        };
+
+        syncAlerts();
+        const intervalId = setInterval(syncAlerts, 30000);
+
+        return () => {
+            clearInterval(intervalId);
+        };
+    }, [canViewBatchAlerts, syncBatchAlertSummaryState]);
 
     useEffect(() => {
         if (!canViewCreditAlerts) {
@@ -245,6 +287,24 @@ const Header = (props) => {
                                 {stockAlertDetails && stockAlertDetails.length > 0 ?
                                     <span className='product-alert-badge'>{stockAlertDetails.length > 99 ? '99+' : stockAlertDetails.length}</span>
                                     : null}
+                            </li>
+                        )}
+                        {canViewBatchAlerts && (
+                            <li
+                                className="px-sm-3 px-2 alert-badge-icon batch-alert-badge-icon"
+                                onClick={() => setShowBatchAlertModal(true)}
+                                style={{cursor: 'pointer', position: 'relative'}}
+                                title='Alertas de lotes'
+                            >
+                                <FontAwesomeIcon
+                                    icon={faBoxOpen}
+                                    className='batch-alert-trigger__icon header-alert-icon'
+                                />
+                                {batchAlertSummary.total_alerts > 0 ? (
+                                    <span className='product-alert-badge batch-alert-badge'>
+                                        {batchAlertSummary.total_alerts > 99 ? '99+' : batchAlertSummary.total_alerts}
+                                    </span>
+                                ) : null}
                             </li>
                         )}
                         {canViewCreditAlerts && (
@@ -443,6 +503,14 @@ const Header = (props) => {
 
             {canViewStockAlerts && (
                 <StockAlertModal show={showStockAlertModal} onHide={() => setShowStockAlertModal(false)} warehouse={warehouseValue.value} />
+            )}
+
+            {canViewBatchAlerts && (
+                <BatchAlertsModal
+                    show={showBatchAlertModal}
+                    onHide={() => setShowBatchAlertModal(false)}
+                    onSummaryChange={syncBatchAlertSummaryState}
+                />
             )}
 
             {canViewCreditAlerts && (

@@ -1,0 +1,89 @@
+:root {
+  --pos-primary: #6571FF;
+  --pos-primary-soft: rgba(101, 113, 255, 0.08);
+  --pos-primary-soft-strong: rgba(101, 113, 255, 0.14);
+  --pos-transition-fast: 0.15s ease;
+}
+
+.btn:focus-visible,
+.btn-check:focus + .btn,
+.btn:focus {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.app-shell .aside-menu-container .pro-menu .pro-menu-item > .pro-inner-item {
+  transition:
+    background-color var(--pos-transition-fast),
+    border-color var(--pos-transition-fast),
+    color var(--pos-transition-fast) !important;
+  transform: none !important;
+}
+
+.app-shell .aside-menu-container .pro-menu .pro-menu-item > .pro-inner-item:hover {
+  background-color: var(--pos-primary-soft) !important;
+  transform: none !important;
+}
+
+.app-shell .aside-menu-container .pro-menu .pro-menu-item.active > .pro-inner-item,
+.app-shell .aside-menu-container .pro-menu .pro-menu-item.pro-active-sub > .pro-inner-item,
+.app-shell .aside-menu-container .pro-menu .pro-menu-item.pro-sub-menu.pro-active-sub > .pro-inner-item {
+  background-color: var(--pos-primary-soft-strong) !important;
+}
+
+.app-shell .aside-menu-container .pro-menu .pro-menu-item .pro-icon-wrapper .pro-icon,
+.app-shell .aside-menu-container .pro-menu .pro-menu-item .pro-item-content a,
+.app-shell .aside-menu-container .pro-menu .pro-menu-item span.pro-item-content,
+.app-shell .aside-menu-container .pro-menu .pro-menu-item .pro-arrow-wrapper {
+  transition: color var(--pos-transition-fast) !important;
+}
+
+.app-shell .aside-menu-container .pro-menu .pro-menu-item > .pro-inner-item:hover .pro-icon-wrapper .pro-icon,
+.app-shell .aside-menu-container .pro-menu .pro-menu-item > .pro-inner-item:hover .pro-item-content a,
+.app-shell .aside-menu-container .pro-menu .pro-menu-item > .pro-inner-item:hover span.pro-item-content,
+.app-shell .aside-menu-container .pro-menu .pro-menu-item > .pro-inner-item:hover .pro-arrow-wrapper,
+.app-shell .aside-menu-container .pro-menu .pro-menu-item.active > .pro-inner-item .pro-icon-wrapper .pro-icon,
+.app-shell .aside-menu-container .pro-menu .pro-menu-item.active > .pro-inner-item .pro-item-content a,
+.app-shell .aside-menu-container .pro-menu .pro-menu-item.active > .pro-inner-item span.pro-item-content,
+.app-shell .aside-menu-container .pro-menu .pro-menu-item.active > .pro-inner-item .pro-arrow-wrapper,
+.app-shell .aside-menu-container .pro-menu .pro-menu-item.pro-active-sub > .pro-inner-item .pro-icon-wrapper .pro-icon,
+.app-shell .aside-menu-container .pro-menu .pro-menu-item.pro-active-sub > .pro-inner-item .pro-item-content a,
+.app-shell .aside-menu-container .pro-menu .pro-menu-item.pro-active-sub > .pro-inner-item span.pro-item-content,
+.app-shell .aside-menu-container .pro-menu .pro-menu-item.pro-active-sub > .pro-inner-item .pro-arrow-wrapper {
+  color: var(--pos-primary) !important;
+}
+
+@media (max-width: 767.98px) {
+  .credits-toolbar,
+  .credits-toolbar-actions,
+  .credits-card-actions,
+  .credits-load-more {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .credits-toolbar-actions,
+  .credits-card-actions,
+  .credits-load-more {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .credits-toolbar-actions .btn,
+  .credits-card-actions .btn,
+  .credits-load-more .btn,
+  .credits-modal-content .modal-footer .btn {
+    width: 100% !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell .aside-menu-container .pro-menu .pro-menu-item > .pro-inner-item,
+  .app-shell .aside-menu-container .pro-menu .pro-menu-item .pro-icon-wrapper .pro-icon,
+  .app-shell .aside-menu-container .pro-menu .pro-menu-item .pro-item-content a,
+  .app-shell .aside-menu-container .pro-menu .pro-menu-item span.pro-item-content,
+  .app-shell .aside-menu-container .pro-menu .pro-menu-item .pro-arrow-wrapper {
+    transition: none !important;
+  }
+}

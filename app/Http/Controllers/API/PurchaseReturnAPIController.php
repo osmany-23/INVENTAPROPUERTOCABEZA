@@ -8,6 +8,7 @@ use App\Http\Requests\UpdatePurchaseReturnRequest;
 use App\Http\Resources\PurchaseReturnCollection;
 use App\Http\Resources\PurchaseReturnResource;
 use App\Models\PurchaseReturn;
+use App\Models\PurchaseReturnItem;
 use App\Models\Setting;
 use App\Models\Supplier;
 use App\Models\Warehouse;
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
@@ -82,14 +84,18 @@ class PurchaseReturnAPIController extends AppBaseController
 
     public function show($id): PurchaseReturnResource
     {
-        $purchaseReturn = $this->purchaseReturnRepository->find($id);
+        $purchaseReturn = $this->purchaseReturnRepository
+            ->with($this->purchaseReturnRelations())
+            ->find($id);
+        $this->decoratePurchaseReturn($purchaseReturn);
 
         return new PurchaseReturnResource($purchaseReturn);
     }
 
     public function edit(PurchaseReturn $purchasesReturn): PurchaseReturnResource
     {
-        $purchasesReturn = $purchasesReturn->load('purchaseReturnItems.product.stocks', 'warehouse');
+        $purchasesReturn = $purchasesReturn->load($this->purchaseReturnRelations());
+        $this->decoratePurchaseReturn($purchasesReturn);
 
         return new PurchaseReturnResource($purchasesReturn);
     }
@@ -106,14 +112,14 @@ class PurchaseReturnAPIController extends AppBaseController
     {
         try {
             DB::beginTransaction();
-            $purchaseReturn = $this->purchaseReturnRepository->where('id', $id)->with('purchaseReturnItems')->first();
-            foreach ($purchaseReturn->purchaseReturnItems as $purchaseReturnItem) {
-                manageStock(
-                    $purchaseReturn->warehouse_id,
-                    $purchaseReturnItem['product_id'],
-                    $purchaseReturnItem['quantity']
-                );
+            $purchaseReturn = $this->purchaseReturnRepository
+                ->where('id', $id)
+                ->with($this->purchaseReturnRelations())
+                ->first();
+            if (! $purchaseReturn) {
+                throw new UnprocessableEntityHttpException('Purchase return not found.');
             }
+            $this->purchaseReturnRepository->revertPurchaseReturnStock($purchaseReturn);
             $this->purchaseReturnRepository->delete($purchaseReturn->id);
             DB::commit();
 
@@ -126,7 +132,8 @@ class PurchaseReturnAPIController extends AppBaseController
 
     public function purchaseReturnInfo(PurchaseReturn $purchaseReturn): JsonResponse
     {
-        $purchaseReturn = $purchaseReturn->load(['purchaseReturnItems.product', 'warehouse', 'supplier']);
+        $purchaseReturn = $purchaseReturn->load($this->purchaseReturnRelations());
+        $this->decoratePurchaseReturn($purchaseReturn);
         $keyName = [
             'email', 'company_name', 'phone', 'address',
         ];
@@ -168,11 +175,51 @@ class PurchaseReturnAPIController extends AppBaseController
         $purchaseReturn = $this->purchaseReturnRepository->whereHas('purchaseReturnItems',
             function ($q) use ($productId) {
                 $q->where('product_id', '=', $productId);
-            })->with(['purchaseReturnItems.product', 'supplier']);
+            })->with(array_values(array_unique(array_merge(
+                ['purchaseReturnItems.product', 'supplier'],
+                Schema::hasTable('purchase_lots') ? ['purchaseReturnItems.purchaseLot.batch', 'purchaseReturnItems.batch'] : []
+            ))));
 
         $purchaseReturn = $purchaseReturn->paginate($perPage);
         PurchaseReturnResource::usingWithCollection();
 
         return new PurchaseReturnCollection($purchaseReturn);
+    }
+
+    private function purchaseReturnRelations(): array
+    {
+        $relations = ['purchaseReturnItems.product.stocks', 'warehouse', 'supplier'];
+        if (Schema::hasTable('purchase_lots')) {
+            $relations[] = 'purchaseReturnItems.purchaseLot.batch';
+            $relations[] = 'purchaseReturnItems.batch';
+        }
+
+        return $relations;
+    }
+
+    private function decoratePurchaseReturn(PurchaseReturn $purchaseReturn): void
+    {
+        if (! Schema::hasTable('purchase_lots')) {
+            return;
+        }
+
+        $purchaseReturn->purchaseReturnItems->transform(function ($item) use ($purchaseReturn) {
+            if (! $item->purchase_lot_id || ! $item->relationLoaded('purchaseLot') || ! $item->purchaseLot) {
+                return $item;
+            }
+
+            $returnedByOthers = (float) PurchaseReturnItem::query()
+                ->where('purchase_lot_id', $item->purchase_lot_id)
+                ->where('purchase_return_id', '!=', $purchaseReturn->id)
+                ->sum('quantity');
+
+            $item->returned_quantity = round($returnedByOthers, 2);
+            $item->max_return_quantity = round(
+                max((float) $item->purchaseLot->cantidad - $returnedByOthers, 0),
+                2
+            );
+
+            return $item;
+        });
     }
 }

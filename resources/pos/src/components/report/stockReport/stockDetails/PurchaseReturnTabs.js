@@ -55,6 +55,18 @@ const PurchaseReturnTab = (props) => {
                     sub_total: item.sub_total,
                     quantity: item.quantity,
                     product_id: item.product_id,
+                    codigo_lote_sistema:
+                        item.codigo_lote_sistema ||
+                        item.batch?.codigo_lote_sistema ||
+                        item.purchase_lot?.batch?.codigo_lote_sistema ||
+                        null,
+                    lote_fabricante:
+                        item.lote_fabricante ||
+                        item.batch?.lote_fabricante ||
+                        item.purchase_lot?.batch?.lote_fabricante ||
+                        item.batch?.lot_code ||
+                        item.purchase_lot?.batch?.lot_code ||
+                        null,
                 })
             ),
             currency: currencySymbol,
@@ -104,6 +116,21 @@ const PurchaseReturnTab = (props) => {
             selector: (row) => row.supplier_name,
             sortField: "supplier_name",
             sortable: false,
+        },
+        {
+            name: "Lote",
+            sortable: false,
+            cell: (row) => {
+                return row.purchase_return_items.map((item, itemIndex) =>
+                    item.product_id === Number(id) ? (
+                        <span key={`purchase-return-lot-${item.product_id}-${itemIndex}`} className="d-block">
+                            {item.codigo_lote_sistema || item.lote_fabricante || "N/A"}
+                        </span>
+                    ) : (
+                        ""
+                    )
+                );
+            },
         },
         {
             name: getFormattedMessage("warehouse.title"),

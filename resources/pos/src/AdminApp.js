@@ -36,10 +36,10 @@ function AdminApp(props) {
 
     return (
         <Routes>
-            {routes.map((route, index) => {
+            {routes.map((route) => {
                 return route.ele ? (
                     <Route
-                        key={index}
+                        key={route.path}
                         exact={true}
                         path={route.path}
                         element={

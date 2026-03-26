@@ -8,7 +8,12 @@ import Brands from "./Brand";
 import Product from "./product/Product";
 import ProductCartList from "./cart-product/ProductCartList";
 import ProductSearchbar from "./product/ProductSearchbar";
-import { prepareCartArray } from "../shared/PrepareCartArray";
+import ProductBatchSelectionModal from "./product/ProductBatchSelectionModal";
+import FefoSaleValidationModal from "./product/FefoSaleValidationModal";
+import {
+    createCartProductTemplate,
+    prepareCartArray,
+} from "../shared/PrepareCartArray";
 import ProductDetailsModel from "../shared/ProductDetailsModel";
 import CartItemMainCalculation from "./cart-product/CartItemMainCalculation";
 import PosHeader from "./header/PosHeader";
@@ -47,17 +52,49 @@ import { addToast } from "../../store/action/toastAction";
 import PosRegisterModel from "../../components/posRegister/PosRegisterModel.js";
 import { can } from "../../shared/can";
 import apiConfig from "../../config/apiConfig";
+import {
+    buildCartRowId,
+    getCartProductId,
+    getCartRowId,
+    sortBatchesByFefo,
+} from "../../shared/batchHelpers";
+
+const POS_PAYMENT_STATUS = {
+    PAID: 1,
+    CREDIT: 2,
+};
+
+const POS_CREDIT_TYPE = {
+    INSTALLMENTS: "automatico",
+    FREE: "libre",
+};
+
+const toMoneyNumber = (value) => {
+    const parsedValue = Number.parseFloat(value);
+
+    if (!Number.isFinite(parsedValue)) {
+        return 0;
+    }
+
+    return Number(parsedValue.toFixed(2));
+};
+
+const calculateCreditPendingAmount = (grandTotal, initialPayment) =>
+    Math.max(toMoneyNumber(grandTotal) - toMoneyNumber(initialPayment), 0);
 
 const createInitialCashPaymentValue = (getFormattedMessage) => ({
     notes: "",
     credit_enabled: false,
+    credit_sale: false,
+    credit_type: POS_CREDIT_TYPE.INSTALLMENTS,
+    credit_initial_payment: "0.00",
     use_customer_credit_config: true,
     credit_interest_rate: "0.00",
     credit_installments: "1",
     credit_due_date: moment().add(1, "month").format("YYYY-MM-DD"),
     payment_status: {
         label: getFormattedMessage("dashboard.recentSales.paid.label"),
-        value: 1,
+        value: POS_PAYMENT_STATUS.PAID,
     },
 });
 
@@ -82,6 +119,44 @@ const INITIAL_CREDIT_AVAILABILITY = {
     status: null,
 };
 
+const BATCH_SELECTION_MODE = {
+    FEFO: "fefo",
+    SPECIFIC: "specific",
+};
+
+const createEmptyFefoValidationState = () => ({
+    show: false,
+    productName: "",
+    selectedBatches: [],
+    recommendedBatches: [],
+});
+
+const roundBatchQuantity = (value) => Number(Number(value || 0).toFixed(2));
+
+const toFefoBatchDisplayItem = (batch, quantity = 1) => ({
+    batch_id: Number(batch?.batch_id || batch?.id || 0) || null,
+    lot_code: batch?.lot_code || batch?.batch_code || null,
+    expires_at: batch?.expires_at || batch?.batch_expires_at || null,
+    quantity: roundBatchQuantity(quantity),
+});
+
+const buildAllocationMap = (allocations = []) =>
+    allocations.reduce((carry, allocation) => {
+        const batchId = Number(allocation?.batch_id || allocation?.id || 0) || null;
+        if (!batchId) {
+            return carry;
+        }
+
+        carry.set(
+            batchId,
+            roundBatchQuantity(
+                Number(carry.get(batchId) || 0) + Number(allocation?.quantity || 0)
+            )
+        );
+
+        return carry;
+    }, new Map());
+
 const PosMainPage = (props) => {
     const {
         onClickFullScreen,
@@ -104,6 +179,9 @@ const PosMainPage = (props) => {
     const productRequestRef = useRef(0);
     const creditLimitRequestRef = useRef(0);
     const lastAppliedCreditConfigRef = useRef(null);
+    const updateProductsRef = useRef([]);
+    const productBatchCacheRef = useRef(new Map());
+    const pendingFefoActionRef = useRef(null);
     // const [play] = useSound('https://s3.amazonaws.com/freecodecamp/drums/Heater-4_1.mp3');
     const [openCalculator, setOpenCalculator] = useState(false);
     const [updateProducts, setUpdateProducts] = useState([]);
@@ -118,6 +196,11 @@ const PosMainPage = (props) => {
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
     const [brandId, setBrandId] = useState();
     const [categoryId, setCategoryId] = useState();
+    const [batchSelectionProduct, setBatchSelectionProduct] = useState(null);
+    const [showBatchSelectionModal, setShowBatchSelectionModal] = useState(false);
+    const [fefoValidationState, setFefoValidationState] = useState(
+        createEmptyFefoValidationState()
+    );
     const [selectedCustomerOption, setSelectedCustomerOption] = useState(null);
     const [selectedOption, setSelectedOption] = useState(null);
     const [updateHolList, setUpdateHoldList] = useState(false);
@@ -152,12 +235,21 @@ const PosMainPage = (props) => {
     const canCancelSale = can("pos.cancel_sale", { strict: true });
     const canCreateSale = can("pos.create_sale", { strict: true });
     const canEditPosSalePrice = can("edit_pos_sale_price", { strict: true });
+    const isCreditSaleMode =
+        cashPaymentValue?.payment_status?.value === POS_PAYMENT_STATUS.CREDIT;
+    const creditInitialPaymentAmount = toMoneyNumber(
+        cashPaymentValue?.credit_initial_payment
+    );
+    const creditPendingAmount = calculateCreditPendingAmount(
+        grandTotal,
+        creditInitialPaymentAmount
+    );
 
     const customCart = useMemo(() => prepareCartArray(posAllProducts), [posAllProducts]);
     const customCartByProductId = useMemo(() => {
         const cartTemplateMap = new Map();
         customCart.forEach((item) => {
-            cartTemplateMap.set(Number(item.id), item);
+            cartTemplateMap.set(getCartProductId(item), item);
         });
 
         return cartTemplateMap;
@@ -181,11 +273,13 @@ const PosMainPage = (props) => {
             }
 
             return cartItems.map((cartItem) => {
+                const productId = getCartProductId(cartItem);
                 const availableStock = Number(
-                    productStockById[Number(cartItem?.id)] ||
-                        cartItem?.stock_quantity ||
-                        0
+                    cartItem?.batch_id
+                        ? cartItem?.stock_quantity || cartItem?.batch_available_quantity || 0
+                        : productStockById[productId] || cartItem?.stock_quantity || 0
                 );
+                const cartRowId = getCartRowId(cartItem);
                 const requestedQuantity = Number(cartItem?.quantity || 0);
                 const minValidQuantity = requestedQuantity > 0 ? requestedQuantity : 1;
                 const normalizedQuantity =
@@ -195,6 +289,9 @@ const PosMainPage = (props) => {
 
                 const normalizedItem = {
                     ...cartItem,
+                    id: productId,
+                    product_id: productId,
+                    cart_row_id: cartRowId,
                     stock_quantity: availableStock > 0 ? availableStock : Number(cartItem?.stock_quantity || 0),
                     quantity: normalizedQuantity,
                 };
@@ -226,6 +323,269 @@ const PosMainPage = (props) => {
     const [holdListId, setHoldListValue] = useState({
         referenceNumber: "",
     });
+
+    const closeFefoValidationModal = useCallback(() => {
+        pendingFefoActionRef.current = null;
+        setFefoValidationState(createEmptyFefoValidationState());
+    }, []);
+
+    const openFefoValidationModal = useCallback(
+        ({ productName, selectedBatches, recommendedBatches, onConfirm }) => {
+            pendingFefoActionRef.current = onConfirm;
+            setFefoValidationState({
+                show: true,
+                productName: productName || "Producto con lotes",
+                selectedBatches,
+                recommendedBatches,
+            });
+        },
+        []
+    );
+
+    const confirmFefoValidation = useCallback(() => {
+        const pendingAction = pendingFefoActionRef.current;
+        closeFefoValidationModal();
+
+        if (typeof pendingAction === "function") {
+            void Promise.resolve(pendingAction());
+        }
+    }, [closeFefoValidationModal]);
+
+    const buildReservedBatchQuantities = useCallback((cartItems, productId) => {
+        return cartItems.reduce((carry, cartItem) => {
+            if (getCartProductId(cartItem) !== Number(productId)) {
+                return carry;
+            }
+
+            const batchId = Number(cartItem?.batch_id || 0);
+            if (!batchId) {
+                return carry;
+            }
+
+            carry.set(
+                batchId,
+                roundBatchQuantity(
+                    Number(carry.get(batchId) || 0) + Number(cartItem?.quantity || 0)
+                )
+            );
+
+            return carry;
+        }, new Map());
+    }, []);
+
+    const fetchProductBatches = useCallback(
+        async (productId, { forceRefresh = false } = {}) => {
+            const normalizedProductId = Number(productId || 0);
+            const warehouseId = Number(selectedOption?.value || 0);
+
+            if (!normalizedProductId || !warehouseId) {
+                return [];
+            }
+
+            const cacheKey = `${warehouseId}:${normalizedProductId}`;
+            if (!forceRefresh && productBatchCacheRef.current.has(cacheKey)) {
+                return productBatchCacheRef.current.get(cacheKey);
+            }
+
+            const response = await apiConfig.get(`/products/${normalizedProductId}/batches`);
+            const batches = sortBatchesByFefo(
+                (response?.data?.data?.batches || []).filter(
+                    (batch) =>
+                        Number(batch.warehouse_id) === warehouseId &&
+                        Number(batch.available_quantity || 0) > 0 &&
+                        batch.status !== "expired"
+                )
+            );
+
+            productBatchCacheRef.current.set(cacheKey, batches);
+            return batches;
+        },
+        [selectedOption?.value]
+    );
+
+    const resolveFefoBatchFromBatches = useCallback(
+        (batches, productId, cartItems) => {
+            const reservedQuantities = buildReservedBatchQuantities(cartItems, productId);
+
+            for (const batch of sortBatchesByFefo(batches)) {
+                const effectiveAvailableQuantity = roundBatchQuantity(
+                    Number(batch.available_quantity || 0) -
+                        Number(reservedQuantities.get(Number(batch.id)) || 0)
+                );
+
+                if (effectiveAvailableQuantity > 0) {
+                    return {
+                        ...batch,
+                        effective_available_quantity: effectiveAvailableQuantity,
+                    };
+                }
+            }
+
+            return null;
+        },
+        [buildReservedBatchQuantities]
+    );
+
+    const decorateProductWithBatchSelection = useCallback(
+        (
+            sourceProduct,
+            batch,
+            {
+                selectionMode = BATCH_SELECTION_MODE.FEFO,
+                recommendedBatch = batch,
+                forced = false,
+            } = {}
+        ) => {
+            if (!sourceProduct?.attributes || !batch) {
+                return sourceProduct;
+            }
+
+            return {
+                ...sourceProduct,
+                attributes: {
+                    ...sourceProduct.attributes,
+                    batch_context: {
+                        ...(sourceProduct.attributes?.batch_context || {}),
+                        id: Number(batch.id || 0) || null,
+                        lot_code: batch.lot_code,
+                        lot_barcode: batch.lot_barcode,
+                        expires_at: batch.expires_at,
+                        available_quantity: roundBatchQuantity(
+                            batch.available_quantity ??
+                                sourceProduct.attributes?.batch_context?.available_quantity
+                        ),
+                        effective_available_quantity: roundBatchQuantity(
+                            batch.effective_available_quantity ??
+                                batch.available_quantity ??
+                                sourceProduct.attributes?.batch_context?.effective_available_quantity ??
+                                sourceProduct.attributes?.batch_context?.available_quantity
+                        ),
+                    },
+                    batch_status:
+                        batch.status || sourceProduct.attributes?.batch_status || null,
+                    batch_selection_mode: selectionMode,
+                    fefo_context: recommendedBatch
+                        ? {
+                              recommended_batch_id:
+                                  Number(recommendedBatch.id || 0) || null,
+                              recommended_lot_code: recommendedBatch.lot_code || null,
+                              recommended_expires_at:
+                                  recommendedBatch.expires_at || null,
+                              compliant:
+                                  Number(batch.id || 0) ===
+                                  Number(recommendedBatch.id || 0),
+                              forced,
+                          }
+                        : null,
+                },
+            };
+        },
+        []
+    );
+
+    const buildExpectedFefoAllocations = useCallback((batches, requestedQuantity) => {
+        const allocations = [];
+        let remainingQuantity = roundBatchQuantity(requestedQuantity);
+
+        for (const batch of sortBatchesByFefo(batches)) {
+            if (remainingQuantity <= 0) {
+                break;
+            }
+
+            const availableQuantity = roundBatchQuantity(batch.available_quantity);
+            if (availableQuantity <= 0) {
+                continue;
+            }
+
+            const consumedQuantity = Math.min(remainingQuantity, availableQuantity);
+            allocations.push(
+                toFefoBatchDisplayItem(batch, consumedQuantity)
+            );
+            remainingQuantity = roundBatchQuantity(remainingQuantity - consumedQuantity);
+        }
+
+        return {
+            allocations,
+            remainingQuantity,
+        };
+    }, []);
+
+    const validateCartFefoCompliance = useCallback(async () => {
+        const trackedGroups = updateProductsRef.current.reduce((carry, cartItem) => {
+            if (!cartItem?.batch_id) {
+                return carry;
+            }
+
+            const productId = getCartProductId(cartItem);
+            if (!productId) {
+                return carry;
+            }
+
+            if (!carry.has(productId)) {
+                carry.set(productId, []);
+            }
+
+            carry.get(productId).push(cartItem);
+            return carry;
+        }, new Map());
+
+        for (const [productId, productLines] of trackedGroups.entries()) {
+            const batches = await fetchProductBatches(productId, { forceRefresh: true });
+            const requestedQuantity = roundBatchQuantity(
+                productLines.reduce(
+                    (sum, cartItem) => sum + Number(cartItem?.quantity || 0),
+                    0
+                )
+            );
+
+            const expectedPlan = buildExpectedFefoAllocations(
+                batches,
+                requestedQuantity
+            );
+
+            if (expectedPlan.remainingQuantity > 0) {
+                return {
+                    ok: false,
+                    type: "stock",
+                    message:
+                        "No hay suficiente stock por lote para completar la venta con la prioridad FEFO.",
+                };
+            }
+
+            const selectedAllocations = productLines.map((cartItem) =>
+                toFefoBatchDisplayItem(cartItem, cartItem.quantity)
+            );
+            const selectedMap = buildAllocationMap(selectedAllocations);
+            const expectedMap = buildAllocationMap(expectedPlan.allocations);
+            const selectedKeys = Array.from(selectedMap.keys()).sort((a, b) => a - b);
+            const expectedKeys = Array.from(expectedMap.keys()).sort((a, b) => a - b);
+
+            const sameKeys =
+                selectedKeys.length === expectedKeys.length &&
+                selectedKeys.every((key, index) => key === expectedKeys[index]);
+            const sameQuantities =
+                sameKeys &&
+                selectedKeys.every(
+                    (key) =>
+                        roundBatchQuantity(selectedMap.get(key)) ===
+                        roundBatchQuantity(expectedMap.get(key))
+                );
+
+            if (!sameKeys || !sameQuantities) {
+                return {
+                    ok: false,
+                    type: "mismatch",
+                    productName: productLines[0]?.name || "Producto con lotes",
+                    selectedBatches: selectedAllocations,
+                    recommendedBatches: expectedPlan.allocations,
+                };
+            }
+        }
+
+        return {
+            ok: true,
+        };
+    }, [buildExpectedFefoAllocations, fetchProductBatches]);
 
     const discountTotal = subTotal - cartItemValue.discount;
     const taxTotal = (discountTotal * cartItemValue.tax) / 100;
@@ -282,6 +642,14 @@ const PosMainPage = (props) => {
     }, [updateHolList]);
 
     useEffect(() => {
+        updateProductsRef.current = updateProducts;
+    }, [updateProducts]);
+
+    useEffect(() => {
+        productBatchCacheRef.current.clear();
+    }, [selectedOption?.value]);
+
+    useEffect(() => {
         const debounceTimer = setTimeout(() => {
             setDebouncedSearchTerm(searchTerm);
         }, 250);
@@ -301,17 +669,25 @@ const PosMainPage = (props) => {
             errors["notes"] =
                 "The notes must not be greater than 100 characters";
         } else if (
-            cashPaymentValue?.credit_enabled &&
+            isCreditSaleMode &&
+            creditInitialPaymentAmount >= toMoneyNumber(grandTotal)
+        ) {
+            errors["credit_initial_payment"] =
+                "El pago inicial debe ser menor al total de la venta.";
+        } else if (
+            isCreditSaleMode &&
             !cashPaymentValue?.credit_due_date
         ) {
             errors["credit_due_date"] = "Seleccione la fecha de vencimiento";
         } else if (
-            cashPaymentValue?.credit_enabled &&
+            isCreditSaleMode &&
+            cashPaymentValue?.credit_type !== POS_CREDIT_TYPE.FREE &&
             Number(cashPaymentValue?.credit_installments || 0) < 1
         ) {
             errors["credit_installments"] = "Ingrese al menos una cuota";
         } else if (
-            cashPaymentValue?.credit_enabled &&
+            isCreditSaleMode &&
+            cashPaymentValue?.credit_type !== POS_CREDIT_TYPE.FREE &&
             Number(cashPaymentValue?.credit_installments || 0) >
                 Number(creditAvailability?.max_installments || 1)
         ) {
@@ -404,7 +780,7 @@ const PosMainPage = (props) => {
     }, []);
 
     const onPaymentStatusChange = useCallback((obj) => {
-        if (obj.value !== 2) {
+        if (obj.value !== POS_PAYMENT_STATUS.CREDIT) {
             lastAppliedCreditConfigRef.current = null;
             setCreditAvailability(INITIAL_CREDIT_AVAILABILITY);
             setIsLoadingCreditAvailability(false);
@@ -413,10 +789,21 @@ const PosMainPage = (props) => {
         setCashPaymentValue((inputs) => ({
             ...inputs,
             payment_status: obj,
-            ...(obj.value === 2
-                ? {}
+            ...(obj.value === POS_PAYMENT_STATUS.CREDIT
+                ? {
+                      credit_sale: true,
+                      credit_enabled: true,
+                      credit_type:
+                          inputs?.credit_type || POS_CREDIT_TYPE.INSTALLMENTS,
+                      credit_initial_payment:
+                          inputs?.credit_initial_payment || "0.00",
+                      received_amount: undefined,
+                  }
                 : {
+                      credit_sale: false,
                       credit_enabled: false,
+                      credit_type: POS_CREDIT_TYPE.INSTALLMENTS,
+                      credit_initial_payment: "0.00",
                       use_customer_credit_config: true,
                       credit_interest_rate: "0.00",
                       credit_installments: "1",
@@ -428,17 +815,22 @@ const PosMainPage = (props) => {
         }));
     }, []);
 
-    const onCreditToggleChange = useCallback((event) => {
-        if (!event.target.checked) {
-            setCreditAvailability(INITIAL_CREDIT_AVAILABILITY);
-            setIsLoadingCreditAvailability(false);
-        }
-        lastAppliedCreditConfigRef.current = null;
-        setCashPaymentValue((inputs) => ({
-            ...inputs,
-            credit_enabled: event.target.checked,
-        }));
-    }, []);
+    const onCreditTypeChange = useCallback(
+        (event) => {
+            const nextCreditType = event.target.value;
+            lastAppliedCreditConfigRef.current = null;
+
+            setCashPaymentValue((inputs) => ({
+                ...inputs,
+                credit_type: nextCreditType,
+                credit_installments:
+                    nextCreditType === POS_CREDIT_TYPE.FREE
+                        ? "1"
+                        : inputs?.credit_installments || "1",
+            }));
+        },
+        []
+    );
 
     const onChangeReturnChange = useCallback((change) => {
         setChangeReturn(change);
@@ -470,7 +862,7 @@ const PosMainPage = (props) => {
 
     const fetchCreditAvailability = useCallback(
         async ({ showErrors = false } = {}) => {
-            if (!cashPaymentValue?.credit_enabled) {
+            if (!isCreditSaleMode) {
                 setCreditAvailability(INITIAL_CREDIT_AVAILABILITY);
                 setIsLoadingCreditAvailability(false);
                 return true;
@@ -498,13 +890,35 @@ const PosMainPage = (props) => {
                 return false;
             }
 
+            if (creditPendingAmount <= 0) {
+                const message =
+                    "El saldo pendiente del crédito debe ser mayor a cero.";
+                setCreditAvailability({
+                    ...INITIAL_CREDIT_AVAILABILITY,
+                    allowed: false,
+                    can_create: false,
+                    message,
+                });
+
+                if (showErrors) {
+                    dispatch(
+                        addToast({
+                            text: message,
+                            type: toastType.ERROR,
+                        })
+                    );
+                }
+
+                return false;
+            }
+
             const requestId = ++creditLimitRequestRef.current;
             setIsLoadingCreditAvailability(true);
 
             try {
                 const requestParams = {
                     customer_id: customerId,
-                    amount: grandTotal,
+                    amount: creditPendingAmount,
                 };
 
                 if (!cashPaymentValue?.use_customer_credit_config) {
@@ -571,12 +985,12 @@ const PosMainPage = (props) => {
             }
         },
         [
-            cashPaymentValue?.credit_enabled,
             cashPaymentValue?.credit_interest_rate,
             cashPaymentValue?.use_customer_credit_config,
+            creditPendingAmount,
             dispatch,
             getSelectedCustomerId,
-            grandTotal,
+            isCreditSaleMode,
         ]
     );
 
@@ -635,35 +1049,36 @@ const PosMainPage = (props) => {
     }, [fetchCreditAvailability]);
 
     useEffect(() => {
-        if (!cashPayment || !cashPaymentValue?.credit_enabled) {
+        if (!cashPayment || !isCreditSaleMode) {
             return;
         }
 
         fetchCreditAvailability();
     }, [
         cashPayment,
-        cashPaymentValue?.credit_enabled,
         fetchCreditAvailability,
-        grandTotal,
+        isCreditSaleMode,
         selectedCustomerOption,
     ]);
 
     useEffect(() => {
         const customerId = getSelectedCustomerId();
         if (
-            !cashPaymentValue?.credit_enabled ||
+            !isCreditSaleMode ||
             !cashPaymentValue?.use_customer_credit_config ||
             !customerId
         ) {
             return;
         }
 
+        const nextInstallments =
+            cashPaymentValue?.credit_type === POS_CREDIT_TYPE.FREE
+                ? 1
+                : Math.max(Number(creditAvailability?.max_installments || 1), 1);
+
         const nextSignature = `${customerId}:${Number(
             creditAvailability?.interest_rate || 0
-        ).toFixed(2)}:${Math.max(
-            Number(creditAvailability?.max_installments || 1),
-            1
-        )}`;
+        ).toFixed(2)}:${nextInstallments}:${cashPaymentValue?.credit_type}`;
 
         if (lastAppliedCreditConfigRef.current === nextSignature) {
             return;
@@ -675,16 +1090,15 @@ const PosMainPage = (props) => {
             credit_interest_rate: Number(
                 creditAvailability?.interest_rate || 0
             ).toFixed(2),
-            credit_installments: String(
-                Math.max(Number(creditAvailability?.max_installments || 1), 1)
-            ),
+            credit_installments: String(nextInstallments),
         }));
     }, [
-        cashPaymentValue?.credit_enabled,
+        cashPaymentValue?.credit_type,
         cashPaymentValue?.use_customer_credit_config,
         creditAvailability?.interest_rate,
         creditAvailability?.max_installments,
         getSelectedCustomerId,
+        isCreditSaleMode,
     ]);
 
     // payment type dropdown functionality
@@ -817,10 +1231,10 @@ const PosMainPage = (props) => {
         setUpdateProducts((products) =>
             normalizeCartItems(
                 products.map((cartProduct) =>
-                Number(cartProduct.id) === Number(updatedProduct.id)
-                    ? { ...updatedProduct }
-                    : cartProduct
-            )
+                    getCartRowId(cartProduct) === getCartRowId(updatedProduct)
+                        ? { ...updatedProduct }
+                        : cartProduct
+                )
             )
         );
     }, [normalizeCartItems]);
@@ -844,13 +1258,13 @@ const PosMainPage = (props) => {
     );
 
     //cart item delete
-    const onDeleteCartItem = useCallback((productId) => {
+    const onDeleteCartItem = useCallback((cartRowId) => {
         setUpdateProducts((products) =>
-            products.filter((cartProduct) => Number(cartProduct.id) !== Number(productId))
+            products.filter((cartProduct) => getCartRowId(cartProduct) !== String(cartRowId))
         );
     }, []);
 
-    const addProductToCart = useCallback((productId) => {
+    const addProductToCart = useCallback(async (productPayload) => {
         if (!selectedOption?.value) {
             dispatch(
                 addToast({
@@ -858,13 +1272,150 @@ const PosMainPage = (props) => {
                     type: toastType.ERROR,
                 })
             );
-            return;
+            return false;
         }
 
-        const template = customCartByProductId.get(Number(productId));
-        const availableStock = Number(
-            productStockById[Number(productId)] || template?.stock_quantity || 0
+        const baseProduct =
+            typeof productPayload === "object" && productPayload?.attributes
+                ? productPayload
+                : posAllProducts.find(
+                      (productItem) =>
+                          Number(productItem.id) === Number(productPayload || 0)
+                  ) || null;
+        const productId = getCartProductId(baseProduct || { id: productPayload });
+        let resolvedProduct = baseProduct;
+
+        try {
+            if (resolvedProduct?.attributes?.batch_enabled) {
+                const batches = await fetchProductBatches(productId);
+                const selectionMode =
+                    resolvedProduct?.attributes?.batch_selection_mode ===
+                    BATCH_SELECTION_MODE.SPECIFIC
+                        ? BATCH_SELECTION_MODE.SPECIFIC
+                        : BATCH_SELECTION_MODE.FEFO;
+
+                if (selectionMode === BATCH_SELECTION_MODE.SPECIFIC) {
+                    const selectedBatchId =
+                        Number(resolvedProduct?.attributes?.batch_context?.id || 0) || null;
+                    const selectedBatch = batches.find(
+                        (batch) => Number(batch.id) === selectedBatchId
+                    );
+
+                    if (!selectedBatch) {
+                        dispatch(
+                            addToast({
+                                text: "El lote seleccionado ya no tiene stock disponible.",
+                                type: toastType.ERROR,
+                            })
+                        );
+                        return false;
+                    }
+
+                    const reservedQuantities = buildReservedBatchQuantities(
+                        updateProductsRef.current,
+                        productId
+                    );
+                    const effectiveAvailableQuantity = roundBatchQuantity(
+                        Number(selectedBatch.available_quantity || 0) -
+                            Number(reservedQuantities.get(selectedBatchId) || 0)
+                    );
+
+                    if (effectiveAvailableQuantity <= 0) {
+                        dispatch(
+                            addToast({
+                                text: "La cantidad solicitada excede la disponibilidad del lote seleccionado.",
+                                type: toastType.ERROR,
+                            })
+                        );
+                        return false;
+                    }
+
+                    const recommendedBatch =
+                        resolveFefoBatchFromBatches(
+                            batches,
+                            productId,
+                            updateProductsRef.current
+                        ) || selectedBatch;
+
+                    resolvedProduct = decorateProductWithBatchSelection(
+                        resolvedProduct,
+                        {
+                            ...selectedBatch,
+                            effective_available_quantity: effectiveAvailableQuantity,
+                        },
+                        {
+                            selectionMode: BATCH_SELECTION_MODE.SPECIFIC,
+                            recommendedBatch,
+                            forced: Boolean(
+                                resolvedProduct?.attributes?.fefo_context?.forced
+                            ),
+                        }
+                    );
+                } else {
+                    const fefoBatch = resolveFefoBatchFromBatches(
+                        batches,
+                        productId,
+                        updateProductsRef.current
+                    );
+
+                    if (!fefoBatch) {
+                        dispatch(
+                            addToast({
+                                text: "Este producto maneja lotes, pero no tiene lotes FEFO disponibles en la bodega seleccionada.",
+                                type: toastType.ERROR,
+                            })
+                        );
+                        return false;
+                    }
+
+                    resolvedProduct = decorateProductWithBatchSelection(
+                        resolvedProduct,
+                        fefoBatch,
+                        {
+                            selectionMode: BATCH_SELECTION_MODE.FEFO,
+                            recommendedBatch: fefoBatch,
+                            forced: false,
+                        }
+                    );
+                }
+            }
+        } catch (error) {
+            dispatch(
+                addToast({
+                    text:
+                        error?.response?.data?.message ||
+                        "No se pudieron validar los lotes disponibles para este producto.",
+                    type: toastType.ERROR,
+                })
+            );
+            return false;
+        }
+
+        const batchContext = resolvedProduct?.attributes?.batch_context || null;
+        const batchId = Number(batchContext?.id || 0) || null;
+        const template = resolvedProduct
+            ? createCartProductTemplate(resolvedProduct)
+            : customCartByProductId.get(productId);
+        const batchEnabled = Boolean(
+            resolvedProduct?.attributes?.batch_enabled ?? template?.batch_enabled
         );
+        const availableStock = Number(
+            batchId
+                ? batchContext?.available_quantity || template?.stock_quantity || 0
+                : productStockById[productId] || template?.stock_quantity || 0
+        );
+        const cartRowId = buildCartRowId(productId, batchId);
+        const fefoContext = resolvedProduct?.attributes?.fefo_context || null;
+
+        if (batchEnabled && !batchId) {
+            dispatch(
+                addToast({
+                    text: "Este producto maneja lotes, pero no tiene lotes vendibles disponibles en la bodega seleccionada.",
+                    type: toastType.ERROR,
+                })
+            );
+            return false;
+        }
 
         if (!template || availableStock <= 0) {
             dispatch(
@@ -873,17 +1424,26 @@ const PosMainPage = (props) => {
                     type: toastType.ERROR,
                 })
             );
-            return;
+            return false;
         }
 
-        setUpdateProducts((previousProducts) => {
-            const quantityInCart = previousProducts.reduce((sum, cartProduct) => {
-                if (Number(cartProduct.id) !== Number(productId)) {
-                    return sum;
-                }
+        let productAdded = false;
 
-                return sum + Number(cartProduct.quantity || 0);
-            }, 0);
+        setUpdateProducts((previousProducts) => {
+            const existingLine = previousProducts.find(
+                (cartProduct) => getCartRowId(cartProduct) === cartRowId
+            );
+            const quantityInCart = Number(existingLine?.quantity || 0);
+            const totalQuantityForProduct = previousProducts.reduce(
+                (sum, cartProduct) =>
+                    getCartProductId(cartProduct) === productId
+                        ? sum + Number(cartProduct.quantity || 0)
+                        : sum,
+                0
+            );
+            const productTotalAvailable = Number(
+                productStockById[productId] || template?.stock_quantity || availableStock
+            );
 
             if (quantityInCart + 1 > availableStock) {
                 dispatch(
@@ -895,17 +1455,69 @@ const PosMainPage = (props) => {
                 return previousProducts;
             }
 
+            if (totalQuantityForProduct + 1 > productTotalAvailable) {
+                dispatch(
+                    addToast({
+                        text: getFormattedMessage("pos.product-quantity-error.message"),
+                        type: toastType.ERROR,
+                    })
+                );
+                return previousProducts;
+            }
+
             let isUpdated = false;
             const nextProducts = previousProducts.map((cartProduct) => {
-                if (isUpdated || Number(cartProduct.id) !== Number(productId)) {
+                if (isUpdated || getCartRowId(cartProduct) !== cartRowId) {
                     return cartProduct;
                 }
 
                 isUpdated = true;
+                productAdded = true;
                 const nextQuantity = Number(cartProduct.quantity || 0) + 1;
 
                 return {
                     ...cartProduct,
+                    id: productId,
+                    product_id: productId,
+                    cart_row_id: cartRowId,
+                    batch_id: batchId,
+                    batch_code: batchContext?.lot_code || cartProduct?.batch_code || null,
+                    batch_barcode:
+                        batchContext?.lot_barcode || cartProduct?.batch_barcode || null,
+                    batch_expires_at:
+                        batchContext?.expires_at || cartProduct?.batch_expires_at || null,
+                    batch_available_quantity:
+                        batchId && batchContext?.available_quantity
+                            ? Number(batchContext.available_quantity)
+                            : cartProduct?.batch_available_quantity || null,
+                    batch_status:
+                        resolvedProduct?.attributes?.batch_status ||
+                        cartProduct?.batch_status ||
+                        null,
+                    batch_selection_mode:
+                        resolvedProduct?.attributes?.batch_selection_mode ||
+                        cartProduct?.batch_selection_mode ||
+                        BATCH_SELECTION_MODE.FEFO,
+                    fefo_priority_batch_id:
+                        Number(fefoContext?.recommended_batch_id || 0) ||
+                        cartProduct?.fefo_priority_batch_id ||
+                        null,
+                    fefo_priority_batch_code:
+                        fefoContext?.recommended_lot_code ||
+                        cartProduct?.fefo_priority_batch_code ||
+                        null,
+                    fefo_priority_expires_at:
+                        fefoContext?.recommended_expires_at ||
+                        cartProduct?.fefo_priority_expires_at ||
+                        null,
+                    fefo_compliant:
+                        typeof fefoContext?.compliant === "boolean"
+                            ? fefoContext.compliant
+                            : cartProduct?.fefo_compliant ?? true,
+                    fefo_forced:
+                        typeof fefoContext?.forced === "boolean"
+                            ? fefoContext.forced
+                            : cartProduct?.fefo_forced ?? false,
                     stock_quantity:
                         Number(cartProduct.stock_quantity || 0) > 0
                             ? Number(cartProduct.stock_quantity || 0)
@@ -922,11 +1534,50 @@ const PosMainPage = (props) => {
                 return nextProducts;
             }
 
+            productAdded = true;
             const nextProduct = {
                 ...template,
+                id: productId,
+                product_id: productId,
+                cart_row_id: cartRowId,
                 quantity: 1,
                 stock_quantity: availableStock,
                 warehouse_id: selectedOption.value,
+                batch_id: batchId,
+                batch_code: batchContext?.lot_code || template?.batch_code || null,
+                batch_barcode:
+                    batchContext?.lot_barcode || template?.batch_barcode || null,
+                batch_expires_at:
+                    batchContext?.expires_at || template?.batch_expires_at || null,
+                batch_available_quantity: batchId ? availableStock : null,
+                batch_status:
+                    resolvedProduct?.attributes?.batch_status ||
+                    template?.batch_status ||
+                    null,
+                batch_selection_mode:
+                    resolvedProduct?.attributes?.batch_selection_mode ||
+                    template?.batch_selection_mode ||
+                    BATCH_SELECTION_MODE.FEFO,
+                fefo_priority_batch_id:
+                    Number(fefoContext?.recommended_batch_id || 0) ||
+                    template?.fefo_priority_batch_id ||
+                    null,
+                fefo_priority_batch_code:
+                    fefoContext?.recommended_lot_code ||
+                    template?.fefo_priority_batch_code ||
+                    null,
+                fefo_priority_expires_at:
+                    fefoContext?.recommended_expires_at ||
+                    template?.fefo_priority_expires_at ||
+                    null,
+                fefo_compliant:
+                    typeof fefoContext?.compliant === "boolean"
+                        ? fefoContext.compliant
+                        : template?.fefo_compliant ?? true,
+                fefo_forced:
+                    typeof fefoContext?.forced === "boolean"
+                        ? fefoContext.forced
+                        : template?.fefo_forced ?? false,
             };
 
             return [
@@ -937,13 +1588,262 @@ const PosMainPage = (props) => {
                 },
             ];
         });
+
+        return productAdded;
     }, [
-        selectedOption,
+        buildCartRowId,
+        buildReservedBatchQuantities,
+        createCartProductTemplate,
         customCartByProductId,
-        productStockById,
+        decorateProductWithBatchSelection,
         dispatch,
+        fetchProductBatches,
         getFormattedMessage,
+        posAllProducts,
+        productStockById,
+        resolveFefoBatchFromBatches,
+        selectedOption,
     ]);
+
+    const closeBatchSelectionModal = useCallback(() => {
+        setShowBatchSelectionModal(false);
+        setBatchSelectionProduct(null);
+    }, []);
+
+    const handleProductCardClick = useCallback(
+        (selectedProduct) => {
+            if (!selectedProduct?.attributes?.batch_enabled) {
+                addProductToCart(selectedProduct);
+                return;
+            }
+
+            if (!selectedOption?.value) {
+                addProductToCart(selectedProduct);
+                return;
+            }
+
+            setBatchSelectionProduct(selectedProduct);
+            setShowBatchSelectionModal(true);
+        },
+        [addProductToCart, selectedOption]
+    );
+
+    const handleSpecificBatchSelection = useCallback(
+        async (sourceProduct, selectedBatch, { afterAdd = null } = {}) => {
+            if (!sourceProduct?.attributes?.batch_enabled || !selectedBatch?.id) {
+                return false;
+            }
+
+            try {
+                const productId = getCartProductId(sourceProduct);
+                const batches = await fetchProductBatches(productId, {
+                    forceRefresh: true,
+                });
+                const preferredBatch = resolveFefoBatchFromBatches(
+                    batches,
+                    productId,
+                    updateProductsRef.current
+                );
+
+                if (!preferredBatch) {
+                    dispatch(
+                        addToast({
+                            text: "No hay lotes FEFO disponibles para este producto.",
+                            type: toastType.ERROR,
+                        })
+                    );
+                    return false;
+                }
+
+                const normalizedSelectedBatch =
+                    batches.find(
+                        (batch) => Number(batch.id) === Number(selectedBatch.id)
+                    ) || null;
+
+                if (!normalizedSelectedBatch) {
+                    dispatch(
+                        addToast({
+                            text: "El lote seleccionado ya no tiene stock disponible.",
+                            type: toastType.ERROR,
+                        })
+                    );
+                    return false;
+                }
+
+                const reservedQuantities = buildReservedBatchQuantities(
+                    updateProductsRef.current,
+                    productId
+                );
+                const effectiveAvailableQuantity = roundBatchQuantity(
+                    Number(normalizedSelectedBatch.available_quantity || 0) -
+                        Number(
+                            reservedQuantities.get(
+                                Number(normalizedSelectedBatch.id)
+                            ) || 0
+                        )
+                );
+
+                if (effectiveAvailableQuantity <= 0) {
+                    dispatch(
+                        addToast({
+                            text: "La cantidad solicitada excede la disponibilidad del lote seleccionado.",
+                            type: toastType.ERROR,
+                        })
+                    );
+                    return false;
+                }
+
+                const selectedProduct = decorateProductWithBatchSelection(
+                    sourceProduct,
+                    {
+                        ...normalizedSelectedBatch,
+                        effective_available_quantity: effectiveAvailableQuantity,
+                    },
+                    {
+                        selectionMode: BATCH_SELECTION_MODE.SPECIFIC,
+                        recommendedBatch: preferredBatch,
+                        forced: false,
+                    }
+                );
+
+                if (
+                    Number(normalizedSelectedBatch.id) !== Number(preferredBatch.id)
+                ) {
+                    const forcedProduct = decorateProductWithBatchSelection(
+                        sourceProduct,
+                        {
+                            ...normalizedSelectedBatch,
+                            effective_available_quantity: effectiveAvailableQuantity,
+                        },
+                        {
+                            selectionMode: BATCH_SELECTION_MODE.SPECIFIC,
+                            recommendedBatch: preferredBatch,
+                            forced: true,
+                        }
+                    );
+
+                    openFefoValidationModal({
+                        productName:
+                            sourceProduct?.attributes?.name || sourceProduct?.name,
+                        selectedBatches: [
+                            toFefoBatchDisplayItem(normalizedSelectedBatch, 1),
+                        ],
+                        recommendedBatches: [
+                            toFefoBatchDisplayItem(preferredBatch, 1),
+                        ],
+                        onConfirm: async () => {
+                            const added = await addProductToCart(forcedProduct);
+                            if (added) {
+                                afterAdd?.();
+                            }
+                        },
+                    });
+                    return false;
+                }
+
+                const added = await addProductToCart(selectedProduct);
+                if (added) {
+                    afterAdd?.();
+                }
+                return added;
+            } catch (error) {
+                dispatch(
+                    addToast({
+                        text:
+                            error?.response?.data?.message ||
+                            "No se pudo validar el lote seleccionado con la regla FEFO.",
+                        type: toastType.ERROR,
+                    })
+                );
+                return false;
+            }
+        },
+        [
+            addProductToCart,
+            buildReservedBatchQuantities,
+            decorateProductWithBatchSelection,
+            dispatch,
+            fetchProductBatches,
+            openFefoValidationModal,
+            resolveFefoBatchFromBatches,
+        ]
+    );
+
+    const handleSelectBatchFromModal = useCallback(
+        async (batch) => {
+            if (!batchSelectionProduct) {
+                return;
+            }
+
+            await handleSpecificBatchSelection(batchSelectionProduct, batch, {
+                afterAdd: closeBatchSelectionModal,
+            });
+        },
+        [batchSelectionProduct, closeBatchSelectionModal, handleSpecificBatchSelection]
+    );
+
+    const handleUseBatchFifo = useCallback(async () => {
+        if (!batchSelectionProduct) {
+            return;
+        }
+
+        const added = await addProductToCart({
+            ...batchSelectionProduct,
+            attributes: {
+                ...batchSelectionProduct.attributes,
+                batch_selection_mode: BATCH_SELECTION_MODE.FEFO,
+            },
+        });
+
+        if (added) {
+            closeBatchSelectionModal();
+        }
+    }, [addProductToCart, batchSelectionProduct, closeBatchSelectionModal]);
+
+    const onScanFeedback = useCallback(
+        (message, level = "info") => {
+            if (!message) {
+                return;
+            }
+
+            dispatch(
+                addToast({
+                    text: message,
+                    ...(level === "error" ? { type: toastType.ERROR } : {}),
+                })
+            );
+        },
+        [dispatch]
+    );
+
+    const handleSearchbarAddProduct = useCallback(
+        async (selectedProduct) => {
+            if (!selectedProduct?.attributes?.batch_enabled) {
+                await addProductToCart(selectedProduct);
+                return;
+            }
+
+            if (
+                selectedProduct?.attributes?.batch_selection_mode ===
+                BATCH_SELECTION_MODE.SPECIFIC
+            ) {
+                await handleSpecificBatchSelection(
+                    selectedProduct,
+                    selectedProduct?.attributes?.batch_context
+                );
+                return;
+            }
+
+            await addProductToCart({
+                ...selectedProduct,
+                attributes: {
+                    ...selectedProduct.attributes,
+                    batch_selection_mode: BATCH_SELECTION_MODE.FEFO,
+                },
+            });
+        },
+        [addProductToCart, handleSpecificBatchSelection]
+    );
 
     //product add to cart function
     const addToCarts = useCallback((items) => {
@@ -957,6 +1857,20 @@ const PosMainPage = (props) => {
 
     //prepare data for print Model
     const preparePrintData = (saleData = paymentDetails) => {
+        const saleAttributes = saleData?.attributes || {};
+        const isCreditSale = Boolean(
+            saleAttributes?.is_credit_sale ?? isCreditSaleMode
+        );
+        const paidAmount = toMoneyNumber(
+            saleAttributes?.paid_amount ??
+                (isCreditSale ? creditInitialPaymentAmount : grandTotal)
+        );
+        const dueAmount = toMoneyNumber(
+            saleAttributes?.due_amount ??
+                (isCreditSale
+                    ? calculateCreditPendingAmount(grandTotal, paidAmount)
+                    : 0)
+        );
         const formValue = {
             products: updateProducts,
             discount: cartItemValue.discount ? cartItemValue.discount : 0,
@@ -970,14 +1884,35 @@ const PosMainPage = (props) => {
             customer_name: selectedCustomerOption,
             settings: settings,
             note: cashPaymentValue.notes,
-            changeReturn,
+            changeReturn: isCreditSale
+                ? 0
+                : Number(
+                      saleAttributes?.change_return ??
+                          saleData?.change_return ??
+                          changeReturn
+                  ),
             payment_status: cashPaymentValue.payment_status,
-            received_amount: cashPaymentValue.received_amount,
-            barcode_url: saleData?.attributes?.barcode_url || "",
-            reference_code: saleData?.attributes?.reference_code || "",
+            received_amount: isCreditSale
+                ? paidAmount
+                : Number(
+                      saleAttributes?.received_amount ??
+                          cashPaymentValue.received_amount ??
+                          grandTotal
+                  ),
+            paid_amount: paidAmount,
+            due_amount: dueAmount,
+            is_credit_sale: isCreditSale,
+            credit_receipt_status:
+                saleAttributes?.credit_payment_status_label ||
+                (paidAmount > 0 ? "PARCIAL" : "CRÉDITO"),
+            barcode_url: saleAttributes?.barcode_url || saleData?.barcode_url || "",
+            reference_code:
+                saleAttributes?.reference_code || saleData?.reference_code || "",
             sale_date:
-                saleData?.attributes?.created_at ||
-                saleData?.attributes?.date ||
+                saleAttributes?.created_at ||
+                saleAttributes?.date ||
+                saleData?.created_at ||
+                saleData?.date ||
                 new Date(),
         };
         return formValue;
@@ -985,6 +1920,22 @@ const PosMainPage = (props) => {
 
     //prepare data for payment api
     const prepareData = (updateProducts) => {
+        const isCreditSale = isCreditSaleMode;
+        const initialPayment = isCreditSale ? creditInitialPaymentAmount : 0;
+        const creditType =
+            cashPaymentValue?.credit_type || POS_CREDIT_TYPE.INSTALLMENTS;
+        const salePaymentStatus = isCreditSale
+            ? initialPayment > 0
+                ? 3
+                : 2
+            : 1;
+        const shouldSendPaymentType =
+            !isCreditSale || initialPayment > 0;
+        const receivedAmount = isCreditSale
+            ? initialPayment
+            : toMoneyNumber(
+                  cashPaymentValue?.received_amount ?? grandTotal
+              );
         const formValue = {
             date: moment(new Date()).format("YYYY-MM-DD"),
             customer_id:
@@ -997,43 +1948,87 @@ const PosMainPage = (props) => {
                     : selectedOption && selectedOption.value,
             sale_items: updateProducts,
             grand_total: grandTotal,
-            ...(cashPaymentValue?.payment_status?.value === 1
+            ...(shouldSendPaymentType
                 ? { payment_type: paymentValue?.payment_type?.value }
                 : {}),
-            // Valor ingresado en el modal "RECIBIDO"
-            received_amount: cashPaymentValue?.received_amount,
+            received_amount: receivedAmount,
             discount: cartItemValue.discount,
             shipping: cartItemValue.shipping,
             tax_rate: cartItemValue.tax,
             note: cashPaymentValue.notes,
             status: 1,
             hold_ref_no: hold_ref_no,
-            payment_status: cashPaymentValue?.payment_status?.value,
-            credit_enabled: Boolean(cashPaymentValue?.credit_enabled),
-            credit_interest_rate: Number(
-                cashPaymentValue?.credit_interest_rate || 0
-            ).toFixed(2),
-            credit_installments: Math.max(
-                parseInt(cashPaymentValue?.credit_installments || 1, 10),
-                1
-            ),
-            credit_due_date: cashPaymentValue?.credit_due_date,
+            payment_status: salePaymentStatus,
+            credit_sale: isCreditSale,
+            credit_enabled: isCreditSale,
+            ...(isCreditSale
+                ? {
+                      credit_initial_payment: initialPayment.toFixed(2),
+                      credit_type: creditType,
+                      credit_interest_rate: Number(
+                          cashPaymentValue?.credit_interest_rate || 0
+                      ).toFixed(2),
+                      credit_installments:
+                          creditType === POS_CREDIT_TYPE.FREE
+                              ? 1
+                              : Math.max(
+                                    parseInt(
+                                        cashPaymentValue?.credit_installments || 1,
+                                        10
+                                    ),
+                                    1
+                                ),
+                      credit_due_date: cashPaymentValue?.credit_due_date,
+                  }
+                : {}),
         };
         return formValue;
     };
 
-    //cash payment method
-    const onCashPayment = async (event,printSlip=false) => {
-        event.preventDefault();
-        const valid = handleValidation();
-        if (valid) {
+    const submitCashPayment = useCallback(
+        async (printSlip = false, { skipFefoValidation = false } = {}) => {
+            const valid = handleValidation();
+            if (!valid) {
+                return false;
+            }
+
             const canContinue = await verifyCreditAvailability();
             if (!canContinue) {
-                return;
+                return false;
+            }
+
+            if (!skipFefoValidation) {
+                const fefoValidation = await validateCartFefoCompliance();
+                if (!fefoValidation?.ok) {
+                    if (fefoValidation?.type === "stock") {
+                        dispatch(
+                            addToast({
+                                text:
+                                    fefoValidation?.message ||
+                                    "No hay suficiente stock por lote para completar la venta.",
+                                type: toastType.ERROR,
+                            })
+                        );
+                        return false;
+                    }
+
+                    openFefoValidationModal({
+                        productName: fefoValidation?.productName,
+                        selectedBatches: fefoValidation?.selectedBatches || [],
+                        recommendedBatches:
+                            fefoValidation?.recommendedBatches || [],
+                        onConfirm: async () => {
+                            await submitCashPayment(printSlip, {
+                                skipFefoValidation: true,
+                            });
+                        },
+                    });
+                    return false;
+                }
             }
 
             const saleResponse = await posCashPaymentAction(
-                prepareData(updateProducts),
+                prepareData(updateProductsRef.current),
                 setUpdateProducts,
                 setModalShowPaymentSlip,
                 {
@@ -1041,10 +2036,11 @@ const PosMainPage = (props) => {
                     categoryId,
                     selectedOption,
                     search: debouncedSearchTerm,
-                },printSlip
+                },
+                printSlip
             );
             if (!saleResponse) {
-                return;
+                return false;
             }
 
             setCashPayment(false);
@@ -1062,8 +2058,36 @@ const PosMainPage = (props) => {
             setCashPaymentValue(
                 createInitialCashPaymentValue(getFormattedMessage)
             );
-        }
-    };
+            productBatchCacheRef.current.clear();
+            closeFefoValidationModal();
+            return true;
+        },
+        [
+            brandId,
+            categoryId,
+            closeFefoValidationModal,
+            debouncedSearchTerm,
+            dispatch,
+            getFormattedMessage,
+            handleValidation,
+            openFefoValidationModal,
+            posCashPaymentAction,
+            prepareData,
+            preparePrintData,
+            selectedOption,
+            validateCartFefoCompliance,
+            verifyCreditAvailability,
+        ]
+    );
+
+    //cash payment method
+    const onCashPayment = useCallback(
+        async (event, printSlip = false) => {
+            event?.preventDefault?.();
+            await submitCashPayment(printSlip);
+        },
+        [submitCashPayment]
+    );
 
     const printPaymentReceiptPdf = () => {
         document.getElementById("printReceipt").click();
@@ -1235,18 +2259,52 @@ const PosMainPage = (props) => {
                                                                 updateProduct
                                                             }
                                                             canEditPosSalePrice={canEditPosSalePrice}
-                                                            key={updateProduct.id}
+                                                            key={updateProduct.cart_row_id || updateProduct.id}
                                                             onClickUpdateItemInCart={
                                                                 onClickUpdateItemInCart
                                                             }
                                                             availableStock={
-                                                                productStockById[
-                                                                    Number(updateProduct.id)
-                                                                ] ||
-                                                                Number(
-                                                                    updateProduct.stock_quantity ||
+                                                                (() => {
+                                                                    const productId =
+                                                                        getCartProductId(updateProduct);
+                                                                    const productAvailable = Number(
+                                                                        productStockById[productId] ||
+                                                                            updateProduct.stock_quantity ||
+                                                                            0
+                                                                    );
+                                                                    const otherLinesQuantity =
+                                                                        updateProducts.reduce(
+                                                                            (sum, cartLine) =>
+                                                                                getCartProductId(cartLine) ===
+                                                                                    productId &&
+                                                                                getCartRowId(cartLine) !==
+                                                                                    getCartRowId(updateProduct)
+                                                                                    ? sum +
+                                                                                      Number(
+                                                                                          cartLine.quantity || 0
+                                                                                      )
+                                                                                    : sum,
+                                                                            0
+                                                                        );
+                                                                    const remainingForProduct = Math.max(
+                                                                        productAvailable -
+                                                                            otherLinesQuantity,
                                                                         0
-                                                                )
+                                                                    );
+
+                                                                    if (!updateProduct?.batch_id) {
+                                                                        return remainingForProduct;
+                                                                    }
+
+                                                                    return Math.min(
+                                                                        Number(
+                                                                            updateProduct.stock_quantity ||
+                                                                                updateProduct.batch_available_quantity ||
+                                                                                0
+                                                                        ),
+                                                                        remainingForProduct
+                                                                    );
+                                                                })()
                                                             }
                                                             onDeleteCartItem={
                                                                 onDeleteCartItem
@@ -1318,8 +2376,10 @@ const PosMainPage = (props) => {
                         <div className="d-sm-flex align-items-center flex-xxl-nowrap flex-wrap">
                             <ProductSearchbar
                                 posAllProducts={posAllProducts}
-                                onAddProduct={addProductToCart}
+                                onAddProduct={handleSearchbarAddProduct}
                                 onSearchTermChange={setSearchTerm}
+                                warehouseId={selectedOption?.value}
+                                onScanFeedback={onScanFeedback}
                             />
                             <HeaderAllButton
                                 holdListData={holdListData}
@@ -1353,7 +2413,7 @@ const PosMainPage = (props) => {
                                 searchTerm={searchTerm}
                                 allConfigData={allConfigData}
                                 isLoading={isLoadingMoreProducts}
-                                onAddProduct={addProductToCart}
+                                onAddProduct={handleProductCardClick}
                                 hasMoreProducts={hasMoreProducts}
                                 onLoadMoreProducts={loadMoreProducts}
                             />
@@ -1364,7 +2424,7 @@ const PosMainPage = (props) => {
             {canEditPosSalePrice && isOpenCartItemUpdateModel && (
                 <ProductDetailsModel
                     openProductDetailModal={openProductDetailModal}
-                    productModelId={product.id}
+                    productModelId={product?.cart_row_id || product?.id}
                     onProductUpdateInCart={onProductUpdateInCart}
                     cartProduct={product}
                     isOpenCartItemUpdateModel={isOpenCartItemUpdateModel}
@@ -1372,6 +2432,23 @@ const PosMainPage = (props) => {
                     canEditPosSalePrice={canEditPosSalePrice}
                 />
             )}
+            <ProductBatchSelectionModal
+                show={showBatchSelectionModal}
+                product={batchSelectionProduct}
+                warehouseId={selectedOption?.value}
+                cartProducts={updateProducts}
+                onHide={closeBatchSelectionModal}
+                onSelectBatch={handleSelectBatchFromModal}
+                onUseFifo={handleUseBatchFifo}
+            />
+            <FefoSaleValidationModal
+                show={fefoValidationState.show}
+                productName={fefoValidationState.productName}
+                selectedBatches={fefoValidationState.selectedBatches}
+                recommendedBatches={fefoValidationState.recommendedBatches}
+                onCancel={closeFefoValidationModal}
+                onConfirm={confirmFefoValidation}
+            />
             {cashPayment && (
                 <CashPaymentModel
                     cashPayment={cashPayment}
@@ -1392,7 +2469,7 @@ const PosMainPage = (props) => {
                     paymentTypeDefaultValue={paymentTypeDefaultValue}
                     paymentTypeFilterOptions={paymentTypeFilterOptions}
                     onChangeReturnChange={onChangeReturnChange}
-                    onCreditToggleChange={onCreditToggleChange}
+                    onCreditTypeChange={onCreditTypeChange}
                     onUseCustomerCreditConfigChange={
                         onUseCustomerCreditConfigChange
                     }

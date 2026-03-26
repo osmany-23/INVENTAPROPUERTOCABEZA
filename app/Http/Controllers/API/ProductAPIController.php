@@ -16,12 +16,14 @@ use App\Models\PurchaseItem;
 use App\Models\SaleItem;
 use App\Models\VariationProduct;
 use App\Repositories\ProductRepository;
+use App\Services\ProductBatchService;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -32,9 +34,15 @@ class ProductAPIController extends AppBaseController
     /** @var ProductRepository */
     private $productRepository;
 
-    public function __construct(ProductRepository $productRepository)
+    private ProductBatchService $productBatchService;
+
+    public function __construct(
+        ProductRepository $productRepository,
+        ProductBatchService $productBatchService
+    )
     {
         $this->productRepository = $productRepository;
+        $this->productBatchService = $productBatchService;
     }
 
     public function index(Request $request): ProductCollection
@@ -126,16 +134,35 @@ class ProductAPIController extends AppBaseController
                 'products.stock_alert',
                 'products.order_tax',
                 'products.tax_type',
+                DB::raw('COALESCE(main_products.product_type, '.MainProduct::SINGLE_PRODUCT.') as main_product_type'),
+                'variation_types.name as variation_type_name',
+                DB::raw('CASE WHEN variation_products.id IS NULL THEN 0 ELSE 1 END as is_variant_product'),
                 DB::raw('COALESCE(stock.quantity, 0) as stock_quantity'),
                 DB::raw('COALESCE(base_units.name, "") as product_unit_name'),
                 'product_media.id as image_media_id',
                 'product_media.file_name as image_file_name',
                 'product_media.disk as image_disk',
+                DB::raw(
+                    Schema::hasTable('product_batch_settings')
+                        ? 'COALESCE(product_batch_settings.track_batches, 0) as batch_enabled'
+                        : '0 as batch_enabled'
+                ),
             ])
             ->leftJoinSub($stockQuery, 'stock', function ($join) {
                 $join->on('stock.product_id', '=', 'products.id');
             })
             ->leftJoin('base_units', 'base_units.id', '=', 'products.product_unit')
+            ->leftJoin('main_products', 'main_products.id', '=', 'products.main_product_id')
+            ->leftJoin('variation_products', 'variation_products.product_id', '=', 'products.id')
+            ->leftJoin('variation_types', 'variation_types.id', '=', 'variation_products.variation_type_id')
+            ->when(Schema::hasTable('product_batch_settings'), function ($query) {
+                $query->leftJoin(
+                    'product_batch_settings',
+                    'product_batch_settings.product_id',
+                    '=',
+                    'products.id'
+                );
+            })
             ->leftJoinSub($mainProductImageQuery, 'main_product_image', function ($join) {
                 $join->on('main_product_image.model_id', '=', 'products.main_product_id');
             })
@@ -165,8 +192,20 @@ class ProductAPIController extends AppBaseController
         $visibleProducts = $rows->take($pageSize);
         $canViewPurchasePrice = hasPermissionStrict('view_purchase_price') ||
             hasPermissionStrict('products.view_purchase_price');
+        $batchOverviews = [];
 
-        $data = $visibleProducts->map(function ($product) use ($canViewPurchasePrice) {
+        if (
+            $warehouseId > 0 &&
+            $this->productBatchService->batchTablesExist() &&
+            $visibleProducts->isNotEmpty()
+        ) {
+            $batchOverviews = $this->productBatchService->getPosBatchOverviews(
+                $visibleProducts->pluck('id')->map(fn ($id) => (int) $id)->all(),
+                $warehouseId
+            );
+        }
+
+        $data = $visibleProducts->map(function ($product) use ($batchOverviews, $canViewPurchasePrice, $warehouseId) {
             $imageUrl = '';
             if (! empty($product->image_media_id) && ! empty($product->image_file_name)) {
                 $imagePath = MainProduct::PATH.'/'.$product->image_media_id.'/'.$product->image_file_name;
@@ -174,6 +213,8 @@ class ProductAPIController extends AppBaseController
                 $resolvedUrl = Storage::disk($imageDisk)->url($imagePath);
                 $imageUrl = str_starts_with($resolvedUrl, 'http') ? $resolvedUrl : url($resolvedUrl);
             }
+
+            $batchOverview = $batchOverviews[(int) $product->id] ?? null;
 
             return [
                 'id' => (int) $product->id,
@@ -187,6 +228,15 @@ class ProductAPIController extends AppBaseController
                     'product_unit' => $product->product_unit,
                     'sale_unit' => $product->sale_unit,
                     'stock_alert' => $product->stock_alert,
+                    'product_type' => (int) $product->main_product_type,
+                    'main_product_type' => (int) $product->main_product_type,
+                    'is_variant_product' => (bool) $product->is_variant_product
+                        || (int) $product->main_product_type === MainProduct::VARIATION_PRODUCT,
+                    'is_batch_product' => (bool) $product->batch_enabled
+                        || (int) $product->main_product_type === MainProduct::BATCH_PRODUCT,
+                    'variation_product' => $product->variation_type_name ? [
+                        'variation_type_name' => $product->variation_type_name,
+                    ] : null,
                     'order_tax' => is_null($product->order_tax) ? 0 : (float) $product->order_tax,
                     'tax_type' => is_null($product->tax_type) ? 1 : (int) $product->tax_type,
                     'product_unit_name' => [
@@ -194,7 +244,20 @@ class ProductAPIController extends AppBaseController
                     ],
                     'stock' => [
                         'quantity' => (float) $product->stock_quantity,
+                        'warehouse_id' => $warehouseId,
                     ],
+                    'batch_enabled' => (bool) $product->batch_enabled,
+                    'batch_status' => $batchOverview['status'] ?? null,
+                    'batch_context' => ! empty($batchOverview['batch_id']) ? [
+                        'id' => (int) $batchOverview['batch_id'],
+                        'codigo_lote_sistema' => $batchOverview['next_codigo_lote_sistema'] ?? null,
+                        'lote_fabricante' => $batchOverview['next_lote_fabricante'] ?? null,
+                        'lot_code' => $batchOverview['next_lot_code'] ?? null,
+                        'lot_barcode' => $batchOverview['next_lot_barcode'] ?? null,
+                        'expires_at' => $batchOverview['next_expires_at'] ?? null,
+                        'available_quantity' => (float) ($batchOverview['next_available_quantity'] ?? 0),
+                    ] : null,
+                    'batch_card' => $batchOverview,
                     'images' => [
                         'imageUrls' => $imageUrl ? [$imageUrl] : [],
                     ],
@@ -251,12 +314,22 @@ class ProductAPIController extends AppBaseController
                 'products.product_price',
                 'products.product_unit',
                 'products.sale_unit',
+                'products.purchase_unit',
                 'products.quantity_limit',
                 'products.order_tax',
                 'products.tax_type',
+                DB::raw('COALESCE(main_products.product_type, '.MainProduct::SINGLE_PRODUCT.') as main_product_type'),
+                'variation_types.name as variation_type_name',
+                DB::raw('CASE WHEN variation_products.id IS NULL THEN 0 ELSE 1 END as is_variant_product'),
                 DB::raw('COALESCE(stock.quantity, 0) as stock_quantity'),
                 'sale_units.short_name as sale_unit_short_name',
+                'purchase_units.short_name as purchase_unit_short_name',
                 'product_units.name as product_unit_name',
+                DB::raw(
+                    Schema::hasTable('product_batch_settings')
+                        ? 'COALESCE(product_batch_settings.track_batches, 0) as batch_enabled'
+                        : '0 as batch_enabled'
+                ),
             ])
             ->when(
                 $includeNoStock,
@@ -272,7 +345,20 @@ class ProductAPIController extends AppBaseController
                 }
             )
             ->leftJoin('units as sale_units', 'sale_units.id', '=', 'products.sale_unit')
-            ->leftJoin('base_units as product_units', 'product_units.id', '=', 'products.product_unit');
+            ->leftJoin('units as purchase_units', 'purchase_units.id', '=', 'products.purchase_unit')
+            ->leftJoin('base_units as product_units', 'product_units.id', '=', 'products.product_unit')
+            ->leftJoin('main_products', 'main_products.id', '=', 'products.main_product_id')
+            ->leftJoin('variation_products', 'variation_products.product_id', '=', 'products.id')
+            ->leftJoin('variation_types', 'variation_types.id', '=', 'variation_products.variation_type_id');
+
+        if (Schema::hasTable('product_batch_settings')) {
+            $query->leftJoin(
+                'product_batch_settings',
+                'product_batch_settings.product_id',
+                '=',
+                'products.id'
+            );
+        }
 
         if ($exactCode) {
             $query->where(function ($subQuery) use ($search) {
@@ -327,7 +413,18 @@ class ProductAPIController extends AppBaseController
                     'product_price' => (float) $product->product_price,
                     'product_unit' => $product->product_unit,
                     'sale_unit' => $product->sale_unit,
+                    'purchase_unit' => $product->purchase_unit,
                     'quantity_limit' => $product->quantity_limit,
+                    'product_type' => (int) $product->main_product_type,
+                    'main_product_type' => (int) $product->main_product_type,
+                    'batch_enabled' => (bool) $product->batch_enabled,
+                    'is_batch_product' => (bool) $product->batch_enabled
+                        || (int) $product->main_product_type === MainProduct::BATCH_PRODUCT,
+                    'is_variant_product' => (bool) $product->is_variant_product
+                        || (int) $product->main_product_type === MainProduct::VARIATION_PRODUCT,
+                    'variation_product' => $product->variation_type_name ? [
+                        'variation_type_name' => $product->variation_type_name,
+                    ] : null,
                     'order_tax' => is_null($product->order_tax) ? 0 : (float) $product->order_tax,
                     'tax_type' => is_null($product->tax_type) ? 1 : (int) $product->tax_type,
                     'product_unit_name' => [
@@ -336,6 +433,9 @@ class ProductAPIController extends AppBaseController
                     ],
                     'sale_unit_name' => [
                         'short_name' => $product->sale_unit_short_name ?: ($product->product_unit_name ?? ''),
+                    ],
+                    'purchase_unit_name' => [
+                        'short_name' => $product->purchase_unit_short_name ?: ($product->product_unit_name ?? ''),
                     ],
                     'stock' => [
                         'quantity' => (float) $product->stock_quantity,

@@ -24,7 +24,10 @@ class CreateSaleRequest extends FormRequest
     public function rules(): array
     {
         return array_merge(Sale::$rules, [
+            'credit_sale' => 'nullable|boolean',
             'credit_enabled' => 'nullable|boolean',
+            'credit_initial_payment' => 'nullable|numeric|min:0',
+            'credit_type' => 'nullable|in:automatico,manual,libre',
             'credit_interest_rate' => 'nullable|numeric|min:0',
             'credit_installments' => 'nullable|integer|min:1',
             'credit_start_date' => 'nullable|date',

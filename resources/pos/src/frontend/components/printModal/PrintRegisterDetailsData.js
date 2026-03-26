@@ -305,9 +305,7 @@ class PrintRegisterDetailsData extends React.PureComponent {
                                     padding: "8px 15px",
                                 }}
                             >
-                                {getFormattedMessage(
-                                    "register.total-sales.label"
-                                )}
+                                Ventas contado
                             </td>
                             <td
                                 style={{
@@ -320,7 +318,7 @@ class PrintRegisterDetailsData extends React.PureComponent {
                                     {currencySymbolHandling(
                                         allConfigData,
                                         currencySymbol,
-                                        closeRegisterDetails?.today_sales_amount
+                                        closeRegisterDetails?.today_sales_payment_amount
                                     )}
                                 </span>
                                 {/*<span>{(productName.quantity * (calculateProductCost(productName))).toFixed(2)}</span>*/}
@@ -373,40 +371,7 @@ class PrintRegisterDetailsData extends React.PureComponent {
                                     padding: "8px 15px",
                                 }}
                             >
-                                {getFormattedMessage(
-                                    "register.total-payment.title"
-                                )}
-                            </td>
-                            <td
-                                style={{
-                                    fontSize: "12px",
-                                    border: "none",
-                                    padding: "8px 15px",
-                                }}
-                            >
-                                <span>
-                                    {currencySymbolHandling(
-                                        allConfigData,
-                                        currencySymbol,
-                                        closeRegisterDetails?.today_sales_payment_amount
-                                    )}
-                                </span>
-                            </td>
-                        </tr>
-                        <tr
-                            style={{
-                                width: "100%",
-                                borderBottom: "1px solid #DEE2E6",
-                            }}
-                        >
-                            <td
-                                style={{
-                                    fontSize: "12px",
-                                    border: "none",
-                                    padding: "8px 15px",
-                                }}
-                            >
-                                {getFormattedMessage("credit.collections.title")}
+                                Cobros de crédito
                             </td>
                             <td
                                 style={{

@@ -65,6 +65,10 @@ class PurchaseReturnItem extends BaseModel implements JsonResourceful
 
     protected $fillable = [
         'product_id',
+        'purchase_lot_id',
+        'product_batch_id',
+        'codigo_lote_sistema',
+        'lote_fabricante',
         'product_cost',
         'net_unit_cost',
         'tax_type',
@@ -95,6 +99,8 @@ class PurchaseReturnItem extends BaseModel implements JsonResourceful
     ];
 
     public $casts = [
+        'purchase_lot_id' => 'integer',
+        'product_batch_id' => 'integer',
         'product_cost' => 'double',
         'net_unit_cost' => 'double',
         'tax_value' => 'double',
@@ -126,6 +132,10 @@ class PurchaseReturnItem extends BaseModel implements JsonResourceful
     {
         $fields = [
             'product_id' => $this->product_id,
+            'purchase_lot_id' => $this->purchase_lot_id,
+            'product_batch_id' => $this->product_batch_id,
+            'codigo_lote_sistema' => $this->codigo_lote_sistema,
+            'lote_fabricante' => $this->lote_fabricante,
             'product_cost' => $this->product_cost,
             'net_unit_cost' => $this->net_unit_cost,
             'tax_type' => $this->tax_type,
@@ -152,5 +162,15 @@ class PurchaseReturnItem extends BaseModel implements JsonResourceful
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class, 'product_id', 'id');
+    }
+
+    public function purchaseLot(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseLot::class, 'purchase_lot_id', 'id');
+    }
+
+    public function batch(): BelongsTo
+    {
+        return $this->belongsTo(ProductBatch::class, 'product_batch_id', 'id');
     }
 }

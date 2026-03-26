@@ -7,6 +7,13 @@ import { faAngleDown, faPlusSquare } from "@fortawesome/free-solid-svg-icons";
 import { useSelector } from "react-redux";
 import { Permissions } from "../../constants";
 
+const getAsideTopNavKey = (item, fallbackPrefix = "aside-top") =>
+    item?.to ||
+    item?.path ||
+    item?.title ||
+    item?.detail ||
+    `${fallbackPrefix}-${item?.permission || "item"}`;
+
 const isReportItemActive = (pathname, item) => {
     const matchesMain = pathname === item.to || pathname.includes(item.to);
     const matchesDetail =
@@ -18,10 +25,10 @@ const isReportItemActive = (pathname, item) => {
 
 const AsideTopSubMenuItem = (props) => {
     const { asideConfig, isMenuCollapse } = props;
-	    const config = useSelector((state) => state.config);
-	    const location = useLocation();
-	    const id = useParams();
-	    const isReportRoute = location.pathname.includes("report");
+    const config = useSelector((state) => state.config);
+    const location = useLocation();
+    const id = useParams();
+    const isReportRoute = location.pathname.includes("report");
     const activeReportTabRef = useRef(null);
 
     useEffect(() => {
@@ -170,10 +177,12 @@ const AsideTopSubMenuItem = (props) => {
                         </div>
                     ) : (
                         asideConfig &&
-                        asideConfig.map((mainItems, index) => {
+                        asideConfig.map((mainItems) => {
+                            const mainItemKey = getAsideTopNavKey(mainItems);
+
                             return (
                                 <div
-                                    key={index}
+                                    key={mainItemKey}
                                     className={`${
                                         location.pathname === mainItems.to ||
                                         location.pathname === mainItems.path ||
@@ -284,21 +293,28 @@ const AsideTopSubMenuItem = (props) => {
 	                                            : "d-none"
 	                                    }`}
 	                                >
-	                                    {mainItems.items
-	                                        ? mainItems.items.map((item, index) => {
-	                                              if (index <= 4) {
-	                                                  return (
-	                                                      <div
-	                                                          key={index}
-	                                                          className={`nav-item ${
-	                                                              isReportRoute
-	                                                                  ? "report-nav-item d-none d-xl-block"
-	                                                                  : ""
-	                                                          } position-relative mx-xl-3 mb-3 mb-xl-0 mx-1`}
-	                                                      >
-	                                                          <Link
-	                                                              to={item.to}
-	                                                              className={`nav-link p-0 ${
+                                    {mainItems.items
+                                        ? mainItems.items
+                                              .slice(0, 5)
+                                              .map((item) => {
+                                                  const itemKey =
+                                                      getAsideTopNavKey(
+                                                          item,
+                                                          mainItemKey
+                                                      );
+
+                                                  return (
+                                                      <div
+                                                          key={itemKey}
+                                                          className={`nav-item ${
+                                                              isReportRoute
+                                                                  ? "report-nav-item d-none d-xl-block"
+                                                                  : ""
+                                                          } position-relative mx-xl-3 mb-3 mb-xl-0 mx-1`}
+                                                      >
+                                                          <Link
+                                                              to={item.to}
+                                                              className={`nav-link p-0 ${
                                                                   location.pathname ===
                                                                       item.to ||
                                                                   (mainItems.isSamePrefix
@@ -333,17 +349,19 @@ const AsideTopSubMenuItem = (props) => {
                                                           </Link>
                                                       </div>
                                                   );
-	                                              }
-	                                          })
-	                                        : mainItems?.subMenu?.map(
-                                              (item, index) => {
+                                              })
+                                        : mainItems?.subMenu?.map(
+                                              (item) => {
                                                   return location.pathname ===
                                                       item.to ||
                                                       location.pathname.includes(
                                                           item.to
                                                       ) ? (
                                                       <div
-                                                          key={index}
+                                                          key={getAsideTopNavKey(
+                                                              item,
+                                                              mainItemKey
+                                                          )}
                                                           className="nav-item position-relative mx-xl-3 mb-3 mb-xl-0 mx-1"
                                                       >
                                                           <Link
@@ -386,7 +404,7 @@ const AsideTopSubMenuItem = (props) => {
 	                                        mainItems.items.length > 0 && (
 	                                            <div className="report-tabs-carousel navbar-nav d-flex d-md-none">
 	                                                {mainItems.items.map(
-	                                                    (reportItem, index) => {
+	                                                    (reportItem) => {
 	                                                        const isActiveItem =
 	                                                            isReportItemActive(
 	                                                                location.pathname,
@@ -395,10 +413,10 @@ const AsideTopSubMenuItem = (props) => {
 
 	                                                        return (
 	                                                            <div
-	                                                                key={
-	                                                                    reportItem.to ||
-	                                                                    index
-	                                                                }
+	                                                                key={getAsideTopNavKey(
+                                                                    reportItem,
+                                                                    mainItemKey
+                                                                )}
 	                                                                className="nav-item position-relative report-tabs-carousel-item"
 	                                                            >
 	                                                                <Link
@@ -466,12 +484,12 @@ const AsideTopSubMenuItem = (props) => {
 	                                                </Dropdown.Toggle>
 	                                                <Dropdown.Menu className="mt-6 report-nav-mobile-menu">
 	                                                    {mainItems.items.map(
-	                                                        (reportItem, index) => (
+	                                                        (reportItem) => (
 	                                                            <Dropdown.Item
-	                                                                key={
-	                                                                    reportItem.to ||
-	                                                                    index
-	                                                                }
+	                                                                key={getAsideTopNavKey(
+                                                                    reportItem,
+                                                                    mainItemKey
+                                                                )}
 	                                                                as={Link}
 	                                                                to={reportItem.to}
 	                                                                className="px-0 py-0 fs-6"
@@ -515,14 +533,15 @@ const AsideTopSubMenuItem = (props) => {
                                             </Dropdown.Toggle>
                                             <Dropdown.Menu className="mt-6 report-more-dropdown">
                                                 {mainItems.items &&
-                                                    mainItems.items.map(
-                                                        (item, index) => {
-                                                            if (index >= 5) {
+                                                    mainItems.items
+                                                        .slice(5)
+                                                        .map((item) => {
                                                                 return (
                                                                     <Dropdown.Item
-                                                                        key={
-                                                                            index
-                                                                        }
+                                                                        key={getAsideTopNavKey(
+                                                                            item,
+                                                                            mainItemKey
+                                                                        )}
                                                                         as={Link}
                                                                         to={
                                                                             item.to
@@ -561,9 +580,7 @@ const AsideTopSubMenuItem = (props) => {
                                                                         </div>
                                                                     </Dropdown.Item>
                                                                 );
-                                                            }
-                                                        }
-                                                    )}
+                                                        })}
                                             </Dropdown.Menu>
                                         </Dropdown>
                                     )}

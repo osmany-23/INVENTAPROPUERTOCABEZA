@@ -58,6 +58,10 @@ class CreditInventoryService
         if (! $this->itemTableExists()) {
             throw new UnprocessableEntityHttpException('La integracion de inventario para creditos requiere ejecutar sus migraciones.');
         }
+        $this->assertNoTrackedBatchProducts(
+            collect($items)->pluck('product_id')->filter()->all(),
+            'Los productos con control por lote no pueden agregarse a creditos manuales con inventario.'
+        );
 
         if ($warehouseId <= 0) {
             throw new UnprocessableEntityHttpException('Debe seleccionar una bodega para el credito manual.');
@@ -273,6 +277,10 @@ class CreditInventoryService
         }
 
         $detailItems = collect($this->getDetailItems($credit))->keyBy('credit_item_id');
+        $this->assertNoTrackedBatchProducts(
+            $credit->items->pluck('product_id')->filter()->unique()->values()->all(),
+            'Los productos con control por lote no pueden devolverse desde creditos manuales sin lote especifico.'
+        );
 
         foreach ($requestedItems as $creditItemId => $quantity) {
             /** @var CreditItem|null $creditItem */
@@ -315,6 +323,15 @@ class CreditInventoryService
                 'note' => $note,
             ]);
         }
+    }
+
+    private function assertNoTrackedBatchProducts(array $productIds, string $message): void
+    {
+        if (! app(ProductBatchService::class)->batchTablesExist()) {
+            return;
+        }
+
+        app(ProductBatchService::class)->assertTrackedProductsNotPresent($productIds, $message);
     }
 
     public function paginateProductMovements(int $productId, array $filters = []): LengthAwarePaginator

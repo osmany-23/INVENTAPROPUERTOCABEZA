@@ -5,6 +5,8 @@ namespace App\Repositories;
 use App\Models\Adjustment;
 use App\Models\AdjustmentItem;
 use App\Models\ManageStock;
+use App\Services\ProductBatchService;
+use Exception;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
@@ -53,6 +55,10 @@ class AdjustmentRepository extends BaseRepository
         try {
             DB::beginTransaction();
 
+            $this->assertNoTrackedBatchProducts(
+                collect($input['adjustment_items'] ?? [])->pluck('product_id')->filter()->all(),
+                'Los productos con control por lote deben ajustarse desde la gestion de lotes.'
+            );
             $input['total_products'] = count($input['adjustment_items']);
             $input['date'] = $input['date'] ?? date('Y/m/d');
             $adjustmentInputArray = Arr::only($input, [
@@ -115,6 +121,10 @@ class AdjustmentRepository extends BaseRepository
             DB::beginTransaction();
 
             $adjustment = Adjustment::findOrFail($id);
+            $this->assertNoTrackedBatchProducts(
+                collect($input['adjustment_items'] ?? [])->pluck('product_id')->filter()->all(),
+                'Los productos con control por lote deben ajustarse desde la gestion de lotes.'
+            );
 
             $input['total_products'] = count($input['adjustment_items']);
             $input['date'] = $input['date'] ?? date('Y/m/d');
@@ -225,5 +235,14 @@ class AdjustmentRepository extends BaseRepository
         }
 
         return $adjustment;
+    }
+
+    private function assertNoTrackedBatchProducts(array $productIds, string $message): void
+    {
+        if (! app(ProductBatchService::class)->batchTablesExist()) {
+            return;
+        }
+
+        app(ProductBatchService::class)->assertTrackedProductsNotPresent($productIds, $message);
     }
 }

@@ -21,6 +21,12 @@ class PrintData extends React.PureComponent {
             paymentPrint.settings &&
             paymentPrint.settings.attributes &&
             paymentPrint.settings.attributes.currency_symbol;
+        const isCreditSale = Boolean(paymentPrint?.is_credit_sale);
+        const paidAmount = Number(paymentPrint?.paid_amount || 0);
+        const dueAmount = Number(paymentPrint?.due_amount || 0);
+        const creditStatusLabel =
+            paymentPrint?.credit_receipt_status ||
+            (paidAmount > 0 ? "PARCIAL" : "CRÉDITO");
         return (
             <div
                 className="print-data"
@@ -418,53 +424,102 @@ class PrintData extends React.PureComponent {
                     </div>
                 </section>
 
-                {/* Campos PAGADO CON, MONTO y VUELTO alineados como los totales */}
                 <section className="mt-3 product-border">
-                    <div className="d-flex">
-                        <div style={{fontWeight: "500", color: "#000000"}}>
-                            {getFormattedMessage("pos-sale.detail.Paid-bt.title")}:
-                        </div>
-                        <div className="text-end ms-auto">
-                            {paymentType}
-                        </div>
-                    </div>
-                    <div className="d-flex">
-                        <div style={{fontWeight: "500", color: "#000000"}}>
-                            {getFormattedMessage("expense.input.amount.label")}:
-                        </div>
-                        <div className="text-end ms-auto">
-                            {currencySymbolHandling(
-                                allConfigData,
-                                currency,
-                                paymentPrint.grandTotal
-                            )}
-                        </div>
-                    </div>
-                    {/* Campo Cantidad Recibida */}
-                    <div className="d-flex">
-                        <div style={{fontWeight: "500", color: "#000000"}}>
-                            Cantidad Recibida:
-                        </div>
-                        <div className="text-end ms-auto">
-                            {currencySymbolHandling(
-                                allConfigData,
-                                currency,
-                                paymentPrint.received_amount
-                            )}
-                        </div>
-                    </div>
-                    <div className="d-flex">
-                        <div style={{fontWeight: "500", color: "#000000"}}>
-                            {getFormattedMessage("pos.change-return.label")}:
-                        </div>
-                        <div className="text-end ms-auto">
-                            {currencySymbolHandling(
-                                allConfigData,
-                                currency,
-                                paymentPrint.changeReturn
-                            )}
-                        </div>
-                    </div>
+                    {isCreditSale ? (
+                        <>
+                            <div className="d-flex">
+                                <div style={{fontWeight: "500", color: "#000000"}}>
+                                    Estado:
+                                </div>
+                                <div className="text-end ms-auto">
+                                    {creditStatusLabel}
+                                </div>
+                            </div>
+                            <div className="d-flex">
+                                <div style={{fontWeight: "500", color: "#000000"}}>
+                                    Total:
+                                </div>
+                                <div className="text-end ms-auto">
+                                    {currencySymbolHandling(
+                                        allConfigData,
+                                        currency,
+                                        paymentPrint.grandTotal
+                                    )}
+                                </div>
+                            </div>
+                            <div className="d-flex">
+                                <div style={{fontWeight: "500", color: "#000000"}}>
+                                    Abono:
+                                </div>
+                                <div className="text-end ms-auto">
+                                    {currencySymbolHandling(
+                                        allConfigData,
+                                        currency,
+                                        paidAmount
+                                    )}
+                                </div>
+                            </div>
+                            <div className="d-flex">
+                                <div style={{fontWeight: "500", color: "#000000"}}>
+                                    Saldo pendiente:
+                                </div>
+                                <div className="text-end ms-auto">
+                                    {currencySymbolHandling(
+                                        allConfigData,
+                                        currency,
+                                        dueAmount
+                                    )}
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="d-flex">
+                                <div style={{fontWeight: "500", color: "#000000"}}>
+                                    {getFormattedMessage("pos-sale.detail.Paid-bt.title")}:
+                                </div>
+                                <div className="text-end ms-auto">
+                                    {paymentType}
+                                </div>
+                            </div>
+                            <div className="d-flex">
+                                <div style={{fontWeight: "500", color: "#000000"}}>
+                                    {getFormattedMessage("expense.input.amount.label")}:
+                                </div>
+                                <div className="text-end ms-auto">
+                                    {currencySymbolHandling(
+                                        allConfigData,
+                                        currency,
+                                        paymentPrint.grandTotal
+                                    )}
+                                </div>
+                            </div>
+                            <div className="d-flex">
+                                <div style={{fontWeight: "500", color: "#000000"}}>
+                                    Cantidad Recibida:
+                                </div>
+                                <div className="text-end ms-auto">
+                                    {currencySymbolHandling(
+                                        allConfigData,
+                                        currency,
+                                        paymentPrint.received_amount
+                                    )}
+                                </div>
+                            </div>
+                            <div className="d-flex">
+                                <div style={{fontWeight: "500", color: "#000000"}}>
+                                    {getFormattedMessage("pos.change-return.label")}:
+                                </div>
+                                <div className="text-end ms-auto">
+                                    {currencySymbolHandling(
+                                        allConfigData,
+                                        currency,
+                                        paymentPrint.changeReturn
+                                    )}
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </section>
 
                 {/*note section*/}

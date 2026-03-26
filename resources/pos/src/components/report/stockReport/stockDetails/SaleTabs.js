@@ -54,6 +54,7 @@ const SaleTabs = (props) => {
                 sub_total: item.sub_total,
                 quantity: item.quantity,
                 product_id: item.product_id,
+                batch_allocations: item.batch_allocations || [],
             })),
             currency: currencySymbol,
         }));
@@ -101,6 +102,24 @@ const SaleTabs = (props) => {
             selector: (row) => row.customer_name,
             sortField: "customer_name",
             sortable: false,
+        },
+        {
+            name: "Lote",
+            sortable: false,
+            cell: (row) => {
+                return row.sale_items.map((item, itemIndex) =>
+                    item.product_id === Number(id) ? (
+                        <span key={`sale-batch-${item.product_id}-${itemIndex}`} className="d-block">
+                            {item.batch_allocations?.[0]?.codigo_lote_sistema ||
+                                item.batch_allocations?.[0]?.lot_code ||
+                                item.batch_allocations?.[0]?.lote_fabricante ||
+                                "N/A"}
+                        </span>
+                    ) : (
+                        ""
+                    )
+                );
+            },
         },
         {
             name: getFormattedMessage("warehouse.title"),

@@ -12,6 +12,8 @@ import { faBars } from "@fortawesome/free-solid-svg-icons";
 import { normalizePermissions } from "../shared/permissionRoute";
 import { useLocation } from "react-router-dom";
 
+const SIDEBAR_COLLAPSE_STORAGE_KEY = "pos_sidebar_collapsed";
+
 const MasterLayout = (props) => {
     const {
         children,
@@ -20,12 +22,22 @@ const MasterLayout = (props) => {
         config,
         allConfigData,
     } = props;
-	    const [isResponsiveMenu, setIsResponsiveMenu] = useState(false);
-	    const [isMenuCollapse, setIsMenuCollapse] = useState(false);
-	    const newRoutes = config && prepareRoutes(config);
-	    const token = localStorage.getItem(Tokens.ADMIN);
-	    const location = useLocation();
-	    const isReportRoute = location.pathname.includes("/report");
+    const [isResponsiveMenu, setIsResponsiveMenu] = useState(false);
+    const [isMenuCollapse, setIsMenuCollapse] = useState(() => {
+        try {
+            return (
+                typeof window !== "undefined" &&
+                window.localStorage.getItem(SIDEBAR_COLLAPSE_STORAGE_KEY) ===
+                    "1"
+            );
+        } catch (error) {
+            return false;
+        }
+    });
+    const newRoutes = config && prepareRoutes(config);
+    const token = localStorage.getItem(Tokens.ADMIN);
+    const location = useLocation();
+    const isReportRoute = location.pathname.includes("/report");
 
     useEffect(() => {
         if (!token) {
@@ -33,16 +45,35 @@ const MasterLayout = (props) => {
         }
     }, [token]);
 
+    useEffect(() => {
+        try {
+            window.localStorage.setItem(
+                SIDEBAR_COLLAPSE_STORAGE_KEY,
+                isMenuCollapse ? "1" : "0"
+            );
+        } catch (error) {
+            // Ignore storage failures and keep the current in-memory state.
+        }
+    }, [isMenuCollapse]);
+
+    useEffect(() => {
+        setIsResponsiveMenu(false);
+    }, [location.pathname]);
+
     const menuClick = () => {
-        setIsResponsiveMenu(!isResponsiveMenu);
+        setIsResponsiveMenu((currentValue) => !currentValue);
     };
 
     const menuIconClick = () => {
-        setIsMenuCollapse(!isMenuCollapse);
+        setIsMenuCollapse((currentValue) => !currentValue);
     };
 
     return (
-        <div className="d-flex flex-row flex-column-fluid">
+        <div
+            className={`d-flex flex-row flex-column-fluid app-shell${
+                isMenuCollapse ? " app-shell--sidebar-collapsed" : ""
+            }`}
+        >
             <AsideDefault
                 asideConfig={newRoutes}
                 frontSetting={frontSetting}
@@ -56,11 +87,11 @@ const MasterLayout = (props) => {
                     isMenuCollapse === true ? "wrapper-res" : "wrapper"
                 } d-flex flex-column flex-row-fluid`}
             >
-	                <div
-	                    className={`d-flex align-items-stretch justify-content-between header${
-	                        isReportRoute ? " header--report" : ""
-	                    }`}
-	                >
+                <div
+                    className={`d-flex align-items-stretch justify-content-between header${
+                        isReportRoute ? " header--report" : ""
+                    }`}
+                >
                     <div className="container-fluid d-flex align-items-stretch justify-content-xxl-between flex-grow-1">
                         <button
                             type="button"

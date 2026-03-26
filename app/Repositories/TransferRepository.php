@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Models\ManageStock;
 use App\Models\Transfer;
 use App\Models\TransferItem;
+use App\Services\ProductBatchService;
 use Exception;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -68,6 +69,10 @@ class TransferRepository extends BaseRepository
         try {
             DB::beginTransaction();
 
+            $this->assertNoTrackedBatchProducts(
+                collect($input['transfer_items'] ?? [])->pluck('product_id')->filter()->all(),
+                'Los productos con control por lote no pueden trasladarse desde el modulo de traslados.'
+            );
             $input['date'] = $input['date'] ?? date('Y/m/d');
             $TransferInputArray = Arr::only($input, [
                 'from_warehouse_id', 'to_warehouse_id', 'tax_rate', 'tax_amount', 'discount', 'shipping', 'grand_total',
@@ -196,6 +201,10 @@ class TransferRepository extends BaseRepository
             DB::beginTransaction();
 
             $transfer = Transfer::findOrFail($id);
+            $this->assertNoTrackedBatchProducts(
+                collect($input['transfer_items'] ?? [])->pluck('product_id')->filter()->all(),
+                'Los productos con control por lote no pueden trasladarse desde el modulo de traslados.'
+            );
 
             $transferItemOldIds = TransferItem::whereTransferId($id)->pluck('id')->toArray();
             $transferItemNewIds = [];
@@ -360,5 +369,14 @@ class TransferRepository extends BaseRepository
         $transfer->update($transferInputArray);
 
         return $transfer;
+    }
+
+    private function assertNoTrackedBatchProducts(array $productIds, string $message): void
+    {
+        if (! app(ProductBatchService::class)->batchTablesExist()) {
+            return;
+        }
+
+        app(ProductBatchService::class)->assertTrackedProductsNotPresent($productIds, $message);
     }
 }

@@ -3,6 +3,8 @@ import {placeholderText} from '../sharedMethod';
 import {faSearch} from '@fortawesome/free-solid-svg-icons';
 import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
 
+const FILTER_INPUT_DEBOUNCE_MS = 180;
+
 const FilterComponent = (props) => {
     const {handleSearch} = props;
     const typingTimeoutRef = useRef(null);
@@ -15,7 +17,10 @@ const FilterComponent = (props) => {
         if (typingTimeoutRef.current) {
             clearTimeout(typingTimeoutRef.current);
         }
-        typingTimeoutRef.current = setTimeout(() => sendToParent(event.target.value), 500);
+        typingTimeoutRef.current = setTimeout(
+            () => sendToParent(event.target.value),
+            FILTER_INPUT_DEBOUNCE_MS
+        );
     };
 
     useEffect(() => {

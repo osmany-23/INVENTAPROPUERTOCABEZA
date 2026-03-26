@@ -39,6 +39,30 @@ import { addUnit } from "../../store/action/unitsAction";
 import { fetchAllVariations } from "../../store/action/variationAction";
 import ReactMultiSelect from "../../shared/select/ReactMultiSelect";
 import { addToast } from "../../store/action/toastAction";
+import ProductBatchDraftSection from "./ProductBatchDraftSection";
+
+const SINGLE_PRODUCT_TYPE = 1;
+const VARIATION_PRODUCT_TYPE = 2;
+const BATCH_PRODUCT_TYPE = 3;
+
+const createBatchDraft = (sequence, manufacturedAt) => ({
+    id: `batch-${sequence}-${Date.now()}`,
+    codigo_lote_sistema_preview: `LOTE-${String(sequence).padStart(3, "0")}`,
+    lote_fabricante: "",
+    lot_barcode: "",
+    ubicacion: "",
+    descripcion: "",
+    quantity: "",
+    product_cost: "",
+    product_price: "",
+    fecha_fabricacion: manufacturedAt || moment().format("YYYY-MM-DD"),
+    fecha_vencimiento: "",
+    impuesto_tipo: "EXCLUSIVO",
+    impuesto_valor: "",
+});
+
+const batchFieldErrorKey = (batchId, fieldName) =>
+    `batch_${batchId}_${fieldName}`;
 
 const ProductForm = (props) => {
     const {
@@ -114,6 +138,8 @@ const ProductForm = (props) => {
     const [isDropdown, setIsDropdown] = useState(true);
     const [multipleFiles, setMultipleFiles] = useState([]);
     const [errors, setErrors] = useState({});
+    const [batchDrafts, setBatchDrafts] = useState([]);
+    const [nextBatchSequence, setNextBatchSequence] = useState(1);
 
     useEffect(() => {
         fetchAllBrands();
@@ -489,6 +515,19 @@ const ProductForm = (props) => {
     };
 
     const productTypesOptionsObj = getFormattedOptions(productTypesOptions);
+    const productTypeOptions = [
+        ...productTypesOptionsObj,
+        {
+            id: BATCH_PRODUCT_TYPE,
+            name: intl.formatMessage({
+                id: "product.type.batch.label",
+                defaultMessage: "Por lote",
+            }),
+        },
+    ];
+    const currentProductTypeValue = Number(productValue?.product_type?.value || 0);
+    const isBatchProductCreate =
+        !singleProduct && currentProductTypeValue === BATCH_PRODUCT_TYPE;
 
     // tax type dropdown functionality
     const taxTypeFilterOptions = getFormattedOptions(taxMethodOptions);
@@ -547,8 +586,16 @@ const ProductForm = (props) => {
             ...productValue,
             product_type: obj,
         }));
-        if (obj.value === 2) {
+        if (obj.value === VARIATION_PRODUCT_TYPE) {
             dispatch(fetchAllVariations());
+        }
+        if (obj.value === BATCH_PRODUCT_TYPE && batchDrafts.length === 0) {
+            const initialBatch = createBatchDraft(
+                nextBatchSequence,
+                moment(productValue.date).format("YYYY-MM-DD")
+            );
+            setBatchDrafts([initialBatch]);
+            setNextBatchSequence((prev) => prev + 1);
         }
         setErrors({});
     };
@@ -708,6 +755,229 @@ const ProductForm = (props) => {
         return invalid;
     };
 
+    const getCommonCreateValidationError = () => {
+        if (!productValue["warehouse_id"]) {
+            return {
+                warehouse_id: getFormattedMessage(
+                    "purchase.select.warehouse.validate.label"
+                ),
+            };
+        }
+
+        if (!productValue["supplier_id"]) {
+            return {
+                supplier_id: getFormattedMessage(
+                    "purchase.select.supplier.validate.label"
+                ),
+            };
+        }
+
+        if (!productValue["status_id"]) {
+            return {
+                status_id: getFormattedMessage("globally.status.validate.label"),
+            };
+        }
+
+        return {};
+    };
+
+    const getBatchValidationErrors = () => {
+        const batchErrors = {};
+        const manufacturerLots = new Set();
+        const barcodes = new Set();
+
+        if (batchDrafts.length === 0) {
+            batchErrors["batch_data"] = intl.formatMessage({
+                id: "product.batch.validation.required",
+                defaultMessage: "Agregue al menos un lote para guardar el producto.",
+            });
+
+            return batchErrors;
+        }
+
+        batchDrafts.forEach((batch) => {
+            const manufacturerLot = String(batch.lote_fabricante || "").trim();
+            const lotBarcode = String(batch.lot_barcode || "").trim();
+            const description = String(batch.descripcion || "").trim();
+            const quantity = Number(batch.quantity || 0);
+            const productCost = Number(batch.product_cost || 0);
+            const productPrice = Number(batch.product_price || 0);
+            const manufacturedAt = String(batch.fecha_fabricacion || "").trim();
+            const expiresAt = String(batch.fecha_vencimiento || "").trim();
+            const taxType = String(batch.impuesto_tipo || "EXCLUSIVO").trim();
+            const taxValue =
+                batch.impuesto_valor === "" || batch.impuesto_valor === null
+                    ? 0
+                    : Number(batch.impuesto_valor || 0);
+            const normalizedManufacturerLot = manufacturerLot.toUpperCase();
+            const normalizedBarcode = lotBarcode.toUpperCase();
+
+            if (!manufacturerLot) {
+                batchErrors[batchFieldErrorKey(batch.id, "lote_fabricante")] =
+                    intl.formatMessage({
+                        id: "product.batch.validation.lote_fabricante",
+                        defaultMessage: "Ingrese el lote del fabricante.",
+                    });
+            } else if (manufacturerLots.has(normalizedManufacturerLot)) {
+                batchErrors[batchFieldErrorKey(batch.id, "lote_fabricante")] =
+                    intl.formatMessage({
+                        id: "product.batch.validation.duplicate_lote_fabricante",
+                        defaultMessage:
+                            "Cada lote debe tener un lote de fabricante unico dentro del producto.",
+                    });
+            } else {
+                manufacturerLots.add(normalizedManufacturerLot);
+            }
+
+            if (lotBarcode) {
+                if (barcodes.has(normalizedBarcode)) {
+                    batchErrors[batchFieldErrorKey(batch.id, "lot_barcode")] =
+                        intl.formatMessage({
+                            id: "product.batch.validation.duplicate_barcode",
+                            defaultMessage:
+                                "Cada codigo de barras de lote debe ser unico.",
+                        });
+                } else {
+                    barcodes.add(normalizedBarcode);
+                }
+            }
+
+            if (!(quantity > 0)) {
+                batchErrors[batchFieldErrorKey(batch.id, "quantity")] =
+                    intl.formatMessage({
+                        id: "product.batch.validation.quantity",
+                        defaultMessage:
+                            "La cantidad del lote debe ser mayor a cero.",
+                    });
+            }
+
+            if (!(productCost > 0)) {
+                batchErrors[batchFieldErrorKey(batch.id, "product_cost")] =
+                    intl.formatMessage({
+                        id: "product.batch.validation.product_cost",
+                        defaultMessage:
+                            "Ingrese un precio de compra mayor a cero.",
+                    });
+            }
+
+            if (!(productPrice > 0)) {
+                batchErrors[batchFieldErrorKey(batch.id, "product_price")] =
+                    intl.formatMessage({
+                        id: "product.batch.validation.product_price",
+                        defaultMessage:
+                            "Ingrese un precio de venta mayor a cero.",
+                    });
+            }
+
+            if (description.length > 1000) {
+                batchErrors[batchFieldErrorKey(batch.id, "descripcion")] =
+                    intl.formatMessage({
+                        id: "product.batch.validation.descripcion",
+                        defaultMessage:
+                            "La descripcion del lote no puede superar los 1000 caracteres.",
+                    });
+            }
+
+            if (
+                manufacturedAt &&
+                expiresAt &&
+                moment(expiresAt).isBefore(moment(manufacturedAt), "day")
+            ) {
+                batchErrors[batchFieldErrorKey(batch.id, "fecha_vencimiento")] =
+                    intl.formatMessage({
+                        id: "product.batch.validation.fecha_vencimiento",
+                        defaultMessage:
+                            "La fecha de vencimiento debe ser igual o posterior a la fecha de fabricacion.",
+                    });
+            }
+
+            if (
+                taxType &&
+                taxType !== "EXCLUSIVO" &&
+                taxType !== "INCLUSIVO"
+            ) {
+                batchErrors[batchFieldErrorKey(batch.id, "impuesto_tipo")] =
+                    intl.formatMessage({
+                        id: "product.batch.validation.impuesto_tipo",
+                        defaultMessage: "Seleccione un tipo de impuesto valido.",
+                    });
+            }
+
+            if (!(taxValue >= 0 && taxValue <= 100)) {
+                batchErrors[batchFieldErrorKey(batch.id, "impuesto_valor")] =
+                    intl.formatMessage({
+                        id: "product.batch.validation.impuesto_valor",
+                        defaultMessage:
+                            "El impuesto del lote debe estar entre 0 y 100.",
+                    });
+            }
+        });
+
+        if (Object.keys(batchErrors).length > 0) {
+            batchErrors["batch_data"] = intl.formatMessage({
+                id: "product.batch.validation.row_error",
+                defaultMessage: "Revise los datos de los lotes antes de guardar.",
+            });
+        }
+
+        return batchErrors;
+    };
+
+    const addBatchDraft = () => {
+        const nextDraft = createBatchDraft(
+            nextBatchSequence,
+            moment(productValue.date).format("YYYY-MM-DD")
+        );
+
+        setBatchDrafts((prev) => [...prev, nextDraft]);
+        setNextBatchSequence((prev) => prev + 1);
+        setErrors((prev) => ({
+            ...prev,
+            batch_data: "",
+        }));
+    };
+
+    const removeBatchDraft = (batchId) => {
+        setBatchDrafts((prev) => prev.filter((batch) => batch.id !== batchId));
+        setErrors((prev) =>
+            Object.keys(prev).reduce((carry, key) => {
+                if (
+                    key !== "batch_data" &&
+                    !key.startsWith(`batch_${batchId}_`)
+                ) {
+                    carry[key] = prev[key];
+                }
+
+                return carry;
+            }, {})
+        );
+    };
+
+    const onBatchDraftChange = (batchId, fieldName, value) => {
+        setBatchDrafts((prev) =>
+            prev.map((batch) =>
+                batch.id === batchId
+                    ? {
+                          ...batch,
+                          [fieldName]: value,
+                      }
+                    : batch
+            )
+        );
+        setErrors((prev) => ({
+            ...prev,
+            batch_data: "",
+            [batchFieldErrorKey(batchId, fieldName)]: "",
+            ...(fieldName === "fecha_fabricacion" ||
+            fieldName === "fecha_vencimiento"
+                ? {
+                      [batchFieldErrorKey(batchId, "fecha_fabricacion")]: "",
+                      [batchFieldErrorKey(batchId, "fecha_vencimiento")]: "",
+                  }
+                : {}),
+        }));
+    };
+
     const handleValidation = () => {
         let errorss = {};
         let isValid = false;
@@ -776,80 +1046,90 @@ const ProductForm = (props) => {
                 errorss["product_type"] = getFormattedMessage(
                     "product.type.input.validation.error"
                 );
-            } else if (
-                productValue.product_type.value === 2 &&
-                productValue.variation === "" &&
-                !productValue.variation.label
-            ) {
-                errorss["variation"] = getFormattedMessage(
-                    "variation.select.validation.error.message"
-                );
-            } else if (
-                productValue.product_type.value === 2 &&
-                productValue.variation_type === "" &&
-                !productValue.variation_type.label
-            ) {
-                errorss["variation_type"] = getFormattedMessage(
-                    "variation.type.select.validate.error.message"
-                );
-            } else if (
-                productValue.product_type.value === 2 &&
-                validateVariationTypesData()
-            ) {
-            } else if (
-                productValue.product_type.value === 1 &&
-                (!singleProductTypeData.product_cost ||
-                    singleProductTypeData.product_cost === "")
-            ) {
-                errorss["product_cost"] = getFormattedMessage(
-                    "product.input.product-cost.validate.label"
-                );
-            } else if (
-                productValue.product_type.value === 1 &&
-                (!singleProductTypeData.product_price ||
-                    singleProductTypeData.product_price === "")
-            ) {
-                errorss["product_price"] = getFormattedMessage(
-                    "product.input.product-price.validate.label"
-                );
-            } else if (
-                productValue.product_type.value === 1 &&
-                (!singleProductTypeData.tax_type ||
-                    singleProductTypeData.tax_type === "")
-            ) {
-                errorss["tax_type"] = getFormattedMessage(
-                    "product.input.tax-type.validate.label"
-                );
-            } else if (
-                productValue.product_type.value === 1 &&
-                singleProductTypeData.order_tax &&
-                singleProductTypeData.order_tax > 100
-            ) {
-                errorss["order_tax"] = getFormattedMessage(
-                    "product.input.order-tax.valid.validate.label"
-                );
-            } else if (!productValue["warehouse_id"]) {
-                errorss["warehouse_id"] = getFormattedMessage(
-                    "purchase.select.warehouse.validate.label"
-                );
-            } else if (
-                productValue.product_type.value === 1 &&
-                (!singleProductTypeData.add_stock ||
-                    singleProductTypeData.add_stock === "")
-            ) {
-                errorss["add_stock"] = getFormattedMessage(
-                    "purchase.product.quantity.validate.label"
-                );
-            } else if (!productValue["supplier_id"]) {
-                errorss["supplier_id"] = getFormattedMessage(
-                    "purchase.select.supplier.validate.label"
-                );
-            } else if (!productValue["status_id"]) {
-                errorss["status_id"] = getFormattedMessage(
-                    "globally.status.validate.label"
-                );
-            } else {
-                isValid = true;
+            } else if (currentProductTypeValue === VARIATION_PRODUCT_TYPE) {
+                if (
+                    productValue.variation === "" &&
+                    !productValue.variation.label
+                ) {
+                    errorss["variation"] = getFormattedMessage(
+                        "variation.select.validation.error.message"
+                    );
+                } else if (
+                    productValue.variation_type === "" &&
+                    !productValue.variation_type.label
+                ) {
+                    errorss["variation_type"] = getFormattedMessage(
+                        "variation.type.select.validate.error.message"
+                    );
+                } else if (validateVariationTypesData()) {
+                } else {
+                    errorss = {
+                        ...errorss,
+                        ...getCommonCreateValidationError(),
+                    };
+                    if (Object.keys(errorss).length === 0) {
+                        isValid = true;
+                    }
+                }
+            } else if (currentProductTypeValue === SINGLE_PRODUCT_TYPE) {
+                if (
+                    !singleProductTypeData.product_cost ||
+                    singleProductTypeData.product_cost === ""
+                ) {
+                    errorss["product_cost"] = getFormattedMessage(
+                        "product.input.product-cost.validate.label"
+                    );
+                } else if (
+                    !singleProductTypeData.product_price ||
+                    singleProductTypeData.product_price === ""
+                ) {
+                    errorss["product_price"] = getFormattedMessage(
+                        "product.input.product-price.validate.label"
+                    );
+                } else if (
+                    !singleProductTypeData.tax_type ||
+                    singleProductTypeData.tax_type === ""
+                ) {
+                    errorss["tax_type"] = getFormattedMessage(
+                        "product.input.tax-type.validate.label"
+                    );
+                } else if (
+                    singleProductTypeData.order_tax &&
+                    singleProductTypeData.order_tax > 100
+                ) {
+                    errorss["order_tax"] = getFormattedMessage(
+                        "product.input.order-tax.valid.validate.label"
+                    );
+                } else if (
+                    !singleProductTypeData.add_stock ||
+                    singleProductTypeData.add_stock === ""
+                ) {
+                    errorss["add_stock"] = getFormattedMessage(
+                        "purchase.product.quantity.validate.label"
+                    );
+                } else {
+                    errorss = {
+                        ...errorss,
+                        ...getCommonCreateValidationError(),
+                    };
+                    if (Object.keys(errorss).length === 0) {
+                        isValid = true;
+                    }
+                }
+            } else if (currentProductTypeValue === BATCH_PRODUCT_TYPE) {
+                errorss = {
+                    ...errorss,
+                    ...getBatchValidationErrors(),
+                };
+                if (Object.keys(errorss).length === 0) {
+                    errorss = {
+                        ...errorss,
+                        ...getCommonCreateValidationError(),
+                    };
+                }
+                if (Object.keys(errorss).length === 0) {
+                    isValid = true;
+                }
             }
         } else {
             isValid = true;
@@ -906,6 +1186,27 @@ const ProductForm = (props) => {
 
     const prepareFormData = () => {
         const formData = new FormData();
+        const sanitizedBatchDrafts = batchDrafts.map((batch) => ({
+            codigo_lote_sistema: null,
+            lote_fabricante: String(batch.lote_fabricante || "").trim(),
+            lot_code: String(batch.lote_fabricante || "").trim(),
+            lot_barcode: String(batch.lot_barcode || "").trim() || null,
+            ubicacion: String(batch.ubicacion || "").trim() || null,
+            descripcion: String(batch.descripcion || "").trim() || null,
+            quantity: Number(batch.quantity || 0),
+            product_cost: Number(batch.product_cost || 0),
+            product_price: Number(batch.product_price || 0),
+            fecha_fabricacion: batch.fecha_fabricacion || null,
+            fecha_vencimiento: batch.fecha_vencimiento || null,
+            impuesto_tipo: batch.impuesto_tipo || "EXCLUSIVO",
+            impuesto_valor:
+                batch.impuesto_valor === "" || batch.impuesto_valor === null
+                    ? 0
+                    : Number(batch.impuesto_valor || 0),
+            received_at: moment(productValue.date).format("YYYY-MM-DD"),
+        }));
+        const primaryBatch = sanitizedBatchDrafts[0] || null;
+
         formData.append("name", productValue.name);
         formData.append("product_code", productValue.code);
         formData.append("product_type", productValue.product_type?.value);
@@ -967,7 +1268,7 @@ const ProductForm = (props) => {
 
             formData.append("purchase_status", productValue.status_id.value);
 
-            if (productValue.product_type.value === 1) {
+            if (currentProductTypeValue === SINGLE_PRODUCT_TYPE) {
                 formData.append("code", productValue.code);
                 formData.append(
                     "product_cost",
@@ -999,6 +1300,20 @@ const ProductForm = (props) => {
                     "purchase_quantity",
                     singleProductTypeData.add_stock
                 );
+            } else if (currentProductTypeValue === BATCH_PRODUCT_TYPE) {
+                formData.append("code", productValue.code);
+                formData.append(
+                    "product_cost",
+                    primaryBatch ? primaryBatch.product_cost : ""
+                );
+                formData.append(
+                    "product_price",
+                    primaryBatch ? primaryBatch.product_price : ""
+                );
+                formData.append("stock_alert", "");
+                formData.append("order_tax", 0);
+                formData.append("tax_type", 1);
+                formData.append("batch_data", JSON.stringify(sanitizedBatchDrafts));
             } else {
                 formData.append(
                     "variation_data",
@@ -1395,7 +1710,7 @@ const ProductForm = (props) => {
                                                 "product.type.label"
                                             )}
                                             multiLanguageOption={
-                                                productTypesOptionsObj
+                                                productTypeOptions
                                             }
                                             onChange={onProductTypeChange}
                                             value={productValue.product_type}
@@ -1425,7 +1740,8 @@ const ProductForm = (props) => {
                                 </div>
                                 {typeof productValue.product_type !==
                                     "string" &&
-                                    productValue.product_type?.value === 2 &&
+                                    productValue.product_type?.value ===
+                                        VARIATION_PRODUCT_TYPE &&
                                     (!singleProduct ? (
                                         <div className="col-md-4 mb-3">
                                             <ReactSelect
@@ -1459,7 +1775,8 @@ const ProductForm = (props) => {
                                     ))}
                                 {typeof productValue.product_type !==
                                     "string" &&
-                                    productValue.product_type?.value === 2 &&
+                                    productValue.product_type?.value ===
+                                        VARIATION_PRODUCT_TYPE &&
                                     typeof productValue.variation !==
                                         "string" && (
                                         <div className="col-md-4 mb-3">
@@ -1482,9 +1799,26 @@ const ProductForm = (props) => {
                                     )}
                             </div>
                         )}
+                        {isBatchProductCreate ? (
+                            <div className="row">
+                                <div className="col-12">
+                                    <ProductBatchDraftSection
+                                        batchDrafts={batchDrafts}
+                                        errors={errors}
+                                        frontSetting={frontSetting}
+                                        onAddBatch={addBatchDraft}
+                                        onBatchChange={onBatchDraftChange}
+                                        onRemoveBatch={removeBatchDraft}
+                                        batchFieldErrorKey={batchFieldErrorKey}
+                                        decimalValidate={decimalValidate}
+                                    />
+                                </div>
+                            </div>
+                        ) : null}
                         {typeof productValue.product_type !== "string" &&
                         !singleProduct &&
-                        productValue.product_type?.value === 1 ? (
+                        productValue.product_type?.value ===
+                            SINGLE_PRODUCT_TYPE ? (
                             <div className="row border-top pt-3">
                                 <div className="col-md-3 mb-3">
                                     <label className="form-label">
@@ -1680,7 +2014,8 @@ const ProductForm = (props) => {
                                 )}
                             </div>
                         ) : (
-                            productValue.product_type?.value === 2 &&
+                            productValue.product_type?.value ===
+                                VARIATION_PRODUCT_TYPE &&
                             typeof productValue.variation !== "string" &&
                             typeof productValue.variation_type !== "string" &&
                             variationTypesData?.map((variation) => (

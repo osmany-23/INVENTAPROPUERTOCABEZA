@@ -41,6 +41,7 @@ const PurchaseForm = ( props ) => {
     } = props;
     const navigate = useNavigate();
     const dispatch = useDispatch();
+    const useFastPurchaseSearch = true;
     const [ newCost, setNewCost ] = useState( '' );
     const [ newDiscount, setNewDiscount ] = useState( '' );
     const [ newTax, setNewTax ] = useState( '' );
@@ -88,8 +89,134 @@ const PurchaseForm = ( props ) => {
     }, [] );
 
     useEffect( () => {
-        purchaseValue.warehouse_id.value ? fetchAllProducts() : null
-    }, [ purchaseValue.warehouse_id ] )
+        if ( !useFastPurchaseSearch && purchaseValue.warehouse_id?.value ) {
+            fetchAllProducts();
+        }
+    }, [ fetchAllProducts, purchaseValue.warehouse_id, useFastPurchaseSearch ] )
+
+    const validateBatchRows = () => {
+        const batchRows = updateProducts.filter(
+            ( item ) => item?.is_batch_purchase_line && !item?.is_batch_purchase_locked
+        );
+        const duplicateManufacturerLots = new Set();
+
+        for ( const row of batchRows ) {
+            const manufacturerLot = ( row?.lote_fabricante || '' ).trim();
+            const quantityValue = parseNumber( row?.quantity, 0 );
+            const costValue = parseNumber( row?.product_cost, 0 );
+            const salePriceValue =
+                row?.product_price === '' || row?.product_price === null
+                    ? null
+                    : parseNumber( row?.product_price, 0 );
+            const manufactureDate = row?.fecha_fabricacion || '';
+            const expiryDate = row?.fecha_vencimiento || '';
+            const duplicateKey = `${ Number( row?.product_id || 0 ) }|${ manufacturerLot.toLowerCase() }`;
+
+            if ( !manufacturerLot ) {
+                dispatch( addToast( {
+                    text: `Complete el lote fabricante para ${ row?.name || 'el producto por lote' }.`,
+                    type: toastType.ERROR
+                } ) );
+                return false;
+            }
+
+            if ( duplicateManufacturerLots.has( duplicateKey ) ) {
+                dispatch( addToast( {
+                    text: `El lote fabricante "${ manufacturerLot }" esta repetido en la compra para ${ row?.name || 'el producto seleccionado' }.`,
+                    type: toastType.ERROR
+                } ) );
+                return false;
+            }
+            duplicateManufacturerLots.add( duplicateKey );
+
+            if ( quantityValue <= 0 ) {
+                dispatch( addToast( {
+                    text: `La cantidad del lote para ${ row?.name || 'el producto por lote' } debe ser mayor a cero.`,
+                    type: toastType.ERROR
+                } ) );
+                return false;
+            }
+
+            if ( costValue <= 0 ) {
+                dispatch( addToast( {
+                    text: `El costo del lote para ${ row?.name || 'el producto por lote' } debe ser mayor a cero.`,
+                    type: toastType.ERROR
+                } ) );
+                return false;
+            }
+
+            if ( salePriceValue !== null && salePriceValue > 0 && salePriceValue <= costValue ) {
+                dispatch( addToast( {
+                    text: `El precio de venta del lote para ${ row?.name || 'el producto por lote' } debe ser mayor al costo.`,
+                    type: toastType.ERROR
+                } ) );
+                return false;
+            }
+
+            if ( manufactureDate && expiryDate && moment( expiryDate ).isBefore( moment( manufactureDate ) ) ) {
+                dispatch( addToast( {
+                    text: `La fecha de vencimiento del lote para ${ row?.name || 'el producto por lote' } no puede ser menor a la fecha de fabricacion.`,
+                    type: toastType.ERROR
+                } ) );
+                return false;
+            }
+        }
+
+        return true;
+    };
+
+    const preparePurchaseItemsForSubmit = () => {
+        return updateProducts.map( ( item ) => {
+            const normalizedItem = {
+                purchase_item_id: item?.purchase_item_id || '',
+                product_id: item?.product_id ?? item?.id,
+                product_cost: parseNumber( item?.product_cost ?? item?.net_unit_cost, 0 ),
+                product_price:
+                    item?.product_price === '' || item?.product_price === null
+                        ? null
+                        : parseNumber( item?.product_price, 0 ),
+                net_unit_cost: parseNumber( item?.net_unit_cost ?? item?.product_cost, 0 ),
+                tax_type: item?.tax_type ?? 1,
+                tax_value: parseNumber( item?.tax_value, 0 ),
+                tax_amount: parseNumber( item?.tax_amount, 0 ),
+                discount_type: item?.discount_type ?? '2',
+                discount_value: parseNumber( item?.discount_value, 0 ),
+                discount_amount: parseNumber( item?.discount_amount, 0 ),
+                purchase_unit: item?.purchase_unit?.value ? item.purchase_unit.value : item?.purchase_unit,
+                quantity: parseNumber( item?.quantity, 0 ),
+                sub_total: parseNumber( item?.sub_total, 0 ),
+            };
+
+            if ( item?.is_batch_purchase_line ) {
+                normalizedItem.line_type = 'batch';
+                normalizedItem.purchase_lot_id = item?.purchase_lot_id || null;
+                normalizedItem.product_batch_id = item?.product_batch_id || null;
+
+                if ( !item?.is_batch_purchase_locked ) {
+                    normalizedItem.batch_payload = {
+                        lote_fabricante: item?.lote_fabricante || '',
+                        codigo_barra_lote: item?.codigo_barra_lote || item?.lot_barcode || '',
+                        lot_barcode: item?.codigo_barra_lote || item?.lot_barcode || '',
+                        quantity: parseNumber( item?.quantity, 0 ),
+                        product_cost: parseNumber( item?.product_cost, 0 ),
+                        product_price:
+                            item?.product_price === '' || item?.product_price === null
+                                ? null
+                                : parseNumber( item?.product_price, 0 ),
+                        fecha_fabricacion: item?.fecha_fabricacion || null,
+                        fecha_vencimiento: item?.fecha_vencimiento || null,
+                        ubicacion: item?.ubicacion || null,
+                        descripcion: item?.descripcion || null,
+                        impuesto_tipo:
+                            item?.impuesto_tipo || ( Number( item?.tax_type ) === 2 ? 'INCLUSIVO' : 'EXCLUSIVO' ),
+                        impuesto_valor: parseNumber( item?.impuesto_valor ?? item?.tax_value, 0 ),
+                    };
+                }
+            }
+
+            return normalizedItem;
+        } );
+    };
 
     const handleValidation = () => {
         let errorss = {};
@@ -111,6 +238,8 @@ const PurchaseForm = ( props ) => {
                 text: getFormattedMessage( 'purchase.product-list.validate.message' ),
                 type: toastType.ERROR
             } ) )
+        } else if ( !validateBatchRows() ) {
+            isValid = false;
         } else if ( !purchaseValue.status_id ) {
             errorss[ 'status_id' ] = getFormattedMessage( 'globally.status.validate.label' )
         } else {
@@ -201,7 +330,7 @@ const PurchaseForm = ( props ) => {
             discount: parseNumber( prepareData.discount, 0 ).toFixed( 2 ),
             tax_rate: parseNumber( prepareData.tax_rate, 0 ).toFixed( 2 ),
             tax_amount: calculateCartTotalTaxAmount( updateProducts, purchaseValue ),
-            purchase_items: updateProducts,
+            purchase_items: preparePurchaseItemsForSubmit(),
             shipping: parseNumber( prepareData.shipping, 0 ).toFixed( 2 ),
             grand_total: calculateCartTotalAmount( updateProducts, purchaseValue ),
             received_amount: '',
@@ -270,6 +399,11 @@ const PurchaseForm = ( props ) => {
                         </label>
                         <ProductSearch values={purchaseValue} products={products} isAllProducts={true}
                             incrementOnDuplicate={true}
+                            enableBatchDrafts={!singlePurchase}
+                            blockBatchProductsWithoutDrafts={Boolean(singlePurchase)}
+                            enableWarehouseFastSearch={useFastPurchaseSearch}
+                            fastSearchIncludeNoStock={true}
+                            fastSearchMinChars={1}
                             handleValidation={handleValidation} updateProducts={updateProducts}
                             setUpdateProducts={setUpdateProducts} customProducts={customProducts} />
                     </div>

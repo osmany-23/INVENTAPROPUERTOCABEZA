@@ -13,6 +13,7 @@ use App\Models\SaleReturnItem;
 use App\Models\SalesPayment;
 use App\Models\SmsSetting;
 use App\Models\SmsTemplate;
+use App\Services\ProductBatchService;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
@@ -89,6 +90,10 @@ class SaleReturnRepository extends BaseRepository
             if ($sale->credit()->exists() && $this->hasCreditInventoryReturnFlow()) {
                 throw new UnprocessableEntityHttpException('Las ventas a credito deben devolverse desde el modulo de creditos.');
             }
+            $this->assertNoTrackedBatchProducts(
+                collect($input['sale_return_items'] ?? [])->pluck('product_id')->filter()->all(),
+                'Los productos con control por lote no pueden devolverse desde ventas hasta asignar lote especifico.'
+            );
 
             $input['date'] = $input['date'] ?? date('Y/m/d');
             $saleReturnInputArray = Arr::only($input, [
@@ -310,6 +315,10 @@ class SaleReturnRepository extends BaseRepository
             if ($sale && $sale->credit()->exists() && $this->hasCreditInventoryReturnFlow()) {
                 throw new UnprocessableEntityHttpException('Las ventas a credito deben devolverse desde el modulo de creditos.');
             }
+            $this->assertNoTrackedBatchProducts(
+                collect($input['sale_return_items'] ?? [])->pluck('product_id')->filter()->all(),
+                'Los productos con control por lote no pueden devolverse desde ventas hasta asignar lote especifico.'
+            );
             $saleReturnItemIds = SaleReturnItem::whereSaleReturnId($id)->pluck('id')->toArray();
             $saleReturnItemOldIds = [];
 
@@ -564,5 +573,14 @@ class SaleReturnRepository extends BaseRepository
     private function hasCreditInventoryReturnFlow(): bool
     {
         return Schema::hasTable('credit_items') && Schema::hasTable('credit_item_returns');
+    }
+
+    private function assertNoTrackedBatchProducts(array $productIds, string $message): void
+    {
+        if (! app(ProductBatchService::class)->batchTablesExist()) {
+            return;
+        }
+
+        app(ProductBatchService::class)->assertTrackedProductsNotPresent($productIds, $message);
     }
 }

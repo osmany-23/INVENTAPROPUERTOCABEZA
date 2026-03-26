@@ -358,6 +358,7 @@ export default [
         topSellingPath: "/app/report/report-top-selling-products",
         stockDetailPath: "/app/report/report-detail-stock",
         productQuantityAlertPath: "/app/report/report-product-quantity",
+        batchExpiryPath: "/app/report/report-batch-expiry",
         supplierReportPath: "/app/report/suppliers",
         profitLossReportPath: "/app/report/profit-loss",
         supplierReportDetailsPath: "/app/report/suppliers/details",
@@ -375,6 +376,7 @@ export default [
             { title: "purchase.reports.title" },
             { title: "top-selling-product.reports.title" },
             { title: "product.quantity.alert.reports.title" },
+            { title: "Vencimientos por lote" },
             { title: "supplier.report.title" },
             { title: "best-customer.report.title" },
             { title: "customer.report.title" },
@@ -410,6 +412,10 @@ export default [
                     "product.quantity.alert.reports.title"
                 ),
                 to: "/app/report/report-product-quantity",
+            },
+            {
+                title: "Vencimientos por lote",
+                to: "/app/report/report-batch-expiry",
             },
             // {
             //     title: "Supplier Report",

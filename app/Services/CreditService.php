@@ -46,10 +46,34 @@ class CreditService
 
     public function shouldCreateCreditFromInput(array $input): bool
     {
-        $isCreditEnabled = filter_var($input['credit_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
-        $hasCreditMetadata = isset($input['credit_installments']) || isset($input['credit_due_date']) || isset($input['credit_interest_rate']);
+        $isCreditEnabled = filter_var(
+            $input['credit_enabled'] ?? $input['credit_sale'] ?? false,
+            FILTER_VALIDATE_BOOLEAN
+        );
+        $hasCreditMetadata = isset($input['credit_installments'])
+            || isset($input['credit_due_date'])
+            || isset($input['credit_interest_rate'])
+            || isset($input['credit_type']);
 
         return ($isCreditEnabled || $hasCreditMetadata) && (int) ($input['payment_status'] ?? 0) !== Sale::PAID;
+    }
+
+    public function resolveCreditInitialPayment(array $input, ?float $saleGrandTotal = null): float
+    {
+        $initialPayment = round(max((float) ($input['credit_initial_payment'] ?? 0), 0), 2);
+
+        if ($saleGrandTotal !== null && $initialPayment > round($saleGrandTotal, 2)) {
+            throw new UnprocessableEntityHttpException('El pago inicial no puede ser mayor al total de la venta.');
+        }
+
+        return $initialPayment;
+    }
+
+    public function resolveSaleCreditPrincipal(Sale $sale, array $input): float
+    {
+        $initialPayment = $this->resolveCreditInitialPayment($input, (float) $sale->grand_total);
+
+        return round(max((float) $sale->grand_total - $initialPayment, 0), 2);
     }
 
     public function assertCustomerCanUseCredit(int $customerId, float $requestedAmount): CustomerCreditConfig
@@ -95,10 +119,17 @@ class CreditService
         $lockRows = DB::transactionLevel() > 0;
         $config = $this->getCustomerCreditConfigOrFail((int) $sale->customer_id, $lockRows);
         $interestRate = $this->resolveInterestRate($input, $config);
+        $requestedAmount = $this->resolveSaleCreditPrincipal($sale, $input);
+
+        if ($requestedAmount <= 0) {
+            throw new UnprocessableEntityHttpException(
+                'El saldo del credito debe ser mayor a cero para registrar una venta a credito.'
+            );
+        }
 
         return $this->assertCustomerCanUseCreditWithConfig(
             $config,
-            (float) $sale->grand_total,
+            $requestedAmount,
             $interestRate,
             $lockRows
         );
@@ -124,10 +155,17 @@ class CreditService
             $config = $this->getCustomerCreditConfigOrFail((int) $sale->customer_id, true);
             $interestRate = $this->resolveInterestRate($input, $config);
             $installments = $this->resolveInstallments($input, $config);
+            $creditPrincipalAmount = $this->resolveSaleCreditPrincipal($sale, $input);
+
+            if ($creditPrincipalAmount <= 0) {
+                throw new UnprocessableEntityHttpException(
+                    'El saldo del credito debe ser mayor a cero para registrar una venta a credito.'
+                );
+            }
 
             $this->assertCustomerCanUseCreditWithConfig(
                 $config,
-                (float) $sale->grand_total,
+                $creditPrincipalAmount,
                 $interestRate,
                 true
             );
@@ -135,7 +173,7 @@ class CreditService
             $credit = $this->storeCreditRecord([
                 'sale_id' => $sale->id,
                 'customer_id' => $sale->customer_id,
-                'total_amount' => (float) $sale->grand_total,
+                'total_amount' => $creditPrincipalAmount,
                 'interest_rate' => $interestRate,
                 'installments' => $installments,
                 'credit_type' => $input['credit_type'] ?? Credit::TYPE_AUTOMATIC,

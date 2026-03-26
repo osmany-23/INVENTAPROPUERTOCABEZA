@@ -18,6 +18,7 @@ use App\Http\Controllers\API\ManageStockAPIController;
 use App\Http\Controllers\API\PermissionController;
 use App\Http\Controllers\API\POSRegisterAPIController;
 use App\Http\Controllers\API\ProductAPIController;
+use App\Http\Controllers\API\ProductBatchAPIController;
 use App\Http\Controllers\API\ProductCategoryAPIController;
 use App\Http\Controllers\API\PurchaseAPIController;
 use App\Http\Controllers\API\PurchaseReturnAPIController;
@@ -122,6 +123,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('products/pos-feed', [ProductAPIController::class, 'posFeed']);
     Route::get('products/adjustment-fast-search', [ProductAPIController::class, 'adjustmentFastSearch']);
+    Route::get('product-batches/scan', [ProductBatchAPIController::class, 'scan']);
+    Route::get('product-batches/alerts/summary', [ProductBatchAPIController::class, 'alertSummary']);
+    Route::get('product-batches/alerts', [ProductBatchAPIController::class, 'alerts']);
+    Route::get('product-batches/report', [ProductBatchAPIController::class, 'report']);
+    Route::get('products/{product}/batches', [ProductBatchAPIController::class, 'show']);
+    Route::put('products/{product}/batch-settings', [ProductBatchAPIController::class, 'updateSettings']);
+    Route::post('products/{product}/batches', [ProductBatchAPIController::class, 'store']);
+    Route::put('products/{product}/batches/{batch}', [ProductBatchAPIController::class, 'update']);
     Route::get('main-products-fast', [MainProductAPIController::class, 'fastList']);
     Route::resource('products', ProductAPIController::class);
     Route::post('products/{product}/quick-price-update', [ProductAPIController::class, 'quickUpdatePrice']);

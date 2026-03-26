@@ -57,7 +57,7 @@ class POSRegisterAPIController extends AppBaseController
         $register->bank_transfer = $data['today_sales_bank_transfer_payment'];
         $register->cheque = $data['today_sales_cheque_payment'];
         $register->other = $data['today_sales_other_payment'];
-        $register->total_sale = $data['today_sales_amount'];
+        $register->total_sale = $data['today_sales_payment_amount'];
         $register->total_return = $data['today_sales_return_amount'];
         $register->total_amount = $data['today_sales_payment_amount'];
         $register->notes = $input['notes'];

@@ -6,6 +6,10 @@ use App\Models\Contracts\JsonResourceful;
 use App\Traits\HasJsonResourcefulData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
+use Illuminate\Support\Facades\Schema;
 use App\Models\Unit;
 
 /**
@@ -155,5 +159,27 @@ class PurchaseItem extends BaseModel implements JsonResourceful
     public function purchaseUnit(): BelongsTo
     {
         return $this->belongsTo(Unit::class, 'purchase_unit', 'id');
+    }
+
+    public function purchaseLots(): HasMany
+    {
+        return $this->hasMany(PurchaseLot::class, 'purchase_detail_id', 'id');
+    }
+
+    public function batchReference(): HasOne|HasOneThrough
+    {
+        if (Schema::hasTable('purchase_lots')) {
+            return $this->hasOneThrough(
+                ProductBatch::class,
+                PurchaseLot::class,
+                'purchase_detail_id',
+                'id',
+                'id',
+                'lote_id'
+            );
+        }
+
+        return $this->hasOne(ProductBatch::class, 'purchase_id', 'purchase_id')
+            ->whereColumn('product_batches.product_id', 'purchase_items.product_id');
     }
 }

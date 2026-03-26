@@ -290,6 +290,45 @@ const PurchaseReturnDetails = (props) => {
                                                                 details.product
                                                                     .name}{" "}
                                                             )
+                                                            {details.codigo_lote_sistema ||
+                                                            details.lote_fabricante ||
+                                                            details.batch ||
+                                                            details.purchase_lot
+                                                                ?.batch ? (
+                                                                <div className="small text-muted mt-1">
+                                                                    <div>
+                                                                        Lote sistema:{" "}
+                                                                        {details.codigo_lote_sistema ||
+                                                                            details
+                                                                                .batch
+                                                                                ?.codigo_lote_sistema ||
+                                                                            details
+                                                                                .purchase_lot
+                                                                                ?.batch
+                                                                                ?.codigo_lote_sistema ||
+                                                                            "N/A"}
+                                                                    </div>
+                                                                    <div>
+                                                                        Lote fabricante:{" "}
+                                                                        {details.lote_fabricante ||
+                                                                            details
+                                                                                .batch
+                                                                                ?.lote_fabricante ||
+                                                                            details
+                                                                                .purchase_lot
+                                                                                ?.batch
+                                                                                ?.lote_fabricante ||
+                                                                            details
+                                                                                .batch
+                                                                                ?.lot_code ||
+                                                                            details
+                                                                                .purchase_lot
+                                                                                ?.batch
+                                                                                ?.lot_code ||
+                                                                            "N/A"}
+                                                                    </div>
+                                                                </div>
+                                                            ) : null}
                                                         </td>
                                                         <td>
                                                             {currencySymbolHandling(

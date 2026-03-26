@@ -11,7 +11,7 @@ const ModelFooter = ( props ) => {
     return (
         <>
             {
-                link ? <div className='d-flex mt-5 justify-content-end'>
+                link ? <div className='d-flex mt-5 justify-content-end app-form-actions'>
                     {onEditRecord ?
                         <button onClick={( event ) => onSubmit( event )} className='btn btn-primary me-3' type='submit'
                             disabled={editDisabled || isSaving} ref={ref}>
@@ -35,7 +35,7 @@ const ModelFooter = ( props ) => {
                         </Link>
                     }
                 </div> :
-                    <Modal.Footer children='justify-content-start' className='pt-0'>
+                    <Modal.Footer children='justify-content-start' className='pt-0 app-form-actions'>
                         {onEditRecord ?
                             <button onClick={( event ) => onSubmit( event )} className='btn btn-primary me-2' type='submit'
                                 disabled={editDisabled}>

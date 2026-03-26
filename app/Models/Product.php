@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
@@ -210,6 +211,9 @@ class Product extends BaseModel implements HasMedia, JsonResourceful
             'brand',
             'stock',
         ]);
+        if (Schema::hasTable('product_batch_settings')) {
+            $this->loadMissing('batchSetting');
+        }
 
         $warehouseData = $this->relationLoaded('stocks')
             ? $this->stocks
@@ -234,6 +238,8 @@ class Product extends BaseModel implements HasMedia, JsonResourceful
             'code' => $this->code,
             'product_code' => $this->product_code,
             'main_product_id' => $this->main_product_id,
+            'main_product_type' => (int) (optional($this->mainProduct)->product_type ?? MainProduct::SINGLE_PRODUCT),
+            'product_type' => (int) (optional($this->mainProduct)->product_type ?? MainProduct::SINGLE_PRODUCT),
             'product_category_id' => $this->product_category_id,
             'brand_id' => $this->brand_id,
             'product_price' => $this->product_price,
@@ -258,6 +264,9 @@ class Product extends BaseModel implements HasMedia, JsonResourceful
             'warehouse' => $warehouseData ?? '',
             'barcode_url' => Storage::url('product_barcode/barcode-PR_' . $this->id . '.png'),
             'in_stock' => $inStockValue,
+            'batch_enabled' => Schema::hasTable('product_batch_settings')
+                ? (bool) optional($this->batchSetting)->track_batches
+                : false,
         ];
 
         $fields['product_cost'] = hasPermissionStrict('view_purchase_price')
@@ -267,6 +276,11 @@ class Product extends BaseModel implements HasMedia, JsonResourceful
         if ($this->variationProduct) {
             $fields['variation_product'] = $this->variationProduct->prepareAttributes();
         }
+
+        $fields['is_variant_product'] = ! empty($fields['variation_product'])
+            || (int) $fields['product_type'] === MainProduct::VARIATION_PRODUCT;
+        $fields['is_batch_product'] = (bool) ($fields['batch_enabled'] ?? false)
+            || (int) $fields['product_type'] === MainProduct::BATCH_PRODUCT;
 
         return $fields;
     }
@@ -464,5 +478,15 @@ class Product extends BaseModel implements HasMedia, JsonResourceful
     public function variationType(): HasOneThrough
     {
         return $this->hasOneThrough(VariationType::class, VariationProduct::class, 'product_id', 'id', 'id', 'variation_type_id');
+    }
+
+    public function batchSetting(): HasOne
+    {
+        return $this->hasOne(ProductBatchSetting::class, 'product_id', 'id');
+    }
+
+    public function batches(): HasMany
+    {
+        return $this->hasMany(ProductBatch::class, 'product_id', 'id');
     }
 }

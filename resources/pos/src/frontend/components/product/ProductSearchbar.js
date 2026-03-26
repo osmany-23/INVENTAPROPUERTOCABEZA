@@ -7,6 +7,8 @@ import React, {
     useState,
 } from "react";
 import { Col } from "react-bootstrap-v5";
+import apiConfig from "../../../config/apiConfig";
+import { apiBaseURL } from "../../../constants";
 import { getFormattedMessage, placeholderText } from "../../../shared/sharedMethod";
 
 const SEARCH_DEBOUNCE_MS = 250;
@@ -15,16 +17,46 @@ const AUTO_ADD_EXACT_CODE_DELAY_MS = 120;
 
 const normalize = (value) => (value || "").toString().trim().toUpperCase();
 
+const withBatchSelectionMode = (product, mode, batch = null) => {
+    if (!product?.attributes?.batch_enabled) {
+        return product;
+    }
+
+    return {
+        ...product,
+        attributes: {
+            ...product.attributes,
+            ...(batch
+                ? {
+                      batch_context: {
+                          ...(product.attributes?.batch_context || {}),
+                          id: Number(batch.id),
+                          lot_code: batch.lot_code,
+                          lot_barcode: batch.lot_barcode,
+                          expires_at: batch.expires_at,
+                          available_quantity: Number(batch.available_quantity || 0),
+                      },
+                      batch_status: batch.status || product.attributes?.batch_status || null,
+                  }
+                : {}),
+            batch_selection_mode: mode,
+        },
+    };
+};
+
 const ProductSearchbar = ({
     posAllProducts = [],
     onAddProduct,
     onSearchTermChange,
+    warehouseId,
+    onScanFeedback,
 }) => {
     const [searchString, setSearchString] = useState("");
     const [isOpen, setIsOpen] = useState(false);
     const [activeIndex, setActiveIndex] = useState(-1);
     const inputRef = useRef(null);
     const containerRef = useRef(null);
+    const scanRequestRef = useRef(0);
 
     const suggestionItems = useMemo(() => {
         const term = normalize(searchString);
@@ -51,6 +83,7 @@ const ProductSearchbar = ({
                 code: item?.attributes?.code || "",
                 product_code: item?.attributes?.product_code || "",
                 name: item?.attributes?.name || "",
+                product: item,
             }));
     }, [posAllProducts, searchString]);
 
@@ -90,9 +123,15 @@ const ProductSearchbar = ({
         };
     }, []);
 
+    useEffect(() => {
+        return () => {
+            scanRequestRef.current += 1;
+        };
+    }, []);
+
     const addProductAndResetInput = useCallback(
-        (productId) => {
-            onAddProduct?.(productId);
+        (product) => {
+            void Promise.resolve(onAddProduct?.(product));
             setSearchString("");
             onSearchTermChange?.("");
             setIsOpen(false);
@@ -102,31 +141,96 @@ const ProductSearchbar = ({
         [onAddProduct, onSearchTermChange]
     );
 
-    const tryAddExactMatch = useCallback(() => {
+    const findLocalExactMatch = useCallback(() => {
+        const term = normalize(searchString);
+        if (!term) {
+            return null;
+        }
+
+        return (
+            posAllProducts.find((item) => {
+                const hasStock = Number(item?.attributes?.stock?.quantity || 0) > 0;
+                if (!hasStock) {
+                    return false;
+                }
+
+                const code = normalize(item?.attributes?.code);
+                const productCode = normalize(item?.attributes?.product_code);
+
+                return code === term || productCode === term;
+            }) || null
+        );
+    }, [posAllProducts, searchString]);
+
+    const resolveScanOrExactMatch = useCallback(async () => {
         const term = normalize(searchString);
         if (!term) {
             return false;
         }
 
-        const exactMatch = posAllProducts.find((item) => {
-            const hasStock = Number(item?.attributes?.stock?.quantity || 0) > 0;
-            if (!hasStock) {
+        const exactMatch = findLocalExactMatch();
+        const shouldTryBatchLookup =
+            Number(warehouseId) > 0 &&
+            (Boolean(exactMatch) || term.includes("-") || suggestionItems.length === 0);
+
+        if (shouldTryBatchLookup) {
+            const requestId = ++scanRequestRef.current;
+
+            try {
+                const response = await apiConfig.get(apiBaseURL.PRODUCT_BATCH_SCAN, {
+                    params: {
+                        warehouse_id: warehouseId,
+                        code: term,
+                    },
+                });
+                const payload = response?.data?.data || {};
+
+                if (requestId !== scanRequestRef.current) {
+                    return false;
+                }
+
+                if (payload?.matched && payload.matched !== "none" && payload.product) {
+                    if (payload.warning) {
+                        onScanFeedback?.(payload.warning);
+                    }
+
+                    addProductAndResetInput(
+                        withBatchSelectionMode(
+                            payload.product,
+                            payload.matched === "batch" ? "specific" : "fefo",
+                            payload.batch
+                        )
+                    );
+                    return true;
+                }
+            } catch (error) {
+                if (requestId !== scanRequestRef.current) {
+                    return false;
+                }
+
+                const message = error?.response?.data?.message;
+                if (message) {
+                    onScanFeedback?.(message, "error");
+                }
+
                 return false;
             }
-
-            const code = normalize(item?.attributes?.code);
-            const productCode = normalize(item?.attributes?.product_code);
-
-            return code === term || productCode === term;
-        });
+        }
 
         if (!exactMatch) {
             return false;
         }
 
-        addProductAndResetInput(exactMatch.id);
+        addProductAndResetInput(withBatchSelectionMode(exactMatch, "fefo"));
         return true;
-    }, [addProductAndResetInput, posAllProducts, searchString]);
+    }, [
+        addProductAndResetInput,
+        findLocalExactMatch,
+        onScanFeedback,
+        searchString,
+        suggestionItems.length,
+        warehouseId,
+    ]);
 
     useEffect(() => {
         const term = normalize(searchString);
@@ -135,13 +239,13 @@ const ProductSearchbar = ({
         }
 
         const timer = setTimeout(() => {
-            tryAddExactMatch();
+            void resolveScanOrExactMatch();
         }, AUTO_ADD_EXACT_CODE_DELAY_MS);
 
         return () => {
             clearTimeout(timer);
         };
-    }, [searchString, tryAddExactMatch]);
+    }, [searchString, resolveScanOrExactMatch]);
 
     const handleInputChange = useCallback((event) => {
         setSearchString(event.target.value);
@@ -151,13 +255,15 @@ const ProductSearchbar = ({
 
     const handleSelectSuggestion = useCallback(
         (item) => {
-            addProductAndResetInput(item.id);
+            addProductAndResetInput(
+                withBatchSelectionMode(item.product || item.id, "fefo")
+            );
         },
         [addProductAndResetInput]
     );
 
     const handleInputKeyDown = useCallback(
-        (event) => {
+        async (event) => {
             if (event.key === "ArrowDown") {
                 event.preventDefault();
                 setIsOpen(true);
@@ -190,7 +296,7 @@ const ProductSearchbar = ({
                 return;
             }
 
-            if (tryAddExactMatch()) {
+            if (await resolveScanOrExactMatch()) {
                 return;
             }
 
@@ -201,8 +307,8 @@ const ProductSearchbar = ({
         [
             activeIndex,
             handleSelectSuggestion,
+            resolveScanOrExactMatch,
             suggestionItems,
-            tryAddExactMatch,
         ]
     );
 

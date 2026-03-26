@@ -14,6 +14,7 @@ use App\Models\SalesPayment;
 use App\Models\SmsSetting;
 use App\Models\SmsTemplate;
 use App\Services\CreditService;
+use App\Services\ProductBatchService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Arr;
@@ -106,6 +107,14 @@ class SaleRepository extends BaseRepository
 
             $sale = $this->storeSaleItems($sale, $input);
             app(CreditService::class)->validateSaleCreditBeforeCheckout($sale, $input);
+            $resolvedSaleItems = $this->resolveStoredSaleItemsPayload($sale, $input['sale_items'] ?? []);
+            if (app(ProductBatchService::class)->batchTablesExist()) {
+                app(ProductBatchService::class)->consumeSaleItems(
+                    $sale,
+                    $resolvedSaleItems,
+                    (int) $saleInputArray['warehouse_id']
+                );
+            }
             $reference_code = getSettingValue('sale_code') . '_111' . $sale->id;
             $this->generateBarcode($reference_code);
             $sale['barcode_image_url'] = Storage::url('sales/barcode-' . $reference_code . '.png');
@@ -269,6 +278,8 @@ class SaleRepository extends BaseRepository
      */
     public function storeSaleItems($sale, $input)
     {
+        $creditService = app(CreditService::class);
+
         foreach ($input['sale_items'] as $saleItem) {
             $product = Product::whereId($saleItem['product_id'])->first();
 
@@ -299,7 +310,42 @@ class SaleRepository extends BaseRepository
             throw new UnprocessableEntityHttpException(__('messages.error.shipping_amount_not_be_greater'));
         }
 
-        if ($input['payment_status'] == Sale::PAID) {
+        $isCreditSale = $creditService->shouldCreateCreditFromInput($input);
+        $creditInitialPayment = $isCreditSale
+            ? $creditService->resolveCreditInitialPayment($input, (float) $input['grand_total'])
+            : 0.0;
+
+        if ($isCreditSale) {
+            if ($creditInitialPayment >= round((float) $input['grand_total'], 2)) {
+                throw new UnprocessableEntityHttpException(
+                    'El pago inicial debe ser menor al total para registrar una venta a credito.'
+                );
+            }
+
+            if ($creditInitialPayment > 0 && empty($input['payment_type'])) {
+                throw new UnprocessableEntityHttpException(
+                    'Debe seleccionar el metodo de pago del abono inicial.'
+                );
+            }
+
+            $input['received_amount'] = $creditInitialPayment;
+            $input['paid_amount'] = $creditInitialPayment;
+            $input['payment_status'] = $creditInitialPayment > 0
+                ? Sale::PARTIAL_PAID
+                : Sale::UNPAID;
+
+            if ($creditInitialPayment > 0) {
+                SalesPayment::create([
+                    'sale_id' => $sale->id,
+                    'payment_date' => Carbon::now(),
+                    'payment_type' => $input['payment_type'],
+                    'amount' => $creditInitialPayment,
+                    'received_amount' => $creditInitialPayment,
+                ]);
+            } else {
+                $input['payment_type'] = null;
+            }
+        } elseif ($input['payment_status'] == Sale::PAID) {
             $input['paid_amount'] = $input['grand_total'];
             SalesPayment::create([
                 'sale_id' => $sale->id,
@@ -329,8 +375,12 @@ class SaleRepository extends BaseRepository
             if ($sale->credit()->exists()) {
                 throw new UnprocessableEntityHttpException('Las ventas con credito deben administrarse desde el modulo de creditos.');
             }
+            if (app(ProductBatchService::class)->batchTablesExist()) {
+                app(ProductBatchService::class)->releaseSaleAllocations($sale);
+            }
             $saleItemIds = SaleItem::whereSaleId($id)->pluck('id')->toArray();
             $saleItmOldIds = [];
+            $resolvedSaleItems = [];
             foreach ($input['sale_items'] as $key => $saleItem) {
                 $product = Product::whereId($saleItem['product_id'])->first();
 
@@ -356,6 +406,12 @@ class SaleRepository extends BaseRepository
                     'sub_total',
                 ]);
                 $this->updateItem($saleItemArray, $input['warehouse_id']);
+                if (! empty($saleItem['sale_item_id'])) {
+                    $resolvedSaleItems[] = array_merge($saleItemArray, [
+                        'sale_item_id' => (int) $saleItem['sale_item_id'],
+                        'warehouse_id' => (int) $input['warehouse_id'],
+                    ]);
+                }
                 //create new product items
                 if (is_null($saleItem['sale_item_id'])) {
                     $saleItem = $this->calculationSaleItems($saleItem);
@@ -373,7 +429,7 @@ class SaleRepository extends BaseRepository
                         'quantity',
                         'sub_total',
                     ]);
-                    $sale->saleItems()->create($saleItemArray);
+                    $createdSaleItem = $sale->saleItems()->create($saleItemArray);
                     $product = ManageStock::whereWarehouseId($input['warehouse_id'])->whereProductId($saleItem['product_id'])->first();
                     if ($product) {
                         if ($product->quantity >= $saleItem['quantity']) {
@@ -384,6 +440,10 @@ class SaleRepository extends BaseRepository
                             throw new UnprocessableEntityHttpException('Quantity must be less than Available quantity.');
                         }
                     }
+                    $resolvedSaleItems[] = array_merge($saleItem, [
+                        'sale_item_id' => (int) $createdSaleItem->id,
+                        'warehouse_id' => (int) $input['warehouse_id'],
+                    ]);
                 }
             }
             $removeItemIds = array_diff($saleItemIds, $saleItmOldIds);
@@ -411,6 +471,13 @@ class SaleRepository extends BaseRepository
             }
             $this->generateBarcode($sale->reference_code);
             $sale['barcode_image_url'] = Storage::url('sales/barcode-' . $sale->reference_code . '.png');
+            if (app(ProductBatchService::class)->batchTablesExist()) {
+                app(ProductBatchService::class)->consumeSaleItems(
+                    $sale,
+                    $resolvedSaleItems,
+                    (int) $input['warehouse_id']
+                );
+            }
             $sale = $this->updateSaleCalculation($input, $id);
             DB::commit();
 
@@ -529,5 +596,21 @@ class SaleRepository extends BaseRepository
         );
 
         return true;
+    }
+
+    private function resolveStoredSaleItemsPayload(Sale $sale, array $inputItems): array
+    {
+        $storedSaleItems = $sale->saleItems()->orderBy('id')->get()->values();
+
+        return collect($inputItems)
+            ->values()
+            ->map(function ($item, $index) use ($storedSaleItems) {
+                $storedItem = $storedSaleItems->get($index);
+
+                return array_merge($item, [
+                    'sale_item_id' => (int) ($item['sale_item_id'] ?? $storedItem?->id ?? 0),
+                ]);
+            })
+            ->all();
     }
 }

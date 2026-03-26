@@ -9,6 +9,7 @@ import {
 import { calculateProductCost } from "../../shared/SharedMethod";
 import { addToast } from "../../../store/action/toastAction";
 import { toastType } from "../../../constants";
+import { getBatchStatusMeta, getCartRowId } from "../../../shared/batchHelpers";
 
 const QUANTITY_DEBOUNCE_MS = 120;
 
@@ -25,6 +26,7 @@ const ProductCartList = ({
     const dispatch = useDispatch();
     const [quantityDraft, setQuantityDraft] = useState(singleProduct.quantity);
     const debounceRef = useRef(null);
+    const batchStatusMeta = getBatchStatusMeta(singleProduct?.batch_status);
 
     useEffect(() => {
         setQuantityDraft(singleProduct.quantity);
@@ -63,7 +65,7 @@ const ProductCartList = ({
 
             setUpdateProducts((updateProducts) =>
                 updateProducts.map((item) => {
-                    if (Number(item.id) !== Number(singleProduct.id)) {
+                    if (getCartRowId(item) !== getCartRowId(singleProduct)) {
                         return item;
                     }
 
@@ -79,7 +81,7 @@ const ProductCartList = ({
 
             setQuantityDraft(cappedQuantity);
         },
-        [availableStock, dispatch, setUpdateProducts, singleProduct.id]
+        [availableStock, dispatch, setUpdateProducts, singleProduct]
     );
 
     const handleIncrement = useCallback(() => {
@@ -147,8 +149,8 @@ const ProductCartList = ({
     }, [onClickUpdateItemInCart, singleProduct]);
 
     const handleDeleteClick = useCallback(() => {
-        onDeleteCartItem(singleProduct.id);
-    }, [onDeleteCartItem, singleProduct.id]);
+        onDeleteCartItem(getCartRowId(singleProduct));
+    }, [onDeleteCartItem, singleProduct]);
 
     const unitCost = calculateProductCost(singleProduct);
     const rowTotal = unitCost * Number(singleProduct.quantity || 0);
@@ -163,6 +165,24 @@ const ProductCartList = ({
                     <span className="badge bg-light-info sku-badge">
                         {singleProduct.code}
                     </span>
+                    {singleProduct?.batch_code ? (
+                        <span
+                            className="badge ms-2"
+                            style={{
+                                background:
+                                    batchStatusMeta.tone === "danger"
+                                        ? "#fee2e2"
+                                        : batchStatusMeta.tone === "warning"
+                                        ? "#fef3c7"
+                                        : batchStatusMeta.tone === "muted"
+                                        ? "#e2e8f0"
+                                        : "#dcfce7",
+                                color: batchStatusMeta.color,
+                            }}
+                        >
+                            {singleProduct.batch_code}
+                        </span>
+                    ) : null}
                     {canEditPosSalePrice && (
                         <i
                             className="bi bi-pencil-fill text-gray-600 ms-2 cursor-pointer fs-small"
@@ -170,6 +190,22 @@ const ProductCartList = ({
                         />
                     )}
                 </span>
+                {singleProduct?.batch_code ? (
+                    <div className="mt-1">
+                        <small className="text-gray-700 d-block">
+                            Lote: {singleProduct.batch_code}
+                            {singleProduct.batch_expires_at
+                                ? ` | Vence: ${singleProduct.batch_expires_at}`
+                                : ""}
+                        </small>
+                        <small style={{ color: batchStatusMeta.color }}>
+                            {batchStatusMeta.label}
+                            {singleProduct?.batch_available_quantity
+                                ? ` | Disp.: ${singleProduct.batch_available_quantity}`
+                                : ""}
+                        </small>
+                    </div>
+                ) : null}
             </td>
             <td>
                 <div className="counter d-flex align-items-center pos-custom-qty">

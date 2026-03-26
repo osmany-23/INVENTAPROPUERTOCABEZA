@@ -14,6 +14,7 @@ use App\Models\Sale;
 use App\Models\Setting;
 use App\Models\Warehouse;
 use App\Repositories\SaleRepository;
+use App\Services\ProductBatchService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
@@ -118,6 +119,7 @@ class SaleAPIController extends AppBaseController
         abort_unless(hasPermissionStrict('pos.view'), 403);
 
         $sale = $this->saleRepository->find($id);
+        $sale->load('saleItems.product.stocks', 'saleItems.batchAllocations.batch', 'warehouse', 'customer');
 
         return new SaleResource($sale);
     }
@@ -126,7 +128,7 @@ class SaleAPIController extends AppBaseController
     {
         abort_unless(hasPermissionStrict('pos.view'), 403);
 
-        $sale = $sale->load('saleItems.product.stocks', 'warehouse');
+        $sale = $sale->load('saleItems.product.stocks', 'saleItems.batchAllocations.batch', 'warehouse');
 
         return new SaleResource($sale);
     }
@@ -149,6 +151,9 @@ class SaleAPIController extends AppBaseController
         try {
             DB::beginTransaction();
             $sale = $this->saleRepository->with('saleItems')->where('id', $id)->first();
+            if ($sale && app(ProductBatchService::class)->batchTablesExist()) {
+                app(ProductBatchService::class)->releaseSaleAllocations($sale);
+            }
             foreach ($sale->saleItems as $saleItem) {
                 manageStock($sale->warehouse_id, $saleItem['product_id'], $saleItem['quantity']);
             }
@@ -174,7 +179,7 @@ class SaleAPIController extends AppBaseController
         abort_unless(hasPermissionStrict('pos.view'), 403);
 
         ini_set('memory_limit','-1');
-        $sale = $sale->load('customer', 'saleItems.product', 'payments');
+        $sale = $sale->load('customer', 'saleItems.product', 'saleItems.batchAllocations.batch', 'payments');
         $data = [];
         if (Storage::exists('pdf/Sale-' . $sale->reference_code . '.pdf')) {
             Storage::delete('pdf/Sale-' . $sale->reference_code . '.pdf');
@@ -196,7 +201,7 @@ class SaleAPIController extends AppBaseController
         abort_unless(hasPermissionStrict('pos.view'), 403);
 
         // Incluye el usuario para "Atendido por"
-        $sale = $sale->load('saleItems.product', 'warehouse', 'customer', 'user');
+        $sale = $sale->load('saleItems.product', 'saleItems.batchAllocations.batch', 'warehouse', 'customer', 'user', 'credit');
 
         $keyName = [
             'email', 'company_name', 'phone', 'address',
@@ -211,6 +216,36 @@ class SaleAPIController extends AppBaseController
         $sale['sale_time'] = optional($sale->created_at)->format('h:i A');
         $sale['served_by'] = optional($sale->user)->name;
         $sale['change_return'] = max((float) ($sale->received_amount ?? 0) - (float) ($sale->grand_total ?? 0), 0);
+        $sale['due_amount'] = $sale->dueAmount($sale->id);
+
+        $credit = Schema::hasTable('credits') ? $sale->credit : null;
+        $creditBalance = $credit ? round((float) $credit->balance, 2) : null;
+        $creditTotal = $credit
+            ? round((float) ($credit->total_with_interest ?: $credit->balance ?: $sale->grand_total), 2)
+            : null;
+        $creditPaymentStatusKey = null;
+        $creditPaymentStatusLabel = null;
+
+        if ($credit) {
+            $creditPaymentStatusKey = 'credito';
+            $creditPaymentStatusLabel = 'Crédito';
+
+            if ($creditBalance <= 0) {
+                $creditPaymentStatusKey = 'pagado';
+                $creditPaymentStatusLabel = 'Pagado';
+            } elseif ($creditTotal > 0 && $creditBalance < $creditTotal) {
+                $creditPaymentStatusKey = 'parcial';
+                $creditPaymentStatusLabel = 'Parcial';
+            }
+        }
+
+        $sale['is_credit_sale'] = (bool) $credit;
+        $sale['credit_id'] = $credit?->id;
+        $sale['credit_balance'] = $creditBalance;
+        $sale['credit_total'] = $creditTotal;
+        $sale['credit_status'] = $credit?->status;
+        $sale['credit_payment_status_key'] = $creditPaymentStatusKey;
+        $sale['credit_payment_status_label'] = $creditPaymentStatusLabel;
 
         return $this->sendResponse($sale, 'Sale information retrieved successfully');
     }
@@ -247,7 +282,7 @@ class SaleAPIController extends AppBaseController
         $sales = $sales->whereHas('saleItems', function ($q) use ($productId) {
                 $q->where('product_id', '=', $productId);
             })
-            ->with(['saleItems.product', 'customer']);
+            ->with(['saleItems.product', 'saleItems.batchAllocations.batch', 'customer']);
 
         $sales = $sales->paginate($perPage);
 

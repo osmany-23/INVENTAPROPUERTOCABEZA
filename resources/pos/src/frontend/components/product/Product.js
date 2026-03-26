@@ -5,6 +5,7 @@ import {
     currencySymbolHandling,
     getFormattedMessage,
 } from "../../../shared/sharedMethod";
+import { getCartProductId } from "../../../shared/batchHelpers";
 import Skelten from "../../../shared/components/loaders/Skelten";
 
 const CLIENT_RENDER_STEP = 120;
@@ -35,8 +36,8 @@ const OptimizedProductImage = memo(({ src, alt }) => {
 const ProductCard = memo(
     ({ product, isActive, onAddProduct, allConfigData, currencySymbol }) => {
         const handleClick = useCallback(() => {
-            onAddProduct(product.id);
-        }, [onAddProduct, product.id]);
+            onAddProduct(product);
+        }, [onAddProduct, product]);
 
         const imageUrl = product?.attributes?.images?.imageUrls?.[0] || productImage;
         const stockQuantity = Number(product?.attributes?.stock?.quantity || 0);
@@ -98,7 +99,7 @@ const Product = (props) => {
     const [renderLimit, setRenderLimit] = useState(CLIENT_RENDER_STEP);
 
     const activeCartIds = useMemo(() => {
-        return new Set(cartProducts.map((item) => Number(item.id)));
+        return new Set(cartProducts.map((item) => getCartProductId(item)));
     }, [cartProducts]);
 
     const normalizedSearchTerm = useMemo(() => normalize(searchTerm), [searchTerm]);

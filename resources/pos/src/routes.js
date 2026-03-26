@@ -18,6 +18,7 @@ import EditUser from "./components/users/EditUser";
 import UserDetail from "./components/users/UserDetail";
 import UpdateProfile from "./components/user-profile/UpdateProfile";
 import Product from "./components/product/Product";
+import ProductBatchManager from "./components/product/ProductBatchManager";
 import CreateProduct from "./components/product/CreateProduct";
 import EditProduct from "./components/product/EditProduct";
 import ProductDetail from "./components/product/ProductDetail";
@@ -61,6 +62,7 @@ import CreateAdjustment from "./components/adjustments/CreateAdjustment";
 import EditAdjustMent from "./components/adjustments/EditAdjustMent";
 import WarehouseDetail from "./components/warehouse/WarehouseDetail";
 import ProductQuantityReport from "./components/report/productQuantityReport/ProductQuantityReport";
+import BatchExpiryReport from "./components/report/batchExpiryReport/BatchExpiryReport";
 import Transfers from "./components/transfers/Transfers";
 import EditTransfer from "./components/transfers/EditTransfer";
 import CreateTransfer from "./components/transfers/CreateTransfer";
@@ -220,6 +222,11 @@ export const route = [
     {
         path: "products/detail/:id",
         ele: <ProductDetail />,
+        permission: Permissions.MANAGE_PRODUCTS,
+    },
+    {
+        path: "products/batches/:productId",
+        ele: <ProductBatchManager />,
         permission: Permissions.MANAGE_PRODUCTS,
     },
     {
@@ -450,6 +457,11 @@ export const route = [
     {
         path: "report/report-product-quantity",
         ele: <ProductQuantityReport />,
+        permission: Permissions.MANAGE_REPORTS,
+    },
+    {
+        path: "report/report-batch-expiry",
+        ele: <BatchExpiryReport />,
         permission: Permissions.MANAGE_REPORTS,
     },
     {

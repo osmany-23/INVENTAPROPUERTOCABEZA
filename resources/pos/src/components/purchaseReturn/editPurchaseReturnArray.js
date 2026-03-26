@@ -2,6 +2,7 @@
 export const editPurchaseReturnArray = (products, warehouse_id) => {
     let purchaseProductRowArray = [];
     products.forEach(product => {
+        const batch = product.batch || product.purchase_lot?.batch || null;
         purchaseProductRowArray.push({
             name: product.name,
             code: product.product.code,
@@ -23,6 +24,12 @@ export const editPurchaseReturnArray = (products, warehouse_id) => {
             sub_total: Number(product.sub_total),
             id: product.id,
             purchase_return_item_id: product.id,
+            purchase_lot_id: product.purchase_lot_id || product.purchase_lot?.id || null,
+            product_batch_id: product.product_batch_id || batch?.id || null,
+            codigo_lote_sistema: product.codigo_lote_sistema || batch?.codigo_lote_sistema || null,
+            lote_fabricante: product.lote_fabricante || batch?.lote_fabricante || batch?.lot_code || null,
+            max_return_quantity: Number(product.max_return_quantity ?? product.quantity ?? 0),
+            returned_quantity: Number(product.returned_quantity ?? 0),
             newItem: '',
             isEdit: true,
             stocks: product.product.stocks.filter(item => item.warehouse_id === warehouse_id)

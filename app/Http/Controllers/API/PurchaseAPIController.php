@@ -9,6 +9,7 @@ use App\Http\Resources\PurchaseCollection;
 use App\Http\Resources\PurchaseResource;
 use App\Models\ManageStock;
 use App\Models\Purchase;
+use App\Models\PurchaseReturnItem;
 use App\Models\Setting;
 use App\Models\Supplier;
 use App\Models\Warehouse;
@@ -19,6 +20,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
@@ -89,7 +91,7 @@ class PurchaseAPIController extends AppBaseController
         abort_unless(hasPermissionStrict('purchase.view'), 403);
 
         $purchase = $this->purchaseRepository
-            ->with(['purchaseItems.product.stocks', 'supplier', 'warehouse'])
+            ->with($this->purchaseItemRelations())
             ->find($id);
 
         return new PurchaseResource($purchase);
@@ -99,7 +101,7 @@ class PurchaseAPIController extends AppBaseController
     {
         abort_unless(hasPermissionStrict('purchase.view'), 403);
 
-        $purchase = $purchase->load('purchaseItems.product.stocks', 'warehouse');
+        $purchase = $purchase->load($this->purchaseItemRelations());
 
         return new PurchaseResource($purchase);
     }
@@ -176,12 +178,38 @@ class PurchaseAPIController extends AppBaseController
     {
         abort_unless(hasPermissionStrict('purchase.view'), 403);
 
-        $purchase = $purchase->load(['purchaseItems.product.stocks', 'warehouse', 'supplier']);
+        $purchase = $purchase->load($this->purchaseItemRelations());
 
         $purchase->purchaseItems->transform(function ($item) {
             $purchasedQty = (float) $item->quantity;
             $item->returned_quantity = 0;
             $item->max_return_quantity = $purchasedQty;
+
+            if (Schema::hasTable('purchase_lots') && $item->relationLoaded('purchaseLots')) {
+                $item->purchaseLots->transform(function ($purchaseLot) {
+                    $returnedQuantity = (float) PurchaseReturnItem::query()
+                        ->where('purchase_lot_id', $purchaseLot->id)
+                        ->sum('quantity');
+
+                    $purchaseLot->returned_quantity = round($returnedQuantity, 2);
+                    $purchaseLot->max_return_quantity = round(
+                        max((float) $purchaseLot->cantidad - $returnedQuantity, 0),
+                        2
+                    );
+
+                    if ($purchaseLot->relationLoaded('batch') && $purchaseLot->batch) {
+                        $this->trimPurchaseBatchPayload($purchaseLot->batch);
+                    }
+
+                    $this->trimPurchaseLotPayload($purchaseLot);
+
+                    return $purchaseLot;
+                });
+            }
+
+            if ($item->relationLoaded('batchReference') && $item->batchReference) {
+                $this->trimPurchaseBatchPayload($item->batchReference);
+            }
 
             return $item;
         });
@@ -202,11 +230,49 @@ class PurchaseAPIController extends AppBaseController
         $productId = $request->get('product_id');
         $purchases = $this->purchaseRepository->whereHas('purchaseItems', function ($q) use ($productId) {
             $q->where('product_id', '=', $productId);
-        })->with(['purchaseItems.product', 'supplier']);
+        })->with(array_values(array_unique(array_merge(
+            ['purchaseItems.product', 'purchaseItems.batchReference', 'supplier'],
+            Schema::hasTable('purchase_lots') ? ['purchaseItems.purchaseLots.batch'] : []
+        ))));
 
         $purchases = $purchases->paginate($perPage);
         PurchaseResource::usingWithCollection();
 
         return new PurchaseCollection($purchases);
+    }
+
+    private function trimPurchaseLotPayload($purchaseLot): void
+    {
+        $purchaseLot->makeHidden([
+            'purchase_detail_id',
+            'created_at',
+            'updated_at',
+        ]);
+    }
+
+    private function trimPurchaseBatchPayload($batch): void
+    {
+        $batch->makeHidden([
+            'product_id',
+            'purchase_id',
+            'created_by',
+            'updated_by',
+            'received_quantity',
+            'available_quantity',
+            'received_at',
+            'note',
+            'created_at',
+            'updated_at',
+        ]);
+    }
+
+    private function purchaseItemRelations(): array
+    {
+        $relations = ['purchaseItems.product.stocks', 'purchaseItems.batchReference', 'supplier', 'warehouse'];
+        if (Schema::hasTable('purchase_lots')) {
+            $relations[] = 'purchaseItems.purchaseLots.batch';
+        }
+
+        return $relations;
     }
 }
