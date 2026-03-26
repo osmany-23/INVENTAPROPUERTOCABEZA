@@ -7,18 +7,9 @@ use Illuminate\Database\Seeder;
 
 class AddIsDefaultBaseUnitTableSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        for ($i = 1; $i <= 3; $i++) {
-            $baseUnit = BaseUnit::whereId($i)->first();
-            if (! empty($baseUnit)) {
-                $baseUnit->update([
-                    'is_default' => true,
-                ]);
-            }
-        }
+        BaseUnit::query()->whereIn('id', [1, 2, 3])->update(['is_default' => true]);
+        BaseUnit::query()->where('id', 4)->update(['is_default' => false]);
     }
 }

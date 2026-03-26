@@ -2,139 +2,117 @@
 
 namespace Database\Seeders;
 
-use App\Models\Currency;
-use App\Models\Customer;
-use App\Models\Setting;
-use App\Models\Warehouse;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class SettingTableSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        Customer::Create([
-            'name' => 'walk-in-customer',
-            'email' => 'customer@infypos.com',
-            'phone' => '123456789',
-            'country' => 'india',
-            'city' => 'mumbai',
-            'address' => 'Dr Deshmukh Marg , mumbai',
-        ]);
-        Warehouse::create([
-            'name' => 'warehouse',
-            'phone' => '123456789',
-            'country' => 'india',
-            'city' => 'mumbai',
-            'email' => 'warehouse1@infypos.com',
-            'zip_code' => '12345',
-        ]);
+        DB::table('customers')->upsert([
+            [
+                'id' => 1,
+                'name' => 'CLIENTE ORDINARIO',
+                'email' => 'bryam.autorepuestos@gmail.com',
+                'phone' => '89454301',
+                'dob' => null,
+                'country' => 'Nicaragua',
+                'city' => 'JALAPA',
+                'address' => 'DE DONDE FUE PANADRIA ROCHA MEDIA CUADRA AL ESTE',
+            ],
+        ], ['id'], ['name', 'email', 'phone', 'dob', 'country', 'city', 'address']);
 
-        Currency::create([
-            'name' => 'India',
-            'code' => 'INR',
-            'symbol' => '₹',
-        ]);
-        $logoUrl = ('images/infycare-logo.png');
+        DB::table('warehouses')->upsert([
+            [
+                'id' => 1,
+                'name' => 'AUTO REPUESTOS BRYAN #1',
+                'phone' => '89454301',
+                'country' => 'Nicaragua',
+                'city' => 'JALAPA',
+                'email' => 'autorepuestosbryan#1@gmail.com',
+                'zip_code' => '39200',
+            ],
+        ], ['id'], ['name', 'phone', 'country', 'city', 'email', 'zip_code']);
 
-        if (! keyExist('currency')) {
-            Setting::create(['key' => 'currency', 'value' => '1']);
+        DB::table('currencies')->upsert([
+            ['id' => 1, 'name' => 'CORDOBAS', 'code' => 'NIO', 'symbol' => 'C$'],
+            ['id' => 2, 'name' => 'DOLARES', 'code' => 'USD', 'symbol' => '$'],
+            ['id' => 3, 'name' => 'India', 'code' => 'INR', 'symbol' => '₹'],
+        ], ['id'], ['name', 'code', 'symbol']);
+
+        foreach ($this->settings() as $key => $value) {
+            DB::table('settings')->updateOrInsert(
+                ['key' => $key],
+                ['value' => $this->normalizeValue($value)]
+            );
+        }
+    }
+
+    /**
+     * @return array<string, string|int|bool>
+     */
+    private function settings(): array
+    {
+        return [
+            'show_version_on_footer' => true,
+            'country' => 'Nicaragua',
+            'state' => 'Nueva Segovia',
+            'city' => 'JALAPA',
+            'postcode' => '39200',
+            'date_format' => 'd-m-y',
+            'purchase_code' => 'PU',
+            'purchase_return_code' => 'PR',
+            'sale_code' => 'SA',
+            'sale_return_code' => 'SR',
+            'expense_code' => 'EX',
+            'is_currency_right' => true,
+            'show_logo_in_receipt' => true,
+            'show_app_name_in_sidebar' => false,
+            'show_note' => true,
+            'show_phone' => true,
+            'show_customer' => true,
+            'show_address' => true,
+            'show_email' => false,
+            'show_warehouse' => true,
+            'show_tax_discount_shipping' => true,
+            'show_barcode_in_receipt' => true,
+            'notes' => 'NO SE ACEPTAN CAMBIOS NI DEVOLUCIONES',
+            'show_product_code' => false,
+            'currency' => 1,
+            'email' => 'bryam.system2023@gmail.com',
+            'company_name' => 'AUTO REPUESTOS BRYAN',
+            'phone' => '58637131',
+            'developed' => 'OSMANY CASCO',
+            'footer' => '2025 Developed by InventaPRO All rights reserved - v1.1.0',
+            'default_language' => '1',
+            'default_customer' => 1,
+            'default_warehouse' => 1,
+            'address' => 'DE DONDE FUE PANADERIA ROCHA 1C AL ESTE',
+            'stripe_key' => 'pu_test_yBzA1qI1PcfRBAVn1vJG2VuS00HcyhQX9LASERTFDDS',
+            'stripe_secret' => 'pu_test_yBzA1qI1PcfRBAVn1vJG2VuS00HcyhQX9LASERTFDDS',
+            'sms_gateway' => 1,
+            'twillo_sid' => 'asd',
+            'twillo_token' => 'asd',
+            'twillo_from' => 'asd',
+            'smtp_host' => 'mailtrap.io',
+            'smtp_port' => '2525',
+            'smtp_username' => 'test',
+            'smtp_password' => 'test',
+            'smtp_Encryption' => 'tls',
+            'logo' => 'http://192.168.1.49/uploads/settings/2962/ChatGPT-Image-21-nov-2025,-09_56_47-a.m.-Photoroom-Photoroom.png',
+            'credit_alert_days' => 3,
+        ];
+    }
+
+    /**
+     * @param  bool|int|string  $value
+     */
+    private function normalizeValue($value): string
+    {
+        if (is_bool($value)) {
+            return $value ? '1' : '0';
         }
 
-        if (! keyExist('email')) {
-            Setting::create(['key' => 'email', 'value' => 'support@infypos.com']);
-        }
-
-        if (! keyExist('company_name')) {
-            Setting::create(['key' => 'company_name', 'value' => 'infy-pos']);
-        }
-
-        if (! keyExist('phone')) {
-            Setting::create(['key' => 'phone', 'value' => '1234567890']);
-        }
-
-        if (! keyExist('developed')) {
-            Setting::create(['key' => 'developed', 'value' => 'infyom']);
-        }
-
-        if (! keyExist('footer')) {
-            Setting::create([
-                'key' => 'footer', 'value' => '2022 Developed by Infy-pos All rights reserved - v1.1.0',
-            ]);
-        }
-
-        if (! keyExist('default_language')) {
-            Setting::create(['key' => 'default_language', 'value' => '1']);
-        }
-
-        if (! keyExist('default_customer')) {
-            Setting::create(['key' => 'default_customer', 'value' => '1']);
-        }
-
-        if (! keyExist('default_warehouse')) {
-            Setting::create(['key' => 'default_warehouse', 'value' => '1']);
-        }
-
-        if (! keyExist('address')) {
-            Setting::create([
-                'key' => 'address', 'value' => 'C-303, Atlanta Shopping Mall, Nr. Sudama Chowk, Mota Varachha, Surat, Gujarat, India.',
-            ]);
-        }
-
-        if (! keyExist('stripe_key')) {
-            Setting::create(['key' => 'stripe_key', 'value' => 'pu_test_yBzA1qI1PcfRBAVn1vJG2VuS00HcyhQX9LASERTFDDS']);
-        }
-
-        if (! keyExist('stripe_secret')) {
-            Setting::create(['key' => 'stripe_secret',
-                'value' => 'pu_test_yBzA1qI1PcfRBAVn1vJG2VuS00HcyhQX9LASERTFDDS',
-            ]);
-        }
-
-        //sms configurations
-
-        if (! keyExist('sms_gateway')) {
-            Setting::create(['key' => 'sms_gateway', 'value' => '1']);
-        }
-
-        if (! keyExist('twillo_sid')) {
-            Setting::create(['key' => 'twillo_sid', 'value' => 'asd']);
-        }
-
-        if (! keyExist('twillo_token')) {
-            Setting::create(['key' => 'twillo_token', 'value' => 'asd']);
-        }
-
-        if (! keyExist('twillo_from')) {
-            Setting::create(['key' => 'twillo_from', 'value' => 'asd']);
-        }
-
-        // smtm configurations
-
-        if (! keyExist('smtp_host')) {
-            Setting::create(['key' => 'smtp_host', 'value' => 'mailtrap.io']);
-        }
-
-        if (! keyExist('smtp_port')) {
-            Setting::create(['key' => 'smtp_port', 'value' => '2525']);
-        }
-
-        if (! keyExist('smtp_username')) {
-            Setting::create(['key' => 'smtp_username', 'value' => 'test']);
-        }
-
-        if (! keyExist('smtp_password')) {
-            Setting::create(['key' => 'smtp_password', 'value' => 'test']);
-        }
-
-        if (! keyExist('smtp_Encryption')) {
-            Setting::create(['key' => 'smtp_Encryption', 'value' => 'tls']);
-        }
-
-        if (! keyExist('logo')) {
-            Setting::create(['key' => 'logo', 'value' => $logoUrl]);
-        }
+        return (string) $value;
     }
 }

@@ -2,6 +2,7 @@
 
 use App\Models\Setting;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -10,10 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        $setting = new Setting();
-        $setting->key = 'show_logo_in_receipt';
-        $setting->value = 1;
-        $setting->save();
+        DB::table('settings')->updateOrInsert(
+            ['key' => 'show_logo_in_receipt'],
+            ['value' => '1']
+        );
     }
 
     /**
@@ -21,7 +22,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        $setting = Setting::where('key', 'show_logo_in_receipt')->first();
-        $setting->delete();
+        Setting::where('key', 'show_logo_in_receipt')->delete();
     }
 };

@@ -10,50 +10,36 @@ use Spatie\Permission\PermissionRegistrar;
 
 class PermissionSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
         $hasDisplayName = Schema::hasColumn('permissions', 'display_name');
         $hasModule = Schema::hasColumn('permissions', 'module');
         $hasAction = Schema::hasColumn('permissions', 'action');
 
-        foreach ($this->permissionNames() as $permissionName) {
-            $metadata = $this->buildPermissionMetadata($permissionName);
-            $createPayload = ['guard_name' => 'web'];
+        foreach ($this->permissionCatalog() as $permissionData) {
+            $attributes = [
+                'name' => $permissionData['name'],
+                'guard_name' => 'web',
+            ];
 
+            $values = [];
             if ($hasDisplayName) {
-                $createPayload['display_name'] = $metadata['display_name'];
+                $values['display_name'] = $permissionData['display_name'];
             }
             if ($hasModule) {
-                $createPayload['module'] = $metadata['module'];
+                $values['module'] = $permissionData['module'];
             }
             if ($hasAction) {
-                $createPayload['action'] = $metadata['action'];
+                $values['action'] = $permissionData['action'];
             }
 
-            $permission = Permission::query()->firstOrCreate(
-                [
-                    'name' => $permissionName,
-                    'guard_name' => 'web',
-                ],
-                $createPayload
-            );
+            $permission = Permission::query()->firstOrCreate($attributes);
 
-            $updates = [];
-            if ($hasDisplayName && empty($permission->display_name)) {
-                $updates['display_name'] = $metadata['display_name'];
-            }
-            if ($hasModule && empty($permission->module)) {
-                $updates['module'] = $metadata['module'];
-            }
-            if ($hasAction && empty($permission->action)) {
-                $updates['action'] = $metadata['action'];
-            }
-
-            if (!empty($updates)) {
-                $permission->update($updates);
+            if (! empty($values)) {
+                $permission->fill($values);
+                if ($permission->isDirty()) {
+                    $permission->save();
+                }
             }
         }
 
@@ -61,214 +47,284 @@ class PermissionSeeder extends Seeder
     }
 
     /**
-     * @return string[]
+     * @return array<int, array{name: string, display_name: string, module: string, action: string}>
      */
-    private function permissionNames(): array
+    private function permissionCatalog(): array
     {
-        $legacyPermissions = [
-            'manage_dashboard',
-            'manage_roles',
-            'manage_brands',
-            'manage_currency',
-            'manage_warehouses',
-            'manage_units',
-            'manage_product_categories',
-            'manage_variations',
-            'manage_products',
-            'manage_suppliers',
-            'manage_customers',
-            'manage_users',
-            'manage_expense_categories',
-            'manage_expenses',
-            'manage_setting',
-            'manage_purchase',
-            'manage_purchase_return',
-            'manage_pos_screen',
-            'manage_sale',
-            'manage_sale_return',
-            'manage_print_barcode',
-            'manage_adjustments',
-            'manage_transfers',
-            'manage_reports',
-            'manage_report',
-            'manage_email_templates',
-            'manage_quotations',
-            'manage_sms_apis',
-            'manage_sms_templates',
-            'manage_language',
-        ];
+        $catalog = [];
 
-        $granularPermissions = [
-            'products.view',
-            'products.create',
-            'products.update',
-            'products.delete',
-            'products.view_purchase_price',
-            'product.view',
-            'product.create',
-            'product.edit',
-            'product.delete',
-            'product.view_purchase_price',
-
-            'purchase.view',
-            'purchase.create',
-            'purchase.update',
-            'purchase.delete',
-            'purchase.edit',
-            'purchases.view',
-            'purchases.create',
-            'purchases.update',
-            'purchases.edit',
-            'purchases.delete',
-
-            'customer.view',
-            'customer.create',
-            'customer.update',
-            'customer.delete',
-            'customer.edit',
-            'customers.view',
-            'customers.create',
-            'customers.update',
-            'customers.edit',
-            'customers.delete',
-
-            'supplier.view',
-            'supplier.create',
-            'supplier.update',
-            'supplier.delete',
-            'supplier.edit',
-            'suppliers.view',
-            'suppliers.create',
-            'suppliers.update',
-            'suppliers.edit',
-            'suppliers.delete',
-
-            'user.view',
-            'user.create',
-            'user.update',
-            'user.delete',
-            'user.edit',
-            'user.update_credentials',
-            'user.edit_credentials',
-            'users.view',
-            'users.create',
-            'users.update',
-            'users.edit',
-            'users.delete',
-
-            'pos.view',
-            'pos.create_sale',
-            'pos.edit_sale',
-            'pos.delete_sale',
-            'pos.apply_discount',
-            'pos.cancel_sale',
-            'pos.edit_product',
-            'pos.edit_cart_product',
-            'pos_screen.view',
-            'pos_screen.apply_discount',
-            'pos_screen.cancel_sale',
-            'pos_screen.edit_product',
-            'sale.create',
-            'sale.update',
-            'sale.edit',
-            'sale.delete',
-
-            'view_purchase_price',
-            'edit_pos_sale_price',
-            'view_stock_alerts',
-            'dashboard.view_stock_alerts',
-
-            'report.sales',
-            'report.purchases',
-            'report.profit',
-        ];
-
-        $fromHelpers = [];
-        foreach (array_keys(strictPermissionConfigMap()) as $permissionName) {
-            $fromHelpers[] = $permissionName;
-            $config = strictPermissionConfigMap()[$permissionName] ?? [];
-            foreach ($config['aliases'] ?? [] as $aliasPermission) {
-                $fromHelpers[] = $aliasPermission;
-            }
-            if (!empty($config['legacy_permission'])) {
-                $fromHelpers[] = $config['legacy_permission'];
-            }
-        }
-
-        foreach (permissionLegacyMap() as $permissionName => $legacyPermissionsForName) {
-            $fromHelpers[] = $permissionName;
-            foreach ($legacyPermissionsForName as $legacyPermission) {
-                $fromHelpers[] = $legacyPermission;
-            }
-        }
-
-        foreach (permissionModuleLegacyMap() as $legacyPermission) {
-            $fromHelpers[] = $legacyPermission;
-        }
-
-        $permissions = array_merge($legacyPermissions, $granularPermissions, $fromHelpers);
-
-        return array_values(array_unique(array_filter(array_map('normalizePermissionName', $permissions))));
-    }
-
-    /**
-     * @return array{display_name: string, module: string, action: string}
-     */
-    private function buildPermissionMetadata(string $permissionName): array
-    {
-        $permissionName = normalizePermissionName($permissionName);
-
-        if (str_starts_with($permissionName, 'manage_')) {
-            $module = Str::after($permissionName, 'manage_');
-
-            return [
-                'display_name' => 'Manage '.Str::headline(str_replace('_', ' ', $module)),
-                'module' => $module,
+        foreach ($this->legacyManagePermissions() as $name => $displayName) {
+            $catalog[] = [
+                'name' => $name,
+                'display_name' => $displayName,
+                'module' => Str::after($name, 'manage_'),
                 'action' => 'manage',
             ];
         }
 
-        if (str_contains($permissionName, '.')) {
-            [$module, $rawAction] = explode('.', $permissionName, 2);
-            $action = $this->normalizeAction($rawAction);
-
-            return [
-                'display_name' => Str::headline(str_replace('_', ' ', $module)).' - '.Str::headline(str_replace('_', ' ', $action)),
+        foreach ($this->englishCrudModules() as $module => $viewLabel) {
+            $catalog[] = [
+                'name' => $module.'.view',
+                'display_name' => $viewLabel.' - Ver listado y detalle',
                 'module' => $module,
-                'action' => $action,
+                'action' => 'view',
             ];
+
+            foreach ($this->actionLabels() as $action => $actionLabel) {
+                $catalog[] = [
+                    'name' => $module.'.'.$action,
+                    'display_name' => $this->englishModuleLabel($module).' - '.$actionLabel,
+                    'module' => $module,
+                    'action' => $action,
+                ];
+            }
         }
 
-        $specialMap = [
-            'view_purchase_price' => ['module' => 'products', 'action' => 'special', 'display' => 'Products - View Purchase Price'],
-            'edit_pos_sale_price' => ['module' => 'pos_screen', 'action' => 'special', 'display' => 'POS - Edit Sale Price'],
-            'view_stock_alerts' => ['module' => 'dashboard', 'action' => 'special', 'display' => 'Dashboard - View Stock Alerts'],
-        ];
-
-        if (isset($specialMap[$permissionName])) {
-            return [
-                'display_name' => $specialMap[$permissionName]['display'],
-                'module' => $specialMap[$permissionName]['module'],
-                'action' => $specialMap[$permissionName]['action'],
+        foreach ($this->canonicalCrudModules() as $module => $label) {
+            $catalog[] = [
+                'name' => $module.'.view',
+                'display_name' => $label.' - Ver listado y detalle',
+                'module' => $module,
+                'action' => 'view',
             ];
+
+            foreach ($this->actionLabels() as $action => $actionLabel) {
+                $catalog[] = [
+                    'name' => $module.'.'.$action,
+                    'display_name' => $label.' - '.$actionLabel,
+                    'module' => $module,
+                    'action' => $action,
+                ];
+            }
         }
 
+        foreach ($this->posScreenPermissions() as $permissionData) {
+            $catalog[] = $permissionData;
+        }
+
+        foreach ($this->specialPermissions() as $permissionData) {
+            $catalog[] = $permissionData;
+        }
+
+        return $catalog;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function legacyManagePermissions(): array
+    {
         return [
-            'display_name' => Str::headline(str_replace(['_', '.'], ' ', $permissionName)),
-            'module' => Str::before($permissionName, '_') ?: 'general',
-            'action' => 'special',
+            'manage_adjustments' => 'Manage Adjustments',
+            'manage_brands' => 'Manage Brands',
+            'manage_currency' => 'Manage Currency',
+            'manage_customers' => 'Manage Customers',
+            'manage_dashboard' => 'Manage Dashboard',
+            'manage_email_templates' => 'Manage Email Templates',
+            'manage_expense_categories' => 'Manage Expense Categories',
+            'manage_expenses' => 'Manage Expenses',
+            'manage_language' => 'Manage Language',
+            'manage_pos_screen' => 'Manage Pos Screen',
+            'manage_product_categories' => 'Manage Product Categories',
+            'manage_products' => 'Manage Products',
+            'manage_purchase' => 'Manage Purchase',
+            'manage_purchase_return' => 'Manage Purchase Return',
+            'manage_quotations' => 'Manage Quotations',
+            'manage_reports' => 'Manage Reports',
+            'manage_roles' => 'Manage Roles',
+            'manage_sale' => 'Manage Sale',
+            'manage_sale_return' => 'Manage Sale Return',
+            'manage_setting' => 'Manage Setting',
+            'manage_sms_apis' => 'Manage Sms Apis',
+            'manage_sms_templates' => 'Manage Sms Templates',
+            'manage_suppliers' => 'Manage Suppliers',
+            'manage_transfers' => 'Manage Transfers',
+            'manage_units' => 'Manage Units',
+            'manage_users' => 'Manage Users',
+            'manage_variations' => 'Manage Variations',
+            'manage_warehouses' => 'Manage Warehouses',
         ];
     }
 
-    private function normalizeAction(string $action): string
+    /**
+     * @return array<string, string>
+     */
+    private function englishCrudModules(): array
     {
-        $normalizedAction = normalizePermissionName($action);
+        return [
+            'adjustments' => 'Ajustes',
+            'brands' => 'Marcas',
+            'currency' => 'Monedas',
+            'dashboard' => 'Dashboard',
+            'email_templates' => 'Plantillas de correo',
+            'expense_categories' => 'Categorias de gastos',
+            'expenses' => 'Gastos',
+            'language' => 'Idiomas',
+            'product_categories' => 'Categorias de productos',
+            'purchase_return' => 'Devoluciones de compras',
+            'quotations' => 'Cotizaciones',
+            'reports' => 'Reportes',
+            'roles' => 'Roles',
+            'sale' => 'Ventas',
+            'sale_return' => 'Devoluciones de ventas',
+            'setting' => 'Configuracion',
+            'sms_apis' => 'Integraciones SMS',
+            'sms_templates' => 'Plantillas SMS',
+            'transfers' => 'Transferencias',
+            'units' => 'Unidades',
+            'variations' => 'Variaciones',
+            'warehouses' => 'Almacenes',
+        ];
+    }
 
-        return match ($normalizedAction) {
-            'edit' => 'update',
-            'remove' => 'delete',
-            'view', 'create', 'update', 'delete', 'manage' => $normalizedAction,
-            default => 'special',
-        };
+    /**
+     * @return array<string, string>
+     */
+    private function canonicalCrudModules(): array
+    {
+        return [
+            'products' => 'Productos',
+            'purchase' => 'Compras',
+            'customer' => 'Clientes',
+            'supplier' => 'Proveedores',
+            'user' => 'Usuarios',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function actionLabels(): array
+    {
+        return [
+            'create' => 'Crear',
+            'update' => 'Actualizar',
+            'delete' => 'Eliminar',
+        ];
+    }
+
+    /**
+     * @return array<int, array{name: string, display_name: string, module: string, action: string}>
+     */
+    private function posScreenPermissions(): array
+    {
+        return [
+            [
+                'name' => 'pos_screen.create',
+                'display_name' => 'Pos Screen - Crear',
+                'module' => 'pos_screen',
+                'action' => 'create',
+            ],
+            [
+                'name' => 'pos_screen.update',
+                'display_name' => 'Pos Screen - Actualizar',
+                'module' => 'pos_screen',
+                'action' => 'update',
+            ],
+            [
+                'name' => 'pos_screen.delete',
+                'display_name' => 'Pos Screen - Eliminar',
+                'module' => 'pos_screen',
+                'action' => 'delete',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<int, array{name: string, display_name: string, module: string, action: string}>
+     */
+    private function specialPermissions(): array
+    {
+        return [
+            [
+                'name' => 'customer.edit',
+                'display_name' => 'Clientes - Editar',
+                'module' => 'customer',
+                'action' => 'update',
+            ],
+            [
+                'name' => 'pos.view',
+                'display_name' => 'POS - Ver pantalla de ventas',
+                'module' => 'pos',
+                'action' => 'view',
+            ],
+            [
+                'name' => 'pos.create_sale',
+                'display_name' => 'POS - Crear venta',
+                'module' => 'pos',
+                'action' => 'create',
+            ],
+            [
+                'name' => 'pos.edit_sale',
+                'display_name' => 'POS - Editar venta',
+                'module' => 'pos',
+                'action' => 'update',
+            ],
+            [
+                'name' => 'pos.delete_sale',
+                'display_name' => 'POS - Eliminar venta',
+                'module' => 'pos',
+                'action' => 'delete',
+            ],
+            [
+                'name' => 'pos.apply_discount',
+                'display_name' => 'POS - Aplicar descuento',
+                'module' => 'pos',
+                'action' => 'special',
+            ],
+            [
+                'name' => 'pos.cancel_sale',
+                'display_name' => 'POS - Cancelar venta',
+                'module' => 'pos',
+                'action' => 'special',
+            ],
+            [
+                'name' => 'report.sales',
+                'display_name' => 'Reportes - Ventas',
+                'module' => 'report',
+                'action' => 'special',
+            ],
+            [
+                'name' => 'report.purchases',
+                'display_name' => 'Reportes - Compras',
+                'module' => 'report',
+                'action' => 'special',
+            ],
+            [
+                'name' => 'report.profit',
+                'display_name' => 'Reportes - Utilidad',
+                'module' => 'report',
+                'action' => 'special',
+            ],
+            [
+                'name' => 'view_purchase_price',
+                'display_name' => 'Productos - Ver precio de compra',
+                'module' => 'products',
+                'action' => 'special',
+            ],
+            [
+                'name' => 'edit_pos_sale_price',
+                'display_name' => 'POS - Editar precio de venta',
+                'module' => 'pos_screen',
+                'action' => 'special',
+            ],
+            [
+                'name' => 'view_stock_alerts',
+                'display_name' => 'Dashboard - Ver alertas de stock',
+                'module' => 'dashboard',
+                'action' => 'special',
+            ],
+            [
+                'name' => 'user.update_credentials',
+                'display_name' => 'Usuarios - Editar credenciales (correo y contrasena)',
+                'module' => 'user',
+                'action' => 'special',
+            ],
+        ];
+    }
+
+    private function englishModuleLabel(string $module): string
+    {
+        return Str::headline(str_replace('_', ' ', $module));
     }
 }

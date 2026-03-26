@@ -7,18 +7,21 @@ use Illuminate\Database\Seeder;
 
 class DefaultBaseUnitSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        $baseUnits = [
-            ['id' => 1, 'name' => 'piece'],
-            ['id' => 2, 'name' => 'meter'],
-            ['id' => 3, 'name' => 'kilogram'],
-        ];
-        foreach ($baseUnits as $baseUnit) {
-            BaseUnit::create($baseUnit);
+        foreach ([
+            ['id' => 1, 'name' => 'JUEGO', 'is_default' => true],
+            ['id' => 2, 'name' => 'UNIDAD', 'is_default' => true],
+            ['id' => 3, 'name' => 'PIES', 'is_default' => true],
+            ['id' => 4, 'name' => 'PAR', 'is_default' => false],
+        ] as $baseUnit) {
+            BaseUnit::query()->updateOrCreate(
+                ['id' => $baseUnit['id']],
+                [
+                    'name' => $baseUnit['name'],
+                    'is_default' => $baseUnit['is_default'],
+                ]
+            );
         }
     }
 }

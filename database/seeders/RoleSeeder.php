@@ -9,20 +9,9 @@ use Spatie\Permission\PermissionRegistrar;
 
 class RoleSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        $roles = [
-            [
-                'name' => Role::ADMIN,
-                'display_name' => 'Admin',
-                'permissions' => ['*'],
-            ],
-        ];
-
-        foreach ($roles as $roleData) {
+        foreach ($this->roleCatalog() as $roleData) {
             $role = Role::query()->firstOrCreate(
                 [
                     'name' => $roleData['name'],
@@ -34,7 +23,7 @@ class RoleSeeder extends Seeder
                 ]
             );
 
-            if (empty($role->display_name)) {
+            if ($role->display_name !== $roleData['display_name']) {
                 $role->update(['display_name' => $roleData['display_name']]);
             }
 
@@ -42,12 +31,36 @@ class RoleSeeder extends Seeder
                 ? Permission::query()->pluck('name')->values()->all()
                 : $roleData['permissions'];
 
-            if (!empty($permissionNames)) {
-                $role->syncPermissions($permissionNames);
-            }
+            $role->syncPermissions($permissionNames);
         }
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
-}
 
+    /**
+     * @return array<int, array{name: string, display_name: string, permissions: array<int, string>}>
+     */
+    private function roleCatalog(): array
+    {
+        return [
+            [
+                'name' => Role::ADMIN,
+                'display_name' => ' Admin',
+                'permissions' => ['*'],
+            ],
+            [
+                'name' => 'VENTAS',
+                'display_name' => 'VENTAS',
+                'permissions' => [
+                    'manage_pos_screen',
+                    'manage_products',
+                ],
+            ],
+            [
+                'name' => 'ROL DE PRUEBA',
+                'display_name' => 'ROL DE PRUEBA',
+                'permissions' => ['*'],
+            ],
+        ];
+    }
+}

@@ -8,17 +8,14 @@ use Illuminate\Database\Seeder;
 
 class DefaultCountriesSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
         $countries = file_get_contents(storage_path('countries/countries.json'));
         $countries = json_decode($countries, true)['countries'];
-        Country::insert($countries);
+        Country::upsert($countries, ['id'], ['name', 'short_code', 'phone_code']);
 
         $states = file_get_contents(storage_path('countries/states.json'));
         $states = json_decode($states, true)['states'];
-        State::insert($states);
+        State::upsert($states, ['id'], ['country_id', 'name']);
     }
 }

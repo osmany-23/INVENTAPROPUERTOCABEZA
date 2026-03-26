@@ -2,6 +2,7 @@
 
 use App\Models\Setting;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -10,10 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        $setting = new Setting();
-        $setting->key = 'show_product_code';
-        $setting->value = 1;
-        $setting->save();
+        DB::table('settings')->updateOrInsert(
+            ['key' => 'show_product_code'],
+            ['value' => '1']
+        );
     }
 
     /**

@@ -11,12 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('sales', function (Blueprint $table) {
-            $table->dropColumn('is_sale_created');
-        });
-        Schema::table('quotations', function (Blueprint $table) {
-            $table->boolean('is_sale_created')->default(false)->after('status');
-        });
+        if (Schema::hasTable('sales') && Schema::hasColumn('sales', 'is_sale_created')) {
+            Schema::table('sales', function (Blueprint $table) {
+                $table->dropColumn('is_sale_created');
+            });
+        }
+
+        if (Schema::hasTable('quotations') && ! Schema::hasColumn('quotations', 'is_sale_created')) {
+            Schema::table('quotations', function (Blueprint $table) {
+                $table->boolean('is_sale_created')->default(false)->after('status');
+            });
+        }
     }
 
     /**
