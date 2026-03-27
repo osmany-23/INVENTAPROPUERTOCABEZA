@@ -1,5 +1,13 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Col, Form, Row, Spinner } from "react-bootstrap-v5";
+import React, {
+    Suspense,
+    lazy,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
+import { Col, Form, Row } from "react-bootstrap-v5";
 import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import moment from "moment";
@@ -15,7 +23,15 @@ import {
     parseNumber,
 } from "../../shared/sharedMethod";
 import {
+    clearCreditListCache,
+    CREDIT_PAGE_SIZE_OPTIONS,
+    buildCreditListRequestKey,
+    fetchCreditListPage,
+} from "../../store/action/creditListAction";
+import {
     CreditCard,
+    CreditCardSkeleton,
+    CreditActionButton,
     CustomerCreditCard,
     DEFAULT_CONFIG_FORM,
     DEFAULT_EDIT_CREDIT_FORM,
@@ -31,17 +47,44 @@ import {
     SummaryCard,
     TooltipWrap,
 } from "./creditHelpers";
-import {
-    ConfigModal,
-    DetailModal,
-    EditCreditModal,
-    ManualCreditModal,
-    PaymentModal,
-    RestructureCreditModal,
-    ReturnModal,
-} from "./CreditModals";
+const ConfigModal = lazy(() =>
+    import("./CreditModals").then((module) => ({
+        default: module.ConfigModal,
+    }))
+);
+const DetailModal = lazy(() =>
+    import("./CreditModals").then((module) => ({
+        default: module.DetailModal,
+    }))
+);
+const EditCreditModal = lazy(() =>
+    import("./CreditModals").then((module) => ({
+        default: module.EditCreditModal,
+    }))
+);
+const ManualCreditModal = lazy(() =>
+    import("./CreditModals").then((module) => ({
+        default: module.ManualCreditModal,
+    }))
+);
+const PaymentModal = lazy(() =>
+    import("./CreditModals").then((module) => ({
+        default: module.PaymentModal,
+    }))
+);
+const RestructureCreditModal = lazy(() =>
+    import("./CreditModals").then((module) => ({
+        default: module.RestructureCreditModal,
+    }))
+);
+const ReturnModal = lazy(() =>
+    import("./CreditModals").then((module) => ({
+        default: module.ReturnModal,
+    }))
+);
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 3;
+const PAGE_WINDOW_SIZE = 5;
 const MANUAL_PRODUCT_PAGE_SIZE = 250;
 const MANUAL_SEARCH_RESULT_LIMIT = 6;
 const createDefaultManualForm = () => ({
@@ -66,6 +109,13 @@ const resolveCreditInstallmentsCount = (detail) => {
     return Number(detail?.installments || 1) || 1;
 };
 
+const SECTION_RESULT_LABELS = {
+    credits: "creditos",
+    customers: "clientes",
+    overdue: "morosos",
+    interest: "registros",
+};
+
 const Credits = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -73,6 +123,7 @@ const Credits = () => {
     const { creditId } = useParams();
     const settings = useSelector((state) => state.settings);
     const allConfigData = useSelector((state) => state.allConfigData);
+    const creditListState = useSelector((state) => state.creditList);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [detailLoading, setDetailLoading] = useState(false);
@@ -81,6 +132,12 @@ const Credits = () => {
     const [warehouseProducts, setWarehouseProducts] = useState([]);
     const [activeSection, setActiveSection] = useState("credits");
     const [filters, setFilters] = useState({ search: "", status: "" });
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [pagination, setPagination] = useState({
+        page: 1,
+        limit: PAGE_SIZE,
+    });
+    const [listReady, setListReady] = useState(false);
     const [dashboard, setDashboard] = useState({
         summary: {},
         customer_configs: [],
@@ -97,7 +154,6 @@ const Credits = () => {
     const [showRestructureModal, setShowRestructureModal] = useState(false);
     const [showReturnModal, setShowReturnModal] = useState(false);
     const [currentAction, setCurrentAction] = useState(null);
-    const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
     const [configForm, setConfigForm] = useState(DEFAULT_CONFIG_FORM);
     const [manualForm, setManualForm] = useState(createDefaultManualForm);
     const [manualProductsLoading, setManualProductsLoading] = useState(false);
@@ -123,23 +179,33 @@ const Credits = () => {
         [location.search]
     );
 
-    const toast = (text, type = toastType.SUCCESS) =>
-        dispatch(addToast({ text, type }));
+    const toast = useCallback(
+        (text, type = toastType.SUCCESS) =>
+            dispatch(addToast({ text, type })),
+        [dispatch]
+    );
 
-    const getErrorMessage = (error) =>
-        error?.response?.data?.message ||
-        error?.message ||
-        "No se pudo completar la operacion.";
+    const getErrorMessage = useCallback(
+        (error) =>
+            error?.response?.data?.message ||
+            error?.message ||
+            "No se pudo completar la operacion.",
+        []
+    );
 
-    const money = (value) => {
-        const safeNumber = parseNumber(value, 0);
-        const safeCurrency = getCurrencySymbol(settings);
-        return currencySymbolHandling(
-            allConfigData,
-            safeCurrency,
-            safeNumber
-        );
-    };
+    const money = useCallback(
+        (value) => {
+            const safeNumber = parseNumber(value, 0);
+            const safeCurrency = getCurrencySymbol(settings);
+
+            return currencySymbolHandling(
+                allConfigData,
+                safeCurrency,
+                safeNumber
+            );
+        },
+        [allConfigData, settings]
+    );
 
     const buildCreditEditForm = (detail) => ({
         ...DEFAULT_EDIT_CREDIT_FORM,
@@ -175,7 +241,93 @@ const Credits = () => {
         note: form.note,
     });
 
-    const closeAllCreditModals = () => {
+    const currentListParams = useMemo(
+        () => ({
+            section: activeSection,
+            search: debouncedSearch,
+            status:
+                activeSection === "credits" || activeSection === "interest"
+                    ? filters.status
+                    : "",
+            page: pagination.page,
+            limit: pagination.limit,
+        }),
+        [
+            activeSection,
+            debouncedSearch,
+            filters.status,
+            pagination.limit,
+            pagination.page,
+        ]
+    );
+
+    const currentRequestKey = useMemo(
+        () => buildCreditListRequestKey(currentListParams),
+        [currentListParams]
+    );
+
+    const currentPageData = useMemo(
+        () => creditListState?.cacheByRequestKey?.[currentRequestKey] || null,
+        [creditListState?.cacheByRequestKey, currentRequestKey]
+    );
+
+    const activeRows = useMemo(
+        () => currentPageData?.rows || [],
+        [currentPageData]
+    );
+
+    const activeMeta = useMemo(
+        () =>
+            currentPageData?.meta || {
+                total: 0,
+                per_page: pagination.limit,
+                current_page: pagination.page,
+                last_page: 0,
+                from: 0,
+                to: 0,
+            },
+        [currentPageData, pagination.limit, pagination.page]
+    );
+
+    const isListLoading = Boolean(
+        creditListState?.loadingByRequestKey?.[currentRequestKey]
+    );
+
+    const listError = creditListState?.errorByRequestKey?.[currentRequestKey];
+    const shouldShowListSkeleton = isListLoading && !currentPageData;
+
+    const visiblePageNumbers = useMemo(() => {
+        const totalPages = Math.max(Number(activeMeta.last_page || 0), 1);
+        const currentPage = Math.min(
+            Math.max(Number(activeMeta.current_page || 1), 1),
+            totalPages
+        );
+        const halfWindow = Math.floor(PAGE_WINDOW_SIZE / 2);
+        let startPage = Math.max(currentPage - halfWindow, 1);
+        let endPage = Math.min(
+            startPage + PAGE_WINDOW_SIZE - 1,
+            totalPages
+        );
+
+        startPage = Math.max(endPage - PAGE_WINDOW_SIZE + 1, 1);
+
+        return Array.from(
+            { length: endPage - startPage + 1 },
+            (_, index) => startPage + index
+        );
+    }, [activeMeta.current_page, activeMeta.last_page]);
+
+    const paginationSummary = useMemo(() => {
+        const label = SECTION_RESULT_LABELS[activeSection] || "registros";
+
+        if (activeMeta.total <= 0) {
+            return `0 ${label}`;
+        }
+
+        return `${activeMeta.from}-${activeMeta.to} de ${activeMeta.total} ${label}`;
+    }, [activeMeta.from, activeMeta.to, activeMeta.total, activeSection]);
+
+    const closeAllCreditModals = useCallback(() => {
         setShowConfigModal(false);
         setShowManualModal(false);
         setShowDetailModal(false);
@@ -183,7 +335,7 @@ const Credits = () => {
         setShowPaymentModal(false);
         setShowRestructureModal(false);
         setShowReturnModal(false);
-    };
+    }, []);
 
     const resetManualModalState = () => {
         manualProductsRequestIdRef.current += 1;
@@ -201,7 +353,7 @@ const Credits = () => {
         resetManualModalState();
     };
 
-    const closeDetailModal = () => {
+    const closeDetailModal = useCallback(() => {
         setShowDetailModal(false);
         setCurrentAction(null);
         setCreditDetail(null);
@@ -209,15 +361,7 @@ const Credits = () => {
         if (routeCreditId) {
             navigate("/app/credits", { replace: true });
         }
-    };
-
-    const openDetailModal = (creditId) => {
-        setCurrentAction("view");
-        fetchCreditDetail(creditId, () => {
-            closeAllCreditModals();
-            setShowDetailModal(true);
-        });
-    };
+    }, [navigate, routeCreditId]);
 
     const closeEditModal = () => {
         const shouldReturnToDetail = currentAction === "view" && !!creditDetail;
@@ -247,12 +391,12 @@ const Credits = () => {
         setCreditDetail(null);
     };
 
-    const closeConfigModal = () => {
+    const closeConfigModal = useCallback(() => {
         setShowConfigModal(false);
         setCurrentAction(null);
-    };
+    }, []);
 
-    const closePaymentModal = () => {
+    const closePaymentModal = useCallback(() => {
         setShowPaymentModal(false);
         setCurrentAction(null);
         setCreditDetail(null);
@@ -262,60 +406,25 @@ const Credits = () => {
         if (routeCreditId && routeAction === "payment") {
             navigate("/app/credits", { replace: true });
         }
-    };
+    }, [navigate, routeAction, routeCreditId]);
 
-    const closeReturnModal = () => {
+    const closeReturnModal = useCallback(() => {
         setShowReturnModal(false);
         setCurrentAction(null);
         setCreditDetail(null);
         setReturnForm(DEFAULT_RETURN_FORM);
         setReturnErrors({});
-    };
+    }, []);
 
-    const openManualModal = () => {
+    const openManualModal = useCallback(() => {
         closeAllCreditModals();
         setCurrentAction("create");
         setCreditDetail(null);
         resetManualModalState();
         setShowManualModal(true);
-    };
+    }, [closeAllCreditModals]);
 
-    const existingCustomerIds = useMemo(
-        () =>
-            (dashboard.customer_configs || []).map((row) =>
-                Number(row.customer_id)
-            ),
-        [dashboard.customer_configs]
-    );
-
-    const activeRows = useMemo(() => {
-        if (activeSection === "customers") {
-            return dashboard.customer_configs || [];
-        }
-
-        if (activeSection === "overdue") {
-            return dashboard.overdue_customers || [];
-        }
-
-        if (activeSection === "interest") {
-            return dashboard.interest_report || [];
-        }
-
-        return dashboard.credits || [];
-    }, [
-        activeSection,
-        dashboard.credits,
-        dashboard.customer_configs,
-        dashboard.overdue_customers,
-        dashboard.interest_report,
-    ]);
-
-    const visibleRows = useMemo(
-        () => activeRows.slice(0, visibleCount),
-        [activeRows, visibleCount]
-    );
-
-    const hasMoreRows = visibleCount < activeRows.length;
+    const existingCustomerIds = useMemo(() => [], []);
 
     const clearManualErrorFields = (...fieldNames) => {
         if (fieldNames.length === 0) {
@@ -867,44 +976,117 @@ const Credits = () => {
         }
     };
 
-    const fetchDashboard = async (params = filters) => {
+    const fetchDashboard = useCallback(async () => {
         try {
             setLoading(true);
-            const response = await apiConfig.get("/credits/dashboard", {
-                params: {
-                    search: params.search || undefined,
-                    status: params.status || undefined,
-                },
-            });
+            const response = await apiConfig.get("/credits/dashboard");
             setDashboard(response?.data?.data || {});
         } catch (error) {
             toast(getErrorMessage(error), toastType.ERROR);
         } finally {
             setLoading(false);
         }
-    };
+    }, [getErrorMessage, toast]);
 
-    const fetchCreditDetail = async (creditId, onSuccess) => {
-        try {
-            setDetailLoading(true);
-            const response = await apiConfig.get(`/credits/${creditId}`);
-            const detail = response?.data?.data || null;
-            setCreditDetail(detail);
-            if (onSuccess) {
-                onSuccess(detail);
+    const fetchCreditDetail = useCallback(
+        async (creditId, onSuccess) => {
+            try {
+                setDetailLoading(true);
+                const response = await apiConfig.get(`/credits/${creditId}`);
+                const detail = response?.data?.data || null;
+                setCreditDetail(detail);
+                if (onSuccess) {
+                    onSuccess(detail);
+                }
+            } catch (error) {
+                toast(getErrorMessage(error), toastType.ERROR);
+            } finally {
+                setDetailLoading(false);
             }
-        } catch (error) {
-            toast(getErrorMessage(error), toastType.ERROR);
-        } finally {
-            setDetailLoading(false);
-        }
-    };
+        },
+        [getErrorMessage, toast]
+    );
+
+    const fetchSectionPage = useCallback(
+        (options = {}) => dispatch(fetchCreditListPage(currentListParams, options)),
+        [currentListParams, dispatch]
+    );
+
+    const refreshCurrentSection = useCallback(async () => {
+        dispatch(clearCreditListCache());
+        await fetchDashboard();
+        await dispatch(fetchCreditListPage(currentListParams, { force: true }));
+    }, [currentListParams, dispatch, fetchDashboard]);
+
+    const handleOpenDetailModal = useCallback(
+        (creditId) => {
+            setCurrentAction("view");
+            fetchCreditDetail(creditId, () => {
+                closeAllCreditModals();
+                setShowDetailModal(true);
+            });
+        },
+        [closeAllCreditModals, fetchCreditDetail]
+    );
+
+    const handleOpenPaymentModal = useCallback(
+        (creditId) => {
+            setPaymentErrors({});
+            setCurrentAction("payment");
+            fetchCreditDetail(creditId, (detail) => {
+                setPaymentForm({
+                    ...DEFAULT_PAYMENT_FORM,
+                    amount:
+                        Number(detail?.balance || 0) > 0
+                            ? String(detail.balance)
+                            : "",
+                });
+                closeAllCreditModals();
+                setShowPaymentModal(true);
+            });
+        },
+        [closeAllCreditModals, fetchCreditDetail]
+    );
+
+    const handleOpenEditCreditModalFromRow = useCallback(
+        (creditId) => {
+            setCurrentAction("edit");
+            fetchCreditDetail(creditId, (detail) => {
+                setEditErrors({});
+                setEditForm(buildCreditEditForm(detail));
+                closeAllCreditModals();
+                setShowEditModal(true);
+            });
+        },
+        [closeAllCreditModals, fetchCreditDetail]
+    );
+
+    const handleOpenRestructureModalFromRow = useCallback(
+        (creditId) => {
+            setCurrentAction("restructure");
+            fetchCreditDetail(creditId, (detail) => {
+                setRestructureErrors({});
+                setRestructureForm(buildCreditRestructureForm(detail));
+                closeAllCreditModals();
+                setShowRestructureModal(true);
+            });
+        },
+        [closeAllCreditModals, fetchCreditDetail]
+    );
 
     useEffect(() => {
         fetchCustomers();
         fetchWarehouses();
         fetchDashboard();
-    }, []);
+    }, [fetchDashboard]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(String(filters.search || "").trim());
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [filters.search]);
 
     useEffect(() => {
         fetchWarehouseProducts(Number(manualForm.warehouse_id?.value || 0));
@@ -952,9 +1134,43 @@ const Credits = () => {
     }, [showManualModal, manualForm.warehouse_id?.value]);
 
     useEffect(() => {
-        const timer = setTimeout(() => fetchDashboard(filters), 350);
-        return () => clearTimeout(timer);
-    }, [filters.search, filters.status]);
+        fetchSectionPage().catch(() => {});
+    }, [fetchSectionPage]);
+
+    useEffect(() => {
+        if (!currentPageData?.meta) {
+            return;
+        }
+
+        if (
+            Number(currentPageData.meta.current_page || 0) >=
+            Number(currentPageData.meta.last_page || 0)
+        ) {
+            return;
+        }
+
+        dispatch(
+            fetchCreditListPage(
+                {
+                    ...currentListParams,
+                    page: Number(currentPageData.meta.current_page) + 1,
+                },
+                {
+                    background: true,
+                    silent: true,
+                }
+            )
+        ).catch(() => {});
+    }, [currentListParams, currentPageData, dispatch]);
+
+    useEffect(() => {
+        setListReady(false);
+        const frameId = window.requestAnimationFrame(() => {
+            setListReady(true);
+        });
+
+        return () => window.cancelAnimationFrame(frameId);
+    }, [activeSection, currentRequestKey]);
 
     useEffect(() => {
         if (!routeCreditId) {
@@ -962,28 +1178,17 @@ const Credits = () => {
         }
 
         if (routeAction === "payment") {
-            setPaymentErrors({});
-            setCurrentAction("payment");
-            fetchCreditDetail(routeCreditId, (detail) => {
-                setPaymentForm({
-                    ...DEFAULT_PAYMENT_FORM,
-                    amount:
-                        Number(detail?.balance || 0) > 0
-                            ? String(detail.balance)
-                            : "",
-                });
-                closeAllCreditModals();
-                setShowPaymentModal(true);
-            });
+            handleOpenPaymentModal(routeCreditId);
             return;
         }
 
-        openDetailModal(routeCreditId);
-    }, [routeCreditId, routeAction]);
-
-    useEffect(() => {
-        setVisibleCount(PAGE_SIZE);
-    }, [activeSection, filters.search, filters.status, activeRows.length]);
+        handleOpenDetailModal(routeCreditId);
+    }, [
+        handleOpenDetailModal,
+        handleOpenPaymentModal,
+        routeAction,
+        routeCreditId,
+    ]);
 
     const validateConfigForm = () => {
         const errors = {};
@@ -1174,7 +1379,7 @@ const Credits = () => {
             });
             closeConfigModal();
             setConfigForm(DEFAULT_CONFIG_FORM);
-            await fetchDashboard();
+            await refreshCurrentSection();
             toast("Configuracion guardada.");
         } catch (error) {
             toast(getErrorMessage(error), toastType.ERROR);
@@ -1212,7 +1417,7 @@ const Credits = () => {
                 items,
             });
             closeManualModal();
-            await fetchDashboard();
+            await refreshCurrentSection();
             toast("Credito manual creado.");
         } catch (error) {
             toast(getErrorMessage(error), toastType.ERROR);
@@ -1243,7 +1448,7 @@ const Credits = () => {
                 setCreditDetail(null);
             }
             setEditForm(DEFAULT_EDIT_CREDIT_FORM);
-            await fetchDashboard();
+            await refreshCurrentSection();
             toast("Credito actualizado.");
         } catch (error) {
             toast(getErrorMessage(error), toastType.ERROR);
@@ -1275,7 +1480,7 @@ const Credits = () => {
                         ? String(updatedDetail.balance)
                         : "",
             });
-            await fetchDashboard();
+            await refreshCurrentSection();
             toast("Pago registrado.");
         } catch (error) {
             const message = getErrorMessage(error);
@@ -1311,7 +1516,7 @@ const Credits = () => {
                 setCreditDetail(null);
             }
             setRestructureForm(DEFAULT_RESTRUCTURE_CREDIT_FORM);
-            await fetchDashboard();
+            await refreshCurrentSection();
             toast("Credito reestructurado.");
         } catch (error) {
             toast(getErrorMessage(error), toastType.ERROR);
@@ -1342,7 +1547,7 @@ const Credits = () => {
 
             setCreditDetail(response?.data?.data || null);
             closeReturnModal();
-            await fetchDashboard();
+            await refreshCurrentSection();
             toast("Devolucion registrada.");
         } catch (error) {
             toast(getErrorMessage(error), toastType.ERROR);
@@ -1351,7 +1556,7 @@ const Credits = () => {
         }
     };
 
-    const openConfigModal = (row = null) => {
+    const openConfigModal = useCallback((row = null) => {
         setConfigErrors({});
 
         if (!row) {
@@ -1372,20 +1577,7 @@ const Credits = () => {
         closeAllCreditModals();
         setCurrentAction("config");
         setShowConfigModal(true);
-    };
-
-    const openPaymentModal = (row) => {
-        setPaymentErrors({});
-        setPaymentForm({
-            ...DEFAULT_PAYMENT_FORM,
-            amount: String(row.balance),
-        });
-        setCurrentAction("payment");
-        fetchCreditDetail(row.id, () => {
-            closeAllCreditModals();
-            setShowPaymentModal(true);
-        });
-    };
+    }, [closeAllCreditModals]);
 
     const openEditCreditModal = (detail = creditDetail) => {
         if (!detail) {
@@ -1398,16 +1590,6 @@ const Credits = () => {
         setShowEditModal(true);
     };
 
-    const openEditCreditModalFromRow = (row) => {
-        setCurrentAction("edit");
-        fetchCreditDetail(row.id, (detail) => {
-            setEditErrors({});
-            setEditForm(buildCreditEditForm(detail));
-            closeAllCreditModals();
-            setShowEditModal(true);
-        });
-    };
-
     const openRestructureModal = (detail = creditDetail) => {
         if (!detail) {
             return;
@@ -1417,16 +1599,6 @@ const Credits = () => {
         setRestructureForm(buildCreditRestructureForm(detail));
         closeAllCreditModals();
         setShowRestructureModal(true);
-    };
-
-    const openRestructureModalFromRow = (row) => {
-        setCurrentAction("restructure");
-        fetchCreditDetail(row.id, (detail) => {
-            setRestructureErrors({});
-            setRestructureForm(buildCreditRestructureForm(detail));
-            closeAllCreditModals();
-            setShowRestructureModal(true);
-        });
     };
 
     const openReturnModal = (detail = creditDetail) => {
@@ -1448,6 +1620,74 @@ const Credits = () => {
         setShowReturnModal(true);
     };
 
+    const handleSectionChange = useCallback((nextSection) => {
+        setActiveSection(nextSection);
+        setPagination((prev) => ({
+            ...prev,
+            page: 1,
+        }));
+    }, []);
+
+    const handleSearchChange = useCallback((event) => {
+        const { value } = event.target;
+
+        setFilters((prev) => ({
+            ...prev,
+            search: value,
+        }));
+        setPagination((prev) => ({
+            ...prev,
+            page: 1,
+        }));
+    }, []);
+
+    const handleStatusChange = useCallback((event) => {
+        const { value } = event.target;
+
+        setFilters((prev) => ({
+            ...prev,
+            status: value,
+        }));
+        setPagination((prev) => ({
+            ...prev,
+            page: 1,
+        }));
+    }, []);
+
+    const handlePageSizeChange = useCallback((event) => {
+        const nextLimit = Number(event.target.value || PAGE_SIZE);
+
+        setPagination({
+            page: 1,
+            limit: CREDIT_PAGE_SIZE_OPTIONS.includes(nextLimit)
+                ? nextLimit
+                : PAGE_SIZE,
+        });
+    }, []);
+
+    const handlePageChange = useCallback(
+        (nextPage) => {
+            const safeNextPage = Math.max(
+                1,
+                Math.min(Number(nextPage || 1), Number(activeMeta.last_page || 1))
+            );
+
+            setPagination((prev) => ({
+                ...prev,
+                page: safeNextPage,
+            }));
+        },
+        [activeMeta.last_page]
+    );
+
+    const renderSkeletonCards = useMemo(
+        () =>
+            Array.from({ length: pagination.limit }, (_, index) => (
+                <CreditCardSkeleton key={`credit-skeleton-${index}`} />
+            )),
+        [pagination.limit]
+    );
+
     const renderCreditCards = (rows) => {
         if (!rows.length) {
             return <EmptyStateCard text="No hay creditos registrados." />;
@@ -1458,10 +1698,10 @@ const Credits = () => {
                 key={row.id}
                 row={row}
                 money={money}
-                onView={() => openDetailModal(row.id)}
-                onEdit={() => openEditCreditModalFromRow(row)}
-                onPay={() => openPaymentModal(row)}
-                onRestructure={() => openRestructureModalFromRow(row)}
+                onView={handleOpenDetailModal}
+                onEdit={handleOpenEditCreditModalFromRow}
+                onPay={handleOpenPaymentModal}
+                onRestructure={handleOpenRestructureModalFromRow}
             />
         ));
     };
@@ -1478,7 +1718,7 @@ const Credits = () => {
                 key={row.id}
                 row={row}
                 money={money}
-                onEdit={() => openConfigModal(row)}
+                onEdit={openConfigModal}
             />
         ));
     };
@@ -1509,25 +1749,25 @@ const Credits = () => {
 
     const renderActiveSection = () => {
         if (activeSection === "customers") {
-            return renderCustomerCards(visibleRows);
+            return renderCustomerCards(activeRows);
         }
 
         if (activeSection === "overdue") {
-            return renderOverdueCards(visibleRows);
+            return renderOverdueCards(activeRows);
         }
 
         if (activeSection === "interest") {
-            return renderInterestCards(visibleRows);
+            return renderInterestCards(activeRows);
         }
 
-        return renderCreditCards(visibleRows);
+        return renderCreditCards(activeRows);
     };
 
     const summary = dashboard.summary || {};
 
     return (
         <MasterLayout>
-            <div className="credits-page">
+            <div className="creditos-module credits-page">
                 <TabTitle title="Creditos" />
                 <HeaderTitle title="Creditos" />
 
@@ -1571,7 +1811,7 @@ const Credits = () => {
                         <div className="d-flex flex-wrap justify-content-between align-items-center credits-toolbar mb-4">
                             <SectionButtons
                                 activeSection={activeSection}
-                                setActiveSection={setActiveSection}
+                                setActiveSection={handleSectionChange}
                             />
 
                             <div className="d-flex flex-wrap credits-toolbar credits-toolbar-actions">
@@ -1583,12 +1823,7 @@ const Credits = () => {
                                         className="credits-toolbar-field"
                                         placeholder="Buscar cliente, venta o credito"
                                         value={filters.search}
-                                        onChange={(event) =>
-                                            setFilters((prev) => ({
-                                                ...prev,
-                                                search: event.target.value,
-                                            }))
-                                        }
+                                        onChange={handleSearchChange}
                                     />
                                 </TooltipWrap>
                                 <TooltipWrap
@@ -1598,11 +1833,10 @@ const Credits = () => {
                                     <Form.Select
                                         className="credits-toolbar-field"
                                         value={filters.status}
-                                        onChange={(event) =>
-                                            setFilters((prev) => ({
-                                                ...prev,
-                                                status: event.target.value,
-                                            }))
+                                        onChange={handleStatusChange}
+                                        disabled={
+                                            activeSection !== "credits" &&
+                                            activeSection !== "interest"
                                         }
                                     >
                                         {STATUS_FILTER_OPTIONS.map((option) => (
@@ -1616,154 +1850,242 @@ const Credits = () => {
                                     </Form.Select>
                                 </TooltipWrap>
                                 <TooltipWrap text="Definir limite de credito y condiciones del cliente">
-                                    <Button
-                                        variant="outline-primary"
+                                    <CreditActionButton
+                                        action="configure-customer"
                                         onClick={() => openConfigModal()}
                                     >
                                         Configurar cliente
-                                    </Button>
+                                    </CreditActionButton>
                                 </TooltipWrap>
                                 <TooltipWrap text="Crear un credito sin necesidad de factura">
-                                    <Button
+                                    <CreditActionButton
+                                        action="create-manual-credit"
                                         onClick={openManualModal}
                                     >
                                         Credito manual
-                                    </Button>
+                                    </CreditActionButton>
                                 </TooltipWrap>
                             </div>
                         </div>
 
-                        {loading ? (
-                            <div className="text-center py-8">
-                                <Spinner animation="border" />
+                        <>
+                            <div
+                                className={`credits-card-grid credits-page-transition${
+                                    listReady
+                                        ? " credits-page-transition--ready"
+                                        : ""
+                                }${
+                                    activeSection === "overdue"
+                                        ? " credits-card-grid--compact"
+                                        : ""
+                                }`}
+                            >
+                                {loading || shouldShowListSkeleton
+                                    ? renderSkeletonCards
+                                    : renderActiveSection()}
                             </div>
-                        ) : (
-                            <>
-                                <div
-                                    className={`credits-card-grid${
-                                        activeSection === "overdue"
-                                            ? " credits-card-grid--compact"
-                                            : ""
-                                    }`}
-                                >
-                                    {renderActiveSection()}
-                                </div>
 
-                                {hasMoreRows ? (
-                                    <div className="credits-load-more">
-                                        <TooltipWrap text="Mostrar mas resultados sin recargar la pantalla">
-                                            <Button
-                                                variant="outline-primary"
-                                                onClick={() =>
-                                                    setVisibleCount(
-                                                        (prev) => prev + PAGE_SIZE
-                                                    )
-                                                }
-                                            >
-                                                Mostrar mas
-                                            </Button>
-                                        </TooltipWrap>
+                            {listError ? (
+                                <div className="credits-list-feedback">
+                                    {listError}
+                                </div>
+                            ) : null}
+
+                            <div className="credits-pagination">
+                                <div className="credits-pagination__summary">
+                                    {paginationSummary}
+                                </div>
+                                <div className="credits-pagination__controls">
+                                    <label
+                                        className="credits-pagination__limit"
+                                        htmlFor="credits-page-size"
+                                    >
+                                        <span>Mostrar</span>
+                                        <Form.Select
+                                            id="credits-page-size"
+                                            value={pagination.limit}
+                                            onChange={handlePageSizeChange}
+                                        >
+                                            {CREDIT_PAGE_SIZE_OPTIONS.map(
+                                                (size) => (
+                                                    <option
+                                                        key={size}
+                                                        value={size}
+                                                    >
+                                                        {size}
+                                                    </option>
+                                                )
+                                            )}
+                                        </Form.Select>
+                                    </label>
+
+                                    <div className="credits-pagination__nav">
+                                        <CreditActionButton
+                                            action="page-nav"
+                                            onClick={() =>
+                                                handlePageChange(
+                                                    Number(
+                                                        activeMeta.current_page
+                                                    ) - 1
+                                                )
+                                            }
+                                            disabled={
+                                                Number(
+                                                    activeMeta.current_page || 1
+                                                ) <= 1
+                                            }
+                                        >
+                                            Anterior
+                                        </CreditActionButton>
+
+                                        <div className="credits-pagination__pages">
+                                            {visiblePageNumbers.map(
+                                                (pageNumber) => (
+                                                    <CreditActionButton
+                                                        key={pageNumber}
+                                                        action={
+                                                            pageNumber ===
+                                                            Number(
+                                                                activeMeta.current_page
+                                                            )
+                                                                ? "page-current"
+                                                                : "page-nav"
+                                                        }
+                                                        onClick={() =>
+                                                            handlePageChange(
+                                                                pageNumber
+                                                            )
+                                                        }
+                                                    >
+                                                        {pageNumber}
+                                                    </CreditActionButton>
+                                                )
+                                            )}
+                                        </div>
+
+                                        <CreditActionButton
+                                            action="page-nav"
+                                            onClick={() =>
+                                                handlePageChange(
+                                                    Number(
+                                                        activeMeta.current_page
+                                                    ) + 1
+                                                )
+                                            }
+                                            disabled={
+                                                Number(
+                                                    activeMeta.current_page || 1
+                                                ) >=
+                                                    Number(
+                                                        activeMeta.last_page || 0
+                                                    ) ||
+                                                Number(activeMeta.last_page || 0) ===
+                                                    0
+                                            }
+                                        >
+                                            Siguiente
+                                        </CreditActionButton>
                                     </div>
-                                ) : null}
-                            </>
-                        )}
+                                </div>
+                            </div>
+                        </>
                     </div>
                 </div>
             </div>
 
-            <ConfigModal
-                show={showConfigModal}
-                onHide={closeConfigModal}
-                form={configForm}
-                setForm={setConfigForm}
-                errors={configErrors}
-                customers={customers}
-                saving={saving}
-                onSubmit={saveConfig}
-                existingCustomerIds={existingCustomerIds.filter(
-                    (id) => id !== Number(configForm.customer_id?.value)
-                )}
-            />
-            <ManualCreditModal
-                show={showManualModal}
-                onHide={closeManualModal}
-                form={manualForm}
-                setForm={setManualForm}
-                errors={manualErrors}
-                customers={customers}
-                warehouses={warehouses}
-                productsById={warehouseProductsById}
-                productsLoading={manualProductsLoading}
-                manualTotal={manualTotal}
-                money={money}
-                productPreview={manualProductPreview}
-                searchResults={manualSearchResults}
-                productInputRef={manualProductInputRef}
-                saving={saving}
-                onWarehouseChange={handleManualWarehouseChange}
-                onProductSearchChange={handleManualProductSearchChange}
-                onProductSearchSubmit={handleManualProductSearchSubmit}
-                onSelectSearchResult={addManualProductToForm}
-                onQuantityChange={handleManualItemQuantityChange}
-                onRemoveItem={handleManualItemRemove}
-                onSubmit={saveManualCredit}
-            />
-            <DetailModal
-                show={showDetailModal}
-                onHide={closeDetailModal}
-                detailLoading={detailLoading}
-                creditDetail={creditDetail}
-                money={money}
-                onOpenEdit={() => openEditCreditModal()}
-                onOpenRestructure={() => openRestructureModal()}
-                onOpenReturn={() => openReturnModal()}
-            />
-            <EditCreditModal
-                show={showEditModal}
-                onHide={closeEditModal}
-                creditDetail={creditDetail}
-                money={money}
-                form={editForm}
-                setForm={setEditForm}
-                errors={editErrors}
-                saving={saving}
-                onSubmit={saveCreditEdit}
-            />
-            <PaymentModal
-                show={showPaymentModal}
-                onHide={closePaymentModal}
-                detailLoading={detailLoading}
-                creditDetail={creditDetail}
-                money={money}
-                form={paymentForm}
-                setForm={setPaymentForm}
-                errors={paymentErrors}
-                saving={saving}
-                onSubmit={savePayment}
-            />
-            <RestructureCreditModal
-                show={showRestructureModal}
-                onHide={closeRestructureModal}
-                creditDetail={creditDetail}
-                money={money}
-                form={restructureForm}
-                setForm={setRestructureForm}
-                errors={restructureErrors}
-                saving={saving}
-                onSubmit={saveCreditRestructure}
-            />
-            <ReturnModal
-                show={showReturnModal}
-                onHide={closeReturnModal}
-                detailLoading={detailLoading}
-                creditDetail={creditDetail}
-                money={money}
-                form={returnForm}
-                setForm={setReturnForm}
-                errors={returnErrors}
-                saving={saving}
-                onSubmit={saveReturn}
-            />
+            <Suspense fallback={null}>
+                <ConfigModal
+                    show={showConfigModal}
+                    onHide={closeConfigModal}
+                    form={configForm}
+                    setForm={setConfigForm}
+                    errors={configErrors}
+                    customers={customers}
+                    saving={saving}
+                    onSubmit={saveConfig}
+                    existingCustomerIds={existingCustomerIds}
+                />
+                <ManualCreditModal
+                    show={showManualModal}
+                    onHide={closeManualModal}
+                    form={manualForm}
+                    setForm={setManualForm}
+                    errors={manualErrors}
+                    customers={customers}
+                    warehouses={warehouses}
+                    productsById={warehouseProductsById}
+                    productsLoading={manualProductsLoading}
+                    manualTotal={manualTotal}
+                    money={money}
+                    productPreview={manualProductPreview}
+                    searchResults={manualSearchResults}
+                    productInputRef={manualProductInputRef}
+                    saving={saving}
+                    onWarehouseChange={handleManualWarehouseChange}
+                    onProductSearchChange={handleManualProductSearchChange}
+                    onProductSearchSubmit={handleManualProductSearchSubmit}
+                    onSelectSearchResult={addManualProductToForm}
+                    onQuantityChange={handleManualItemQuantityChange}
+                    onRemoveItem={handleManualItemRemove}
+                    onSubmit={saveManualCredit}
+                />
+                <DetailModal
+                    show={showDetailModal}
+                    onHide={closeDetailModal}
+                    detailLoading={detailLoading}
+                    creditDetail={creditDetail}
+                    money={money}
+                    onOpenEdit={() => openEditCreditModal()}
+                    onOpenRestructure={() => openRestructureModal()}
+                    onOpenReturn={() => openReturnModal()}
+                />
+                <EditCreditModal
+                    show={showEditModal}
+                    onHide={closeEditModal}
+                    creditDetail={creditDetail}
+                    money={money}
+                    form={editForm}
+                    setForm={setEditForm}
+                    errors={editErrors}
+                    saving={saving}
+                    onSubmit={saveCreditEdit}
+                />
+                <PaymentModal
+                    show={showPaymentModal}
+                    onHide={closePaymentModal}
+                    detailLoading={detailLoading}
+                    creditDetail={creditDetail}
+                    money={money}
+                    form={paymentForm}
+                    setForm={setPaymentForm}
+                    errors={paymentErrors}
+                    saving={saving}
+                    onSubmit={savePayment}
+                />
+                <RestructureCreditModal
+                    show={showRestructureModal}
+                    onHide={closeRestructureModal}
+                    creditDetail={creditDetail}
+                    money={money}
+                    form={restructureForm}
+                    setForm={setRestructureForm}
+                    errors={restructureErrors}
+                    saving={saving}
+                    onSubmit={saveCreditRestructure}
+                />
+                <ReturnModal
+                    show={showReturnModal}
+                    onHide={closeReturnModal}
+                    detailLoading={detailLoading}
+                    creditDetail={creditDetail}
+                    money={money}
+                    form={returnForm}
+                    setForm={setReturnForm}
+                    errors={returnErrors}
+                    saving={saving}
+                    onSubmit={saveReturn}
+                />
+            </Suspense>
         </MasterLayout>
     );
 };

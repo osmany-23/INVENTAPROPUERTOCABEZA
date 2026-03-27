@@ -72,7 +72,9 @@ class Credit extends BaseModel
 
     public function payments(): HasMany
     {
-        return $this->hasMany(CreditPayment::class, 'credit_id', 'id');
+        return $this->hasMany(CreditPayment::class, 'credit_id', 'id')
+            ->orderBy('created_at')
+            ->orderBy('id');
     }
 
     public function installmentItems(): HasMany

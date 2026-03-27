@@ -202,6 +202,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('sales/{salesPayment}/payment', [SalesPaymentAPIController::class, 'updateSalePayment']);
         Route::delete('sales/{id}/payment', [SalesPaymentAPIController::class, 'deletePayment']);
 
+        Route::get('credits', [CreditAPIController::class, 'index']);
+        Route::get('creditos', [CreditAPIController::class, 'index']);
         Route::get('credits/dashboard', [CreditAPIController::class, 'dashboard']);
         Route::get('credits/alerts/summary', [CreditAPIController::class, 'alertSummary']);
         Route::get('credits/alerts', [CreditAPIController::class, 'alertFeed']);

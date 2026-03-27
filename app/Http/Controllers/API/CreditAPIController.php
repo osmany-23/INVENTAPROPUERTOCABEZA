@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\AppBaseController;
+use App\Http\Resources\CreditSectionCollection;
 use App\Models\Credit;
 use App\Services\CreditInventoryService;
 use App\Services\CreditService;
@@ -18,11 +19,39 @@ class CreditAPIController extends AppBaseController
     {
     }
 
+    public function index(Request $request): JsonResponse
+    {
+        abort_unless(hasPermissionStrict('pos.view'), 403);
+
+        $data = $request->validate([
+            'page' => 'nullable|integer|min:1',
+            'limit' => 'nullable|integer|min:1|max:50',
+            'search' => 'nullable|string',
+            'status' => 'nullable|in:pendiente,parcial,pagado,vencido',
+            'estado' => 'nullable|in:pendiente,parcial,pagado,vencido',
+            'section' => 'nullable|in:credits,customers,overdue,interest',
+        ]);
+
+        $sectionData = $this->creditService->paginateDashboardSection($data);
+
+        return (new CreditSectionCollection(
+            collect($sectionData['data'] ?? []),
+            $sectionData['meta'] ?? [],
+            $sectionData['section'] ?? 'credits'
+        ))
+            ->additional([
+                'success' => true,
+                'message' => 'Credit records retrieved successfully',
+                'setup_required' => (bool) ($sectionData['setup_required'] ?? false),
+            ])
+            ->response();
+    }
+
     public function dashboard(Request $request): JsonResponse
     {
         abort_unless(hasPermissionStrict('pos.view'), 403);
 
-        $data = $this->creditService->getDashboardData($request->only(['search', 'status']));
+        $data = $this->creditService->getDashboardData();
 
         return $this->sendResponse($data, 'Credit dashboard retrieved successfully');
     }

@@ -39,6 +39,7 @@ const CashPaymentModel = (props) => {
         onUseCustomerCreditConfigChange,
         creditAvailability,
         isLoadingCreditAvailability,
+        isInitialPaymentRequired,
         selectedCustomerName,
     } = props;
 
@@ -54,6 +55,21 @@ const CashPaymentModel = (props) => {
         cashPaymentValue?.credit_initial_payment,
         0
     );
+    const creditPendingAmount = Math.max(
+        parseNumber(grandTotal, 0) - creditInitialPayment,
+        0
+    );
+    const creditInterestRate = parseNumber(
+        cashPaymentValue?.credit_interest_rate ??
+            creditAvailability?.requested_interest_rate ??
+            creditAvailability?.interest_rate,
+        0
+    );
+    const projectedInterestAmount = Number(
+        ((creditPendingAmount * creditInterestRate) / 100).toFixed(2)
+    );
+    const creditSaleKindLabel =
+        creditInitialPayment > 0 ? "Credito parcial" : "Credito total";
     const showCreditInitialPaymentMethod =
         isCreditSale && creditInitialPayment > 0;
     const usesInstallments = cashPaymentValue?.credit_type !== "libre";
@@ -206,6 +222,9 @@ const CashPaymentModel = (props) => {
                                             <Form.Group className="mb-3 col-md-4">
                                                 <Form.Label>
                                                     Pago inicial
+                                                    {isInitialPaymentRequired
+                                                        ? " *"
+                                                        : " (opcional)"}
                                                 </Form.Label>
                                                 <Form.Control
                                                     type="text"
@@ -215,6 +234,7 @@ const CashPaymentModel = (props) => {
                                                     }
                                                     name="credit_initial_payment"
                                                     autoComplete="off"
+                                                    placeholder="0.00"
                                                     value={
                                                         cashPaymentValue?.credit_initial_payment
                                                     }
@@ -222,6 +242,11 @@ const CashPaymentModel = (props) => {
                                                         onChangeInput(e)
                                                     }
                                                 />
+                                                <div className="small text-muted mt-1">
+                                                    {isInitialPaymentRequired
+                                                        ? "Esta venta requiere un abono inicial."
+                                                        : "Si no ingresa un valor, se registrara como 0.00."}
+                                                </div>
                                                 <span className="text-danger">
                                                     {errors[
                                                         "credit_initial_payment"
@@ -361,21 +386,20 @@ const CashPaymentModel = (props) => {
                                                             allConfigData,
                                                             currencySymbol,
                                                             Number(
-                                                                creditAvailability?.requested_principal_amount ||
-                                                                    creditAvailability?.requested_amount ||
+                                                                creditPendingAmount ||
                                                                     0
                                                             ).toFixed(2)
                                                         )}
                                                     </strong>
+                                                    <div className="small fw-semibold mt-1">
+                                                        {creditSaleKindLabel}
+                                                    </div>
                                                     <div className="small text-muted mt-1">
                                                         Interés proyectado:{" "}
                                                         {currencySymbolHandling(
                                                             allConfigData,
                                                             currencySymbol,
-                                                            Number(
-                                                                creditAvailability?.projected_interest_amount ||
-                                                                    0
-                                                            ).toFixed(2)
+                                                            projectedInterestAmount.toFixed(2)
                                                         )}
                                                     </div>
                                                 </div>
@@ -648,6 +672,44 @@ const CashPaymentModel = (props) => {
                                                 )}
                                             </td>
                                         </tr>
+                                        {isCreditSale && (
+                                            <tr>
+                                                <td scope="row" className="ps-3">
+                                                    Pago inicial
+                                                </td>
+                                                <td className="px-3">
+                                                    {currencySymbolHandling(
+                                                        allConfigData,
+                                                        currencySymbol,
+                                                        creditInitialPayment.toFixed(2)
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        )}
+                                        {isCreditSale && (
+                                            <tr>
+                                                <td scope="row" className="ps-3">
+                                                    Saldo a credito
+                                                </td>
+                                                <td className="px-3">
+                                                    {currencySymbolHandling(
+                                                        allConfigData,
+                                                        currencySymbol,
+                                                        creditPendingAmount.toFixed(2)
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        )}
+                                        {isCreditSale && (
+                                            <tr>
+                                                <td scope="row" className="ps-3">
+                                                    Tipo de credito
+                                                </td>
+                                                <td className="px-3">
+                                                    {creditSaleKindLabel}
+                                                </td>
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </Table>
                             </div>

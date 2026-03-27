@@ -38,6 +38,7 @@ import weekSalePurchaseReducer from "./weekSalePurchaseReducer";
 import salesReturnReducer from "./salesReturnReducer";
 import yearTopProductReducer from "./yearTopProductReducer";
 import topCustomersReducer from "./topCustomersReducer";
+import creditListReducer from "./creditListReducer";
 import purchaseDetailsReducers from "./purchaseDetailsReducers";
 import saleDetailsReducers from "./saleDetailsReducers";
 import purchaseReturnReducers from "./purchaseReturnReducers";
@@ -140,6 +141,7 @@ export default combineReducers({
     weekSalePurchase: weekSalePurchaseReducer,
     yearTopProduct: yearTopProductReducer,
     topCustomers: topCustomersReducer,
+    creditList: creditListReducer,
     purchaseDetails: purchaseDetailsReducers,
     saleDetails: saleDetailsReducers,
     salesReturn: salesReturnReducer,

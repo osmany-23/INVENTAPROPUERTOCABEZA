@@ -76,6 +76,8 @@ export const apiBaseURL = {
     PRODUCT_BATCH_ALERTS_SUMMARY: "product-batches/alerts/summary",
     PRODUCT_BATCH_ALERTS: "product-batches/alerts",
     PRODUCT_BATCH_REPORT: "product-batches/report",
+    CREDITS: "/credits",
+    CREDIT_DASHBOARD: "/credits/dashboard",
     CREDIT_ALERTS_SUMMARY: "credits/alerts/summary",
     CREDIT_ALERTS: "credits/alerts",
     CREDIT_ALERTS_SETTINGS: "credits/alerts/settings",
@@ -353,6 +355,13 @@ export const customerActionType = {
 
 export const todaySalePurchaseCountActionType = {
     TODAY_SALE_COUNT: "TODAY_SALE_COUNT",
+};
+
+export const creditListActionType = {
+    REQUEST: "CREDIT_LIST_REQUEST",
+    SUCCESS: "CREDIT_LIST_SUCCESS",
+    FAILURE: "CREDIT_LIST_FAILURE",
+    CLEAR: "CREDIT_LIST_CLEAR",
 };
 
 export const dashboardActionType = {

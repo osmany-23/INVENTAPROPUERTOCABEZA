@@ -61,7 +61,7 @@ class SettingAPIController extends AppBaseController
     {
         $keyName = [
             'currency', 'email', 'company_name', 'phone', 'developed', 'footer', 'default_language', 'default_customer',
-            'default_warehouse', 'address', 'show_app_name_in_sidebar'
+            'default_warehouse', 'address', 'show_app_name_in_sidebar', 'require_initial_payment'
         ];
         $settings = Setting::whereIn('key', $keyName)->pluck('value', 'key')->toArray();
         $settings['logo'] = getLogoUrl();

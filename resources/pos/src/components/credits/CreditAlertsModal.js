@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Button, Form, Modal, Spinner } from "react-bootstrap-v5";
+import { Form, Modal, Spinner } from "react-bootstrap-v5";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -16,7 +16,7 @@ import {
 } from "../../shared/sharedMethod";
 import { addToast } from "../../store/action/toastAction";
 import { can } from "../../shared/can";
-import { StatusBadge } from "./creditHelpers";
+import { CreditActionButton, StatusBadge } from "./creditHelpers";
 
 const EMPTY_ALERT_PAYLOAD = {
     summary: {
@@ -188,23 +188,23 @@ const CreditAlertsModal = ({ show, onHide, onSummaryChange }) => {
                 </div>
 
                 <div className="credit-alerts-modal__actions">
-                    <Button
-                        variant="light"
+                    <CreditActionButton
+                        action="view-credit"
                         size="sm"
-                        className="credit-alerts-modal__button credit-alerts-modal__button--outline"
+                        className="credit-alerts-modal__button"
                         onClick={() => handleViewCredit(item.credit_id)}
                     >
                         Ver credito
-                    </Button>
+                    </CreditActionButton>
                     {canRegisterPayment && (
-                        <Button
-                            variant="primary"
+                        <CreditActionButton
+                            action="register-payment"
                             size="sm"
-                            className="credit-alerts-modal__button credit-alerts-modal__button--primary"
+                            className="credit-alerts-modal__button"
                             onClick={() => handleRegisterPayment(item.credit_id)}
                         >
                             Registrar pago
-                        </Button>
+                        </CreditActionButton>
                     )}
                 </div>
             </article>
@@ -258,7 +258,7 @@ const CreditAlertsModal = ({ show, onHide, onSummaryChange }) => {
             onHide={onHide}
             size="xl"
             centered
-            contentClassName="credit-alerts-modal"
+            contentClassName="creditos-module credit-alerts-modal"
         >
             <Modal.Header closeButton>
                 <Modal.Title className="credit-alerts-modal__title">
@@ -289,14 +289,14 @@ const CreditAlertsModal = ({ show, onHide, onSummaryChange }) => {
                                 onChange={(event) => setAlertDaysInput(event.target.value)}
                             />
                         </Form.Group>
-                        <Button
-                            variant="primary"
-                            className="credit-alerts-modal__button credit-alerts-modal__button--primary"
+                        <CreditActionButton
+                            action="save-alert-days"
+                            className="credit-alerts-modal__button"
                             onClick={saveAlertDays}
                             disabled={saving}
                         >
                             {saving ? "Guardando..." : "Guardar"}
-                        </Button>
+                        </CreditActionButton>
                     </div>
                 </div>
 
@@ -326,13 +326,13 @@ const CreditAlertsModal = ({ show, onHide, onSummaryChange }) => {
                 )}
             </Modal.Body>
             <Modal.Footer className="credit-alerts-modal__footer">
-                <Button
-                    variant="primary"
-                    className="credit-alerts-modal__button credit-alerts-modal__button--primary"
+                <CreditActionButton
+                    action="close-modal"
+                    className="credit-alerts-modal__button"
                     onClick={onHide}
                 >
                     Cerrar
-                </Button>
+                </CreditActionButton>
             </Modal.Footer>
         </Modal>
     );

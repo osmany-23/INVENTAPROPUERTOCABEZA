@@ -69,6 +69,71 @@ export const createManualCreditItem = () => ({
     quantity: "1",
 });
 
+const joinClassNames = (...classNames) =>
+    classNames.filter(Boolean).join(" ");
+
+const CREDIT_BUTTON_TONE_BY_ACTION = {
+    "apply-restructure": "warning",
+    "cancel-modal": "neutral",
+    "close-modal": "neutral",
+    "configure-customer": "primary",
+    "create-credit": "success",
+    "create-manual-credit": "success",
+    "edit-config": "primary",
+    "edit-credit": "primary",
+    "manual-qty": "neutral",
+    "page-current": "primary",
+    "page-nav": "neutral",
+    "register-payment": "success",
+    "register-return": "danger",
+    "remove-manual-item": "danger",
+    "restructure-credit": "warning",
+    "save-alert-days": "primary",
+    "save-config": "primary",
+    "save-credit-edit": "primary",
+    section: "neutral",
+    "view-credit": "primary",
+};
+
+const CREDIT_BUTTON_TONE_CLASS = {
+    danger: "credits-action-btn--danger",
+    neutral: "credits-action-btn--neutral",
+    primary: "credits-action-btn--primary",
+    success: "credits-action-btn--success",
+    warning: "credits-action-btn--warning",
+};
+
+export const getCreditActionTone = (action, tone) =>
+    tone || CREDIT_BUTTON_TONE_BY_ACTION[action] || "primary";
+
+export const getCreditActionClassName = ({
+    action,
+    tone,
+    className = "",
+    icon = false,
+} = {}) =>
+    joinClassNames(
+        "credits-action-btn",
+        CREDIT_BUTTON_TONE_CLASS[getCreditActionTone(action, tone)],
+        icon ? "credits-action-btn--icon" : "",
+        className
+    );
+
+export const CreditActionButton = React.memo(
+    ({ action, tone, className = "", icon = false, variant, ...props }) => (
+        <Button
+            variant={variant || "light"}
+            className={getCreditActionClassName({
+                action,
+                tone,
+                className,
+                icon,
+            })}
+            {...props}
+        />
+    )
+);
+
 const clampPercent = (value) => {
     const safeValue = Number.isFinite(value) ? value : 0;
     return Math.max(0, Math.min(100, safeValue));
@@ -250,6 +315,21 @@ export const EmptyStateCard = React.memo(({ text }) => (
     <div className="credits-empty credits-empty-card">{text}</div>
 ));
 
+export const CreditCardSkeleton = React.memo(() => (
+    <article className="credits-record-card credits-record-card--skeleton" aria-hidden="true">
+        <div className="credits-skeleton credits-skeleton--title" />
+        <div className="credits-skeleton credits-skeleton--subtitle" />
+        <div className="credits-record-grid">
+            <div className="credits-skeleton credits-skeleton--metric" />
+            <div className="credits-skeleton credits-skeleton--metric" />
+            <div className="credits-skeleton credits-skeleton--metric" />
+            <div className="credits-skeleton credits-skeleton--metric" />
+        </div>
+        <div className="credits-skeleton credits-skeleton--progress" />
+        <div className="credits-skeleton credits-skeleton--actions" />
+    </article>
+));
+
 export const SECTION_OPTIONS = [
     {
         id: "credits",
@@ -330,9 +410,13 @@ export const StatusBadge = React.memo(({ status }) => {
 export const CreditCard = React.memo(
     ({ row, money, onView, onPay, onEdit, onRestructure }) => {
     const normalizedStatus = normalizeStatus(row.status);
+    const recoveredAmount = Number(row.recovered_amount ?? row.paid_total ?? 0);
+    const collectionTarget = Number(
+        row.collection_target_amount ?? row.total_with_interest ?? 0
+    );
     const collectionPercent = getCollectionPercent(
-        row.paid_total,
-        row.total_with_interest
+        recoveredAmount,
+        collectionTarget
     );
 
     return (
@@ -362,21 +446,21 @@ export const CreditCard = React.memo(
 
             <div className="credits-record-grid">
                 <MetricItem
-                    label="Total"
-                    value={money(row.total_with_interest)}
-                    tooltip="Monto total del credito incluyendo interes"
+                    label="Total original"
+                    value={money(row.original_total_amount || row.total_amount)}
+                    tooltip="Monto original de la venta antes de descontar el pago inicial"
                 />
                 <MetricItem
-                    label="Saldo"
+                    label="Saldo actual"
                     value={money(row.balance)}
                     highlight
                     tone="available"
                     tooltip="Monto pendiente por pagar en este credito"
                 />
                 <MetricItem
-                    label="Capital"
-                    value={money(row.principal_balance)}
-                    tooltip="Monto original pendiente sin intereses"
+                    label="Recuperado"
+                    value={money(recoveredAmount)}
+                    tooltip="Total cobrado del credito incluyendo el pago inicial cuando exista"
                 />
                 <MetricItem
                     label="Vence"
@@ -389,10 +473,10 @@ export const CreditCard = React.memo(
                 label="Recuperado"
                 percent={collectionPercent}
                 variant={getProgressVariant(collectionPercent, row.status)}
-                caption={`Pagado ${money(row.paid_total || 0)}`}
-                tooltip={`Porcentaje recuperado del credito. Pagado: ${money(
-                    row.paid_total || 0
-                )} / Total: ${money(row.total_with_interest || 0)}`}
+                caption={`Recuperado ${money(recoveredAmount)}`}
+                tooltip={`Porcentaje recuperado del credito. Recuperado: ${money(
+                    recoveredAmount
+                )} / Objetivo: ${money(collectionTarget)}`}
             />
 
             <div className="credits-card-meta">
@@ -409,29 +493,45 @@ export const CreditCard = React.memo(
 
             <div className="credits-card-actions">
                 <TooltipWrap text="Ver detalle completo del credito">
-                        <Button size="sm" variant="light-primary" onClick={onView}>
-                            Ver detalle
-                        </Button>
-                    </TooltipWrap>
+                    <CreditActionButton
+                        action="view-credit"
+                        size="sm"
+                        onClick={() => onView(row.id)}
+                    >
+                        Ver detalle
+                    </CreditActionButton>
+                </TooltipWrap>
                 {row.can_edit_directly ? (
                     <TooltipWrap text="Actualizar cuotas, fechas o tipo de credito sin alterar pagos">
-                        <Button size="sm" variant="light-primary" onClick={onEdit}>
+                        <CreditActionButton
+                            action="edit-credit"
+                            size="sm"
+                            onClick={() => onEdit(row.id)}
+                        >
                             Editar credito
-                        </Button>
+                        </CreditActionButton>
                     </TooltipWrap>
                 ) : null}
                 {!row.can_edit_directly && row.can_restructure ? (
                     <TooltipWrap text="Crear un nuevo plan sobre el saldo pendiente y conservar historial">
-                        <Button size="sm" variant="light-primary" onClick={onRestructure}>
+                        <CreditActionButton
+                            action="restructure-credit"
+                            size="sm"
+                            onClick={() => onRestructure(row.id)}
+                        >
                             Reestructurar
-                        </Button>
+                        </CreditActionButton>
                     </TooltipWrap>
                 ) : null}
                 {Number(row.balance) > 0 ? (
                     <TooltipWrap text="Registrar un abono o pago sobre este credito">
-                        <Button size="sm" onClick={onPay}>
+                        <CreditActionButton
+                            action="register-payment"
+                            size="sm"
+                            onClick={() => onPay(row.id)}
+                        >
                             Registrar pago
-                        </Button>
+                        </CreditActionButton>
                     </TooltipWrap>
                 ) : null}
             </div>
@@ -516,9 +616,13 @@ export const CustomerCreditCard = React.memo(({ row, money, onEdit }) => {
 
             <div className="credits-card-actions">
                 <TooltipWrap text="Editar limite de credito, interes y condiciones del cliente">
-                    <Button size="sm" variant="light-primary" onClick={onEdit}>
+                    <CreditActionButton
+                        action="edit-config"
+                        size="sm"
+                        onClick={() => onEdit(row)}
+                    >
                         Editar configuracion
-                    </Button>
+                    </CreditActionButton>
                 </TooltipWrap>
             </div>
         </article>
@@ -628,14 +732,15 @@ export const SectionButtons = React.memo(
                     text={section.tooltip}
                     placement="bottom"
                 >
-                    <Button
-                        variant={
-                            activeSection === section.id ? "primary" : "light"
+                    <CreditActionButton
+                        action="section"
+                        tone={
+                            activeSection === section.id ? "primary" : "neutral"
                         }
                         onClick={() => setActiveSection(section.id)}
                     >
                         {section.label}
-                    </Button>
+                    </CreditActionButton>
                 </TooltipWrap>
             ))}
         </div>

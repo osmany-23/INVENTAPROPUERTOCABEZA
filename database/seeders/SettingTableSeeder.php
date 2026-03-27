@@ -68,6 +68,7 @@ class SettingTableSeeder extends Seeder
             'is_currency_right' => true,
             'show_logo_in_receipt' => true,
             'show_app_name_in_sidebar' => false,
+            'require_initial_payment' => false,
             'show_note' => true,
             'show_phone' => true,
             'show_customer' => true,

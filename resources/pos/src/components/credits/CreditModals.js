@@ -1,6 +1,6 @@
 import React from "react";
+import moment from "moment";
 import {
-    Button,
     Col,
     Form,
     InputGroup,
@@ -20,16 +20,32 @@ import ReactSelect from "../../shared/select/reactSelect";
 import { parseNumber } from "../../shared/sharedMethod";
 import {
     CREDIT_TYPE_OPTIONS,
+    CreditActionButton,
     PAYMENT_METHOD_OPTIONS,
     StatusBadge,
+    getCreditActionClassName,
     getCreditTypeLabel,
 } from "./creditHelpers";
 
 const MODAL_PROPS = {
     centered: true,
     dialogClassName: "credits-modal-dialog",
-    contentClassName: "credits-modal-content",
+    contentClassName: "creditos-module credits-modal-content",
     backdropClassName: "credits-modal-backdrop",
+};
+
+const formatHistoryDateTime = (value) => {
+    if (!value) {
+        return "-";
+    }
+
+    const parsedValue = moment(value);
+
+    if (!parsedValue.isValid()) {
+        return value;
+    }
+
+    return parsedValue.format("YYYY-MM-DD hh:mm A");
 };
 
 const TableBox = ({ headers, rows, emptyText }) => (
@@ -427,12 +443,16 @@ export const ConfigModal = ({
             </div>
         </Modal.Body>
         <Modal.Footer>
-            <Button variant="light" onClick={onHide}>
+            <CreditActionButton action="cancel-modal" onClick={onHide}>
                 Cancelar
-            </Button>
-            <Button onClick={onSubmit} disabled={saving}>
+            </CreditActionButton>
+            <CreditActionButton
+                action="save-config"
+                onClick={onSubmit}
+                disabled={saving}
+            >
                 {saving ? "Guardando..." : "Guardar"}
-            </Button>
+            </CreditActionButton>
         </Modal.Footer>
     </Modal>
 );
@@ -750,7 +770,14 @@ export const ManualCreditModal = ({
                                                                     <div className="credits-manual-product__qty">
                                                                         <button
                                                                             type="button"
-                                                                            className="credits-manual-product__qty-button"
+                                                                            className={getCreditActionClassName(
+                                                                                {
+                                                                                    action: "manual-qty",
+                                                                                    className:
+                                                                                        "credits-manual-product__qty-button",
+                                                                                    icon: true,
+                                                                                }
+                                                                            )}
                                                                             disabled={
                                                                                 !canDecrement
                                                                             }
@@ -789,7 +816,14 @@ export const ManualCreditModal = ({
                                                                         />
                                                                         <button
                                                                             type="button"
-                                                                            className="credits-manual-product__qty-button"
+                                                                            className={getCreditActionClassName(
+                                                                                {
+                                                                                    action: "manual-qty",
+                                                                                    className:
+                                                                                        "credits-manual-product__qty-button",
+                                                                                    icon: true,
+                                                                                }
+                                                                            )}
                                                                             disabled={
                                                                                 !canIncrement
                                                                             }
@@ -824,12 +858,20 @@ export const ManualCreditModal = ({
                                                                 <td className="text-end remove-button">
                                                                     <button
                                                                         type="button"
-                                                                        className="btn px-2 text-danger fs-3 credits-manual-product__remove"
+                                                                        className={getCreditActionClassName(
+                                                                            {
+                                                                                action: "remove-manual-item",
+                                                                                className:
+                                                                                    "credits-manual-product__remove",
+                                                                                icon: true,
+                                                                            }
+                                                                        )}
                                                                         onClick={() =>
                                                                             onRemoveItem(
                                                                                 index
                                                                             )
                                                                         }
+                                                                        aria-label="Eliminar producto del credito"
                                                                     >
                                                                         <FontAwesomeIcon
                                                                             icon={
@@ -968,12 +1010,16 @@ export const ManualCreditModal = ({
             </div>
         </Modal.Body>
         <Modal.Footer>
-            <Button variant="light" onClick={onHide}>
+            <CreditActionButton action="cancel-modal" onClick={onHide}>
                 Cancelar
-            </Button>
-            <Button onClick={onSubmit} disabled={saving}>
+            </CreditActionButton>
+            <CreditActionButton
+                action="create-credit"
+                onClick={onSubmit}
+                disabled={saving}
+            >
                 {saving ? "Guardando..." : "Crear credito"}
-            </Button>
+            </CreditActionButton>
         </Modal.Footer>
     </Modal>
 );
@@ -1006,12 +1052,36 @@ const DetailBody = ({ creditDetail, money }) => (
                 <span>{creditDetail.sale_reference_code || "-"}</span>
             </div>
             <div className="credits-detail-item">
-                <strong>Total</strong>
-                <span>{money(creditDetail.total_with_interest)}</span>
+                <strong>Total original</strong>
+                <span>
+                    {money(
+                        creditDetail.original_total_amount ||
+                            creditDetail.total_amount
+                    )}
+                </span>
             </div>
             <div className="credits-detail-item">
-                <strong>Saldo</strong>
+                <strong>Saldo actual</strong>
                 <span>{money(creditDetail.balance)}</span>
+            </div>
+            <div className="credits-detail-item">
+                <strong>Recuperado</strong>
+                <span>
+                    {money(
+                        creditDetail.recovered_amount ||
+                            creditDetail.paid_total ||
+                            0
+                    )}
+                </span>
+            </div>
+            <div className="credits-detail-item">
+                <strong>Total a recuperar</strong>
+                <span>
+                    {money(
+                        creditDetail.collection_target_amount ||
+                            creditDetail.total_with_interest
+                    )}
+                </span>
             </div>
             <div className="credits-detail-item">
                 <strong>Capital pendiente</strong>
@@ -1098,11 +1168,12 @@ const DetailBody = ({ creditDetail, money }) => (
         <div className="credits-modal-section">
             <h5 className="credits-modal-section-title">Historial de pagos</h5>
             <TableBox
-                headers={["Fecha", "Monto", "Metodo", "Nota"]}
+                headers={["Fecha", "Monto", "Tipo", "Metodo", "Nota"]}
                 rows={(creditDetail.payments || []).map((row) => (
                     <tr key={row.id}>
-                        <td>{row.created_at}</td>
+                        <td>{formatHistoryDateTime(row.created_at)}</td>
                         <td>{money(row.amount)}</td>
+                        <td>{row.entry_type_label || row.entry_type || "-"}</td>
                         <td>
                             {PAYMENT_METHOD_OPTIONS.find(
                                 (option) =>
@@ -1124,7 +1195,7 @@ const DetailBody = ({ creditDetail, money }) => (
                 headers={["Fecha", "Producto", "Cantidad", "Subtotal", "Nota"]}
                 rows={(creditDetail.returns || []).map((row) => (
                     <tr key={row.id}>
-                        <td>{row.created_at}</td>
+                        <td>{formatHistoryDateTime(row.created_at)}</td>
                         <td>{row.product_name || "-"}</td>
                         <td>{Number(row.quantity || 0).toFixed(2)}</td>
                         <td>{money(row.sub_total)}</td>
@@ -1149,7 +1220,7 @@ const DetailBody = ({ creditDetail, money }) => (
                 ]}
                 rows={(creditDetail.restructures || []).map((row) => (
                     <tr key={row.id}>
-                        <td>{row.created_at}</td>
+                        <td>{formatHistoryDateTime(row.created_at)}</td>
                         <td>{money(row.old_balance)}</td>
                         <td>{money(row.new_balance)}</td>
                         <td>
@@ -1172,7 +1243,7 @@ const DetailBody = ({ creditDetail, money }) => (
                 headers={["Fecha", "Accion", "Descripcion"]}
                 rows={(creditDetail.logs || []).map((row) => (
                     <tr key={row.id}>
-                        <td>{row.created_at}</td>
+                        <td>{formatHistoryDateTime(row.created_at)}</td>
                         <td>{row.action}</td>
                         <td>{row.description || "-"}</td>
                     </tr>
@@ -1204,24 +1275,42 @@ export const DetailModal = ({
                 <DetailBody creditDetail={creditDetail} money={money} />
             )}
         </Modal.Body>
-        <Modal.Footer>
-            <Button variant="light" onClick={onHide}>
+        <Modal.Footer className="credits-detail-modal__footer">
+            <CreditActionButton
+                action="close-modal"
+                className="credits-detail-modal__btn credits-detail-modal__btn--secondary"
+                onClick={onHide}
+            >
                 Cerrar
-            </Button>
+            </CreditActionButton>
             {creditDetail?.can_edit_directly ? (
-                <Button variant="light-primary" onClick={onOpenEdit}>
+                <CreditActionButton
+                    action="edit-credit"
+                    className="credits-detail-modal__btn"
+                    onClick={onOpenEdit}
+                >
                     Editar credito
-                </Button>
+                </CreditActionButton>
             ) : null}
             {creditDetail?.can_restructure ? (
-                <Button variant="light-primary" onClick={onOpenRestructure}>
+                <CreditActionButton
+                    action="restructure-credit"
+                    className="credits-detail-modal__btn"
+                    onClick={onOpenRestructure}
+                >
                     Reestructurar credito
-                </Button>
+                </CreditActionButton>
             ) : null}
             {creditDetail?.items?.some(
                 (item) => Number(item.available_return_quantity) > 0
             ) ? (
-                <Button onClick={onOpenReturn}>Registrar devolucion</Button>
+                <CreditActionButton
+                    action="register-return"
+                    className="credits-detail-modal__btn"
+                    onClick={onOpenReturn}
+                >
+                    Registrar devolucion
+                </CreditActionButton>
             ) : null}
         </Modal.Footer>
     </Modal>
@@ -1269,7 +1358,12 @@ export const EditCreditModal = ({
                         </div>
                         <div className="credits-detail-item">
                             <strong>Total original</strong>
-                            <span>{money(creditDetail.total_amount)}</span>
+                            <span>
+                                {money(
+                                    creditDetail.original_total_amount ||
+                                        creditDetail.total_amount
+                                )}
+                            </span>
                         </div>
                         <div className="credits-detail-item">
                             <strong>Interes actual</strong>
@@ -1289,12 +1383,16 @@ export const EditCreditModal = ({
             )}
         </Modal.Body>
         <Modal.Footer>
-            <Button variant="light" onClick={onHide}>
+            <CreditActionButton action="cancel-modal" onClick={onHide}>
                 Cancelar
-            </Button>
-            <Button onClick={onSubmit} disabled={saving || !creditDetail}>
+            </CreditActionButton>
+            <CreditActionButton
+                action="save-credit-edit"
+                onClick={onSubmit}
+                disabled={saving || !creditDetail}
+            >
                 {saving ? "Guardando..." : "Guardar cambios"}
-            </Button>
+            </CreditActionButton>
         </Modal.Footer>
     </Modal>
 );
@@ -1363,12 +1461,16 @@ export const RestructureCreditModal = ({
             )}
         </Modal.Body>
         <Modal.Footer>
-            <Button variant="light" onClick={onHide}>
+            <CreditActionButton action="cancel-modal" onClick={onHide}>
                 Cancelar
-            </Button>
-            <Button onClick={onSubmit} disabled={saving || !creditDetail}>
+            </CreditActionButton>
+            <CreditActionButton
+                action="apply-restructure"
+                onClick={onSubmit}
+                disabled={saving || !creditDetail}
+            >
                 {saving ? "Guardando..." : "Aplicar reestructuracion"}
-            </Button>
+            </CreditActionButton>
         </Modal.Footer>
     </Modal>
 );
@@ -1531,17 +1633,17 @@ export const PaymentModal = ({
             )}
         </Modal.Body>
         <Modal.Footer className="credits-payment-modal__footer">
-            <Button variant="light" onClick={onHide}>
+            <CreditActionButton action="close-modal" onClick={onHide}>
                 Cerrar
-            </Button>
-            <Button
-                variant="primary"
+            </CreditActionButton>
+            <CreditActionButton
+                action="register-payment"
                 onClick={onSubmit}
                 disabled={saving || !creditDetail}
                 className="credits-payment-modal__submit"
             >
                 {saving ? "Guardando..." : "Registrar pago"}
-            </Button>
+            </CreditActionButton>
         </Modal.Footer>
     </Modal>
 );
@@ -1667,12 +1769,16 @@ export const ReturnModal = ({
             )}
         </Modal.Body>
         <Modal.Footer>
-            <Button variant="light" onClick={onHide}>
+            <CreditActionButton action="close-modal" onClick={onHide}>
                 Cerrar
-            </Button>
-            <Button onClick={onSubmit} disabled={saving || !creditDetail}>
+            </CreditActionButton>
+            <CreditActionButton
+                action="register-return"
+                onClick={onSubmit}
+                disabled={saving || !creditDetail}
+            >
                 {saving ? "Guardando..." : "Registrar devolucion"}
-            </Button>
+            </CreditActionButton>
         </Modal.Footer>
     </Modal>
 );

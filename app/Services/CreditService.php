@@ -15,7 +15,9 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Repositories\SalesPaymentRepository;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
@@ -33,6 +35,7 @@ class CreditService
     private CreditCashMovementService $creditCashMovementService;
     private CreditInventoryService $creditInventoryService;
     private ?bool $creditStatusSupportsPartial = null;
+    private ?bool $creditPaymentsEntryTypeColumnExists = null;
     private ?bool $userCreditAlertDaysColumnExists = null;
 
     public function __construct(
@@ -64,6 +67,12 @@ class CreditService
 
         if ($saleGrandTotal !== null && $initialPayment > round($saleGrandTotal, 2)) {
             throw new UnprocessableEntityHttpException('El pago inicial no puede ser mayor al total de la venta.');
+        }
+
+        if ($this->creditSalesRequireInitialPayment() && $initialPayment <= 0) {
+            throw new UnprocessableEntityHttpException(
+                'El pago inicial es obligatorio para registrar una venta a credito.'
+            );
         }
 
         return $initialPayment;
@@ -155,7 +164,8 @@ class CreditService
             $config = $this->getCustomerCreditConfigOrFail((int) $sale->customer_id, true);
             $interestRate = $this->resolveInterestRate($input, $config);
             $installments = $this->resolveInstallments($input, $config);
-            $creditPrincipalAmount = $this->resolveSaleCreditPrincipal($sale, $input);
+            $initialPaymentAmount = $this->resolveCreditInitialPayment($input, (float) $sale->grand_total);
+            $creditPrincipalAmount = round(max((float) $sale->grand_total - $initialPaymentAmount, 0), 2);
 
             if ($creditPrincipalAmount <= 0) {
                 throw new UnprocessableEntityHttpException(
@@ -182,11 +192,40 @@ class CreditService
                 'note' => $input['note'] ?? null,
             ]);
 
+            $initialPayment = $this->registerInitialPaymentForCreditSale(
+                $credit,
+                $sale,
+                $input,
+                $initialPaymentAmount
+            );
+
             $this->log(
                 $credit->id,
                 'credito_creado',
-                sprintf('Credito #%d generado automaticamente desde la venta #%d.', $credit->id, $sale->id)
+                $this->buildCreditCreationLogDescription(
+                    $credit,
+                    $sale,
+                    $initialPaymentAmount,
+                    $creditPrincipalAmount
+                ),
+                $credit->created_at
             );
+
+            if ($initialPayment) {
+                $this->log(
+                    $credit->id,
+                    'pago_inicial_registrado',
+                    sprintf(
+                        'Pago inicial registrado: %.2f via %s.',
+                        $initialPaymentAmount,
+                        $this->paymentMethodAuditLabel(
+                            $initialPayment->payment_method,
+                            $initialPayment->payment_type
+                        )
+                    ),
+                    $initialPayment->created_at
+                );
+            }
 
             $this->creditInventoryService->attachSaleItems($credit, $sale->loadMissing('saleItems'));
 
@@ -458,13 +497,19 @@ class CreditService
             $this->syncSingleCreditStatus($credit);
             $credit->refresh();
 
-            $payment = CreditPayment::create([
+            $paymentPayload = [
                 'credit_id' => $credit->id,
                 'amount' => $amount,
                 'payment_type' => $paymentType,
                 'payment_method' => $paymentMethod,
                 'note' => isset($data['note']) ? trim((string) $data['note']) ?: null : null,
-            ]);
+            ];
+
+            if ($this->creditPaymentsEntryTypeColumnExists()) {
+                $paymentPayload['entry_type'] = CreditPayment::ENTRY_TYPE_PAYMENT;
+            }
+
+            $payment = CreditPayment::create($paymentPayload);
 
             $this->syncCustomerBalance((int) $credit->customer_id, true);
             $this->syncLegacySalePayment($credit, $payment, $principalComponent, $paymentType);
@@ -689,7 +734,9 @@ class CreditService
             $query->lockForUpdate();
         }
 
-        return round((float) $query->sum('balance'), 2);
+        return round((float) $query
+            ->selectRaw('COALESCE(SUM('.$this->creditLineUsageExpression().'), 0) as used_credit')
+            ->value('used_credit'), 2);
     }
 
     public function getAlertSummary(?User $user = null): array
@@ -833,166 +880,460 @@ class CreditService
             ];
         }
 
-        $this->refreshStatuses();
+        return [
+            'summary' => $this->buildDashboardSummary(),
+            'customer_configs' => [],
+            'credits' => [],
+            'overdue_customers' => [],
+            'interest_report' => [],
+            'setup_required' => false,
+        ];
+    }
 
+    public function paginateDashboardSection(array $filters = []): array
+    {
+        $section = $this->normalizeCreditDashboardSection($filters['section'] ?? null);
+        $page = max((int) ($filters['page'] ?? 1), 1);
+        $limit = $this->normalizeCreditDashboardLimit($filters['limit'] ?? 3);
         $search = trim((string) ($filters['search'] ?? ''));
-        $status = $filters['status'] ?? null;
-        $today = Carbon::today()->toDateString();
+        $status = $this->normalizeCreditDashboardStatus($filters['status'] ?? ($filters['estado'] ?? null));
 
-        $creditsQuery = Credit::query()
+        if (! $this->creditTablesExist()) {
+            return [
+                'section' => $section,
+                'data' => [],
+                'meta' => $this->emptyPaginationMeta($page, $limit),
+                'setup_required' => true,
+                'message' => 'El modulo de creditos requiere ejecutar sus migraciones.',
+            ];
+        }
+
+        return match ($section) {
+            'customers' => $this->paginateCustomerConfigRows($search, $page, $limit),
+            'overdue' => $this->paginateOverdueCustomerRows($search, $page, $limit),
+            'interest' => $this->paginateInterestRows($search, $status, $page, $limit),
+            default => $this->paginateCreditRows($search, $status, $page, $limit),
+        };
+    }
+
+    private function buildDashboardSummary(): array
+    {
+        $statusCaseSql = $this->creditComputedStatusCaseSql();
+        $openStatuses = implode("','", Credit::OPEN_STATUSES);
+
+        $summaryRow = Credit::query()
+            ->selectRaw(
+                "COUNT(*) as total_credits,
+                SUM(CASE WHEN ({$statusCaseSql}) = ? THEN 1 ELSE 0 END) as pending_credits,
+                SUM(CASE WHEN ({$statusCaseSql}) = ? THEN 1 ELSE 0 END) as partial_credits,
+                SUM(CASE WHEN ({$statusCaseSql}) IN ('{$openStatuses}') THEN 1 ELSE 0 END) as active_credits,
+                SUM(CASE WHEN ({$statusCaseSql}) = ? THEN 1 ELSE 0 END) as overdue_credits,
+                ROUND(COALESCE(SUM(balance), 0), 2) as pending_balance,
+                ROUND(COALESCE(SUM(principal_balance), 0), 2) as principal_in_use,
+                ROUND(COALESCE(SUM(CASE WHEN ({$statusCaseSql}) = ? THEN balance ELSE 0 END), 0), 2) as overdue_balance,
+                ROUND(COALESCE(SUM(total_with_interest - total_amount), 0), 2) as projected_interest,
+                ROUND(COALESCE(SUM(GREATEST((total_with_interest - balance) - (total_amount - principal_balance), 0)), 0), 2) as collected_interest",
+                [
+                    Credit::STATUS_PENDING,
+                    Credit::STATUS_PARTIAL,
+                    Credit::STATUS_OVERDUE,
+                    Credit::STATUS_OVERDUE,
+                ]
+            )
+            ->first();
+
+        $moroseCustomers = (int) Credit::query()
+            ->where('balance', '>', 0)
+            ->whereRaw("({$statusCaseSql}) = ?", [Credit::STATUS_OVERDUE])
+            ->distinct('customer_id')
+            ->count('customer_id');
+
+        return [
+            'total_credits' => (int) ($summaryRow->total_credits ?? 0),
+            'pending_credits' => (int) ($summaryRow->pending_credits ?? 0),
+            'partial_credits' => (int) ($summaryRow->partial_credits ?? 0),
+            'active_credits' => (int) ($summaryRow->active_credits ?? 0),
+            'overdue_credits' => (int) ($summaryRow->overdue_credits ?? 0),
+            'pending_balance' => round((float) ($summaryRow->pending_balance ?? 0), 2),
+            'principal_in_use' => round((float) ($summaryRow->principal_in_use ?? 0), 2),
+            'overdue_balance' => round((float) ($summaryRow->overdue_balance ?? 0), 2),
+            'morose_customers' => $moroseCustomers,
+            'projected_interest' => round((float) ($summaryRow->projected_interest ?? 0), 2),
+            'collected_interest' => round((float) ($summaryRow->collected_interest ?? 0), 2),
+        ];
+    }
+
+    private function paginateCreditRows(string $search, ?string $status, int $page, int $limit): array
+    {
+        $paginator = $this->buildCreditListQuery($search, $status)
+            ->paginate($limit, ['*'], 'page', $page);
+
+        return [
+            'section' => 'credits',
+            'data' => collect($paginator->items())
+                ->map(fn (Credit $credit) => $this->transformCreditRow($credit))
+                ->values()
+                ->all(),
+            'meta' => $this->buildPaginationMeta($paginator),
+        ];
+    }
+
+    private function paginateCustomerConfigRows(string $search, int $page, int $limit): array
+    {
+        $query = CustomerCreditConfig::query()
+            ->select([
+                'id',
+                'customer_id',
+                'credit_limit',
+                'interest_rate',
+                'max_installments',
+                'status',
+                'updated_at',
+            ])
+            ->with('customer:id,name,email,phone')
+            ->orderByDesc('updated_at');
+
+        if ($search !== '') {
+            $query->whereHas('customer', function (Builder $customerQuery) use ($search) {
+                $customerQuery
+                    ->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('phone', 'like', '%' . $search . '%')
+                    ->orWhere('email', 'like', '%' . $search . '%');
+            });
+        }
+
+        $paginator = $query->paginate($limit, ['*'], 'page', $page);
+        $customerIds = collect($paginator->items())
+            ->map(fn (CustomerCreditConfig $config) => (int) $config->customer_id)
+            ->filter()
+            ->values()
+            ->all();
+
+        $usedCreditByCustomer = $this->loadUsedCreditByCustomer($customerIds);
+        $overdueBalanceByCustomer = $this->loadOverdueBalanceByCustomer($customerIds);
+
+        return [
+            'section' => 'customers',
+            'data' => collect($paginator->items())
+                ->map(function (CustomerCreditConfig $config) use ($usedCreditByCustomer, $overdueBalanceByCustomer) {
+                    $usedCredit = round((float) ($usedCreditByCustomer[$config->customer_id] ?? 0), 2);
+                    $overdueBalance = round((float) ($overdueBalanceByCustomer[$config->customer_id] ?? 0), 2);
+
+                    return [
+                        'id' => (int) $config->id,
+                        'customer_id' => (int) $config->customer_id,
+                        'customer_name' => optional($config->customer)->name,
+                        'customer_phone' => optional($config->customer)->phone,
+                        'credit_limit' => (float) $config->credit_limit,
+                        'used' => $usedCredit,
+                        'current_balance' => $usedCredit,
+                        'available' => round((float) $config->credit_limit - $usedCredit, 2),
+                        'interest_rate' => (float) $config->interest_rate,
+                        'max_installments' => (int) $config->max_installments,
+                        'allow_exceed' => false,
+                        'status' => $config->status,
+                        'overdue_balance' => $overdueBalance,
+                        'has_overdue_credits' => $overdueBalance > 0,
+                        'updated_at' => optional($config->updated_at)->format('Y-m-d H:i:s'),
+                    ];
+                })
+                ->values()
+                ->all(),
+            'meta' => $this->buildPaginationMeta($paginator),
+        ];
+    }
+
+    private function paginateOverdueCustomerRows(string $search, int $page, int $limit): array
+    {
+        $statusCaseSql = $this->creditComputedStatusCaseSql();
+
+        $query = Credit::query()
+            ->join('customers', 'customers.id', '=', 'credits.customer_id')
+            ->where('credits.balance', '>', 0)
+            ->whereRaw("({$statusCaseSql}) = ?", [Credit::STATUS_OVERDUE])
+            ->selectRaw(
+                'credits.customer_id,
+                customers.name as customer_name,
+                customers.phone as customer_phone,
+                COUNT(*) as overdue_credits,
+                ROUND(SUM(credits.balance), 2) as overdue_balance,
+                MIN(credits.due_date) as oldest_due_date'
+            )
+            ->groupBy('credits.customer_id', 'customers.name', 'customers.phone')
+            ->orderByDesc('overdue_balance')
+            ->orderBy('oldest_due_date');
+
+        if ($search !== '') {
+            $query->where(function (Builder $builder) use ($search) {
+                if (is_numeric($search)) {
+                    $builder->where('credits.customer_id', (int) $search)
+                        ->orWhere('customers.name', 'like', '%' . $search . '%')
+                        ->orWhere('customers.phone', 'like', '%' . $search . '%')
+                        ->orWhere('customers.email', 'like', '%' . $search . '%');
+
+                    return;
+                }
+
+                $builder
+                    ->where('customers.name', 'like', '%' . $search . '%')
+                    ->orWhere('customers.phone', 'like', '%' . $search . '%')
+                    ->orWhere('customers.email', 'like', '%' . $search . '%');
+            });
+        }
+
+        $paginator = $query->paginate($limit, ['*'], 'page', $page);
+
+        return [
+            'section' => 'overdue',
+            'data' => collect($paginator->items())
+                ->map(function ($row) {
+                    return [
+                        'customer_id' => (int) $row->customer_id,
+                        'customer_name' => $row->customer_name,
+                        'customer_phone' => $row->customer_phone,
+                        'overdue_credits' => (int) $row->overdue_credits,
+                        'overdue_balance' => round((float) $row->overdue_balance, 2),
+                        'oldest_due_date' => $row->oldest_due_date,
+                    ];
+                })
+                ->values()
+                ->all(),
+            'meta' => $this->buildPaginationMeta($paginator),
+        ];
+    }
+
+    private function paginateInterestRows(string $search, ?string $status, int $page, int $limit): array
+    {
+        $paginator = $this->buildCreditListQuery($search, $status)
+            ->paginate($limit, ['*'], 'page', $page);
+
+        return [
+            'section' => 'interest',
+            'data' => collect($paginator->items())
+                ->map(function (Credit $credit) {
+                    $plannedInterest = round((float) $credit->total_with_interest - (float) $credit->total_amount, 2);
+                    $paidPrincipal = round((float) $credit->total_amount - (float) $credit->principal_balance, 2);
+                    $paidTotal = round((float) $credit->total_with_interest - (float) $credit->balance, 2);
+                    $collectedInterest = round(max($paidTotal - $paidPrincipal, 0), 2);
+
+                    return [
+                        'credit_id' => (int) $credit->id,
+                        'customer_name' => optional($credit->customer)->name,
+                        'planned_interest' => $plannedInterest,
+                        'collected_interest' => $collectedInterest,
+                        'pending_interest' => round(max($plannedInterest - $collectedInterest, 0), 2),
+                        'status' => $this->resolveComputedCreditStatus($credit),
+                    ];
+                })
+                ->values()
+                ->all(),
+            'meta' => $this->buildPaginationMeta($paginator),
+        ];
+    }
+
+    private function buildCreditListQuery(string $search = '', ?string $status = null): Builder
+    {
+        $query = Credit::query()
+            ->select([
+                'id',
+                'sale_id',
+                'customer_id',
+                'total_amount',
+                'principal_balance',
+                'balance',
+                'interest_rate',
+                'total_with_interest',
+                'installments',
+                'credit_type',
+                'status',
+                'start_date',
+                'due_date',
+                'note',
+                'restructured',
+                'restructured_at',
+                'previous_balance',
+                'created_at',
+            ])
             ->with([
                 'customer:id,name,email,phone',
-                'sale:id,reference_code',
+                'sale:id,reference_code,grand_total',
             ])
             ->withCount(array_values(array_filter([
                 'payments',
                 $this->creditRestructureTableExists() ? 'restructures' : null,
             ])))
+            ->withSum('payments as payments_total_amount', 'amount')
             ->orderByDesc('id');
 
-        if ($search !== '') {
-            $creditsQuery->where(function ($query) use ($search) {
-                if (is_numeric($search)) {
-                    $query->orWhere('id', (int) $search)->orWhere('sale_id', (int) $search);
-                }
+        if ($this->creditPaymentsEntryTypeColumnExists()) {
+            $query->withSum([
+                'payments as initial_payments_total_amount' => function ($paymentQuery) {
+                    $paymentQuery->where('entry_type', CreditPayment::ENTRY_TYPE_INITIAL_PAYMENT);
+                },
+            ], 'amount');
+        }
 
-                $query->orWhereHas('customer', function ($customerQuery) use ($search) {
+        $this->applyCreditSearchFilter($query, $search);
+        $this->applyCreditComputedStatusFilter($query, $status);
+
+        return $query;
+    }
+
+    private function applyCreditSearchFilter(Builder $query, string $search): void
+    {
+        if ($search === '') {
+            return;
+        }
+
+        $query->where(function (Builder $builder) use ($search) {
+            if (is_numeric($search)) {
+                $builder->where('id', (int) $search)
+                    ->orWhere('sale_id', (int) $search);
+
+                $builder->orWhereHas('customer', function (Builder $customerQuery) use ($search) {
                     $customerQuery
                         ->where('name', 'like', '%' . $search . '%')
                         ->orWhere('phone', 'like', '%' . $search . '%')
                         ->orWhere('email', 'like', '%' . $search . '%');
-                })->orWhereHas('sale', function ($saleQuery) use ($search) {
+                })->orWhereHas('sale', function (Builder $saleQuery) use ($search) {
                     $saleQuery->where('reference_code', 'like', '%' . $search . '%');
                 });
-            });
+
+                return;
+            }
+
+            $builder
+                ->whereHas('customer', function (Builder $customerQuery) use ($search) {
+                    $customerQuery
+                        ->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('phone', 'like', '%' . $search . '%')
+                        ->orWhere('email', 'like', '%' . $search . '%');
+                })
+                ->orWhereHas('sale', function (Builder $saleQuery) use ($search) {
+                    $saleQuery->where('reference_code', 'like', '%' . $search . '%');
+                });
+        });
+    }
+
+    private function applyCreditComputedStatusFilter(Builder $query, ?string $status): void
+    {
+        if (! $status) {
+            return;
         }
 
-        $credits = $creditsQuery->get();
-        if ($status) {
-            $credits = $credits
-                ->filter(fn (Credit $credit) => $this->resolveComputedCreditStatus($credit) === $status)
-                ->values();
+        $query->whereRaw(
+            '(' . $this->creditComputedStatusCaseSql() . ') = ?',
+            [$status]
+        );
+    }
+
+    private function creditComputedStatusCaseSql(): string
+    {
+        $today = Carbon::today()->toDateString();
+
+        return "CASE
+            WHEN balance <= 0 THEN '".Credit::STATUS_PAID."'
+            WHEN due_date < '{$today}' AND balance > 0 THEN '".Credit::STATUS_OVERDUE."'
+            WHEN total_with_interest > 0 AND balance < total_with_interest THEN '".Credit::STATUS_PARTIAL."'
+            ELSE '".Credit::STATUS_PENDING."'
+        END";
+    }
+
+    private function loadUsedCreditByCustomer(array $customerIds): Collection
+    {
+        if ($customerIds === []) {
+            return collect();
         }
-        $customerConfigs = CustomerCreditConfig::query()
-            ->with('customer:id,name,email,phone')
-            ->orderByDesc('updated_at')
-            ->get();
 
-        $overdueCredits = Credit::query()
-            ->with('customer:id,name,email,phone')
+        return Credit::query()
+            ->selectRaw(
+                'customer_id, ROUND(COALESCE(SUM(' . $this->creditLineUsageExpression() . '), 0), 2) as used_credit'
+            )
             ->where('balance', '>', 0)
-            ->where('status', Credit::STATUS_OVERDUE)
-            ->get();
-
-        $overdueCustomers = $overdueCredits
-            ->groupBy('customer_id')
-            ->map(function (Collection $customerCredits) {
-                $firstCredit = $customerCredits->first();
-
-                return [
-                    'customer_id' => $firstCredit->customer_id,
-                    'customer_name' => optional($firstCredit->customer)->name,
-                    'customer_phone' => optional($firstCredit->customer)->phone,
-                    'overdue_credits' => $customerCredits->count(),
-                    'overdue_balance' => round((float) $customerCredits->sum('balance'), 2),
-                    'oldest_due_date' => optional($customerCredits->sortBy('due_date')->first()->due_date)->format('Y-m-d'),
-                ];
-            })
-            ->values()
-            ->all();
-
-        $usedCreditByCustomer = Credit::query()
-            ->selectRaw('customer_id, ROUND(SUM(balance), 2) as used_credit')
-            ->where('balance', '>', 0)
+            ->whereIn('customer_id', $customerIds)
             ->groupBy('customer_id')
             ->pluck('used_credit', 'customer_id');
+    }
 
-        $overdueBalanceByCustomer = Credit::query()
+    private function loadOverdueBalanceByCustomer(array $customerIds): Collection
+    {
+        if ($customerIds === []) {
+            return collect();
+        }
+
+        return Credit::query()
             ->selectRaw('customer_id, ROUND(SUM(balance), 2) as overdue_balance')
             ->where('balance', '>', 0)
-            ->whereDate('due_date', '<', $today)
+            ->whereRaw(
+                '(' . $this->creditComputedStatusCaseSql() . ') = ?',
+                [Credit::STATUS_OVERDUE]
+            )
+            ->whereIn('customer_id', $customerIds)
             ->groupBy('customer_id')
             ->pluck('overdue_balance', 'customer_id');
+    }
 
-        $creditStatuses = $credits->mapWithKeys(
-            fn (Credit $credit) => [$credit->id => $this->resolveComputedCreditStatus($credit)]
-        );
-
-        $creditRows = $credits->map(function (Credit $credit) {
-            return $this->transformCreditRow($credit);
-        })->values()->all();
-
-        $configRows = $customerConfigs->map(function (CustomerCreditConfig $config) use ($usedCreditByCustomer, $overdueBalanceByCustomer) {
-            $usedCredit = round((float) ($usedCreditByCustomer[$config->customer_id] ?? 0), 2);
-            $overdueBalance = round((float) ($overdueBalanceByCustomer[$config->customer_id] ?? 0), 2);
-
-            return [
-                'id' => $config->id,
-                'customer_id' => $config->customer_id,
-                'customer_name' => optional($config->customer)->name,
-                'customer_phone' => optional($config->customer)->phone,
-                'credit_limit' => (float) $config->credit_limit,
-                'used' => $usedCredit,
-                'current_balance' => $usedCredit,
-                'available' => round((float) $config->credit_limit - $usedCredit, 2),
-                'interest_rate' => (float) $config->interest_rate,
-                'max_installments' => (int) $config->max_installments,
-                'allow_exceed' => false,
-                'status' => $config->status,
-                'overdue_balance' => $overdueBalance,
-                'has_overdue_credits' => $overdueBalance > 0,
-                'updated_at' => optional($config->updated_at)->format('Y-m-d H:i:s'),
-            ];
-        })->values()->all();
-
-        $interestReport = $credits->map(function (Credit $credit) {
-            $plannedInterest = round((float) $credit->total_with_interest - (float) $credit->total_amount, 2);
-            $paidPrincipal = round((float) $credit->total_amount - (float) $credit->principal_balance, 2);
-            $paidTotal = round((float) $credit->total_with_interest - (float) $credit->balance, 2);
-            $collectedInterest = round(max($paidTotal - $paidPrincipal, 0), 2);
-            $status = $this->resolveComputedCreditStatus($credit);
-
-            return [
-                'credit_id' => $credit->id,
-                'customer_name' => optional($credit->customer)->name,
-                'planned_interest' => $plannedInterest,
-                'collected_interest' => $collectedInterest,
-                'pending_interest' => round(max($plannedInterest - $collectedInterest, 0), 2),
-                'status' => $status,
-            ];
-        })->values()->all();
+    private function buildPaginationMeta(LengthAwarePaginator $paginator): array
+    {
+        $items = collect($paginator->items());
+        $from = $items->isEmpty()
+            ? 0
+            : (($paginator->currentPage() - 1) * $paginator->perPage()) + 1;
+        $to = $items->isEmpty()
+            ? 0
+            : $from + $items->count() - 1;
 
         return [
-            'summary' => [
-                'total_credits' => $credits->count(),
-                'pending_credits' => $creditStatuses->filter(
-                    fn (string $value) => $value === Credit::STATUS_PENDING
-                )->count(),
-                'partial_credits' => $creditStatuses->filter(
-                    fn (string $value) => $value === Credit::STATUS_PARTIAL
-                )->count(),
-                'active_credits' => $creditStatuses->filter(
-                    fn (string $value) => in_array($value, Credit::OPEN_STATUSES, true)
-                )->count(),
-                'overdue_credits' => $creditStatuses->filter(
-                    fn (string $value) => $value === Credit::STATUS_OVERDUE
-                )->count(),
-                'pending_balance' => round((float) $credits->sum('balance'), 2),
-                'principal_in_use' => round((float) $credits->sum('principal_balance'), 2),
-                'overdue_balance' => round((float) $credits
-                    ->filter(fn (Credit $credit) => ($creditStatuses[$credit->id] ?? null) === Credit::STATUS_OVERDUE)
-                    ->sum('balance'), 2),
-                'morose_customers' => count($overdueCustomers),
-                'projected_interest' => round((float) $credits->sum(function (Credit $credit) {
-                    return $credit->total_with_interest - $credit->total_amount;
-                }), 2),
-                'collected_interest' => round((float) collect($interestReport)->sum('collected_interest'), 2),
-            ],
-            'customer_configs' => $configRows,
-            'credits' => $creditRows,
-            'overdue_customers' => $overdueCustomers,
-            'interest_report' => $interestReport,
+            'total' => $paginator->total(),
+            'per_page' => $paginator->perPage(),
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+            'from' => $from,
+            'to' => $to,
         ];
+    }
+
+    private function emptyPaginationMeta(int $page, int $limit): array
+    {
+        return [
+            'total' => 0,
+            'per_page' => $limit,
+            'current_page' => $page,
+            'last_page' => 0,
+            'from' => 0,
+            'to' => 0,
+        ];
+    }
+
+    private function normalizeCreditDashboardSection(?string $section): string
+    {
+        return match ($section) {
+            'customers', 'overdue', 'interest' => $section,
+            default => 'credits',
+        };
+    }
+
+    private function normalizeCreditDashboardLimit($limit): int
+    {
+        $safeLimit = (int) $limit;
+
+        return in_array($safeLimit, [3, 6, 9], true) ? $safeLimit : 3;
+    }
+
+    private function normalizeCreditDashboardStatus(?string $status): ?string
+    {
+        $normalizedStatus = trim((string) $status);
+
+        if ($normalizedStatus === '') {
+            return null;
+        }
+
+        return in_array($normalizedStatus, [
+            Credit::STATUS_PENDING,
+            Credit::STATUS_PARTIAL,
+            Credit::STATUS_PAID,
+            Credit::STATUS_OVERDUE,
+        ], true) ? $normalizedStatus : null;
     }
 
     public function getCreditDetail(Credit $credit): array
@@ -1004,11 +1345,15 @@ class CreditService
         $creditRow = $this->transformCreditRow($credit);
         $creditRow['installments_count'] = (int) $credit->installments;
         $creditRow['payments'] = $credit->payments->map(function (CreditPayment $payment) {
+            $entryType = $this->normalizeCreditPaymentEntryType($payment->entry_type);
+
             return [
                 'id' => $payment->id,
                 'amount' => (float) $payment->amount,
                 'payment_type' => $payment->payment_type,
                 'payment_method' => $payment->payment_method,
+                'entry_type' => $entryType,
+                'entry_type_label' => $this->creditPaymentEntryTypeLabel($entryType),
                 'note' => $payment->note,
                 'created_at' => optional($payment->created_at)->format('Y-m-d H:i:s'),
             ];
@@ -1217,11 +1562,121 @@ class CreditService
         SalesPayment::create([
             'sale_id' => $credit->sale_id,
             'reference' => $this->creditCashMovementService->legacySalesPaymentReference($payment),
-            'payment_date' => Carbon::now()->format('Y-m-d'),
+            'payment_date' => ($payment->created_at
+                ? Carbon::parse($payment->created_at)
+                : Carbon::now()
+            )->format('Y-m-d'),
             'payment_type' => $paymentType ?? SalesPayment::OTHER,
             'amount' => $principalComponent,
             'received_amount' => $principalComponent,
         ]);
+
+        app(SalesPaymentRepository::class)->recalculateSalePaymentSummary((int) $credit->sale_id);
+    }
+
+    private function registerInitialPaymentForCreditSale(
+        Credit $credit,
+        Sale $sale,
+        array $input,
+        float $initialPaymentAmount
+    ): ?CreditPayment
+    {
+        if ($initialPaymentAmount <= 0) {
+            return null;
+        }
+
+        $paymentType = $this->resolvePaymentType($input) ?? SalesPayment::OTHER;
+        $paymentMethod = $this->resolvePaymentMethodLabel($input, $paymentType);
+        $legacySalePayment = $this->findInitialSalePaymentForCreditSale($sale, $initialPaymentAmount);
+        $paymentTimestamp = $legacySalePayment?->created_at
+            ? Carbon::parse($legacySalePayment->created_at)
+            : ($sale->created_at ? Carbon::parse($sale->created_at) : now());
+
+        $paymentPayload = [
+            'credit_id' => $credit->id,
+            'amount' => $initialPaymentAmount,
+            'payment_type' => $paymentType,
+            'payment_method' => $paymentMethod,
+            'note' => 'Pago inicial registrado al crear el credito.',
+            'created_at' => $paymentTimestamp,
+        ];
+
+        if ($this->creditPaymentsEntryTypeColumnExists()) {
+            $paymentPayload['entry_type'] = CreditPayment::ENTRY_TYPE_INITIAL_PAYMENT;
+        }
+
+        $payment = CreditPayment::create($paymentPayload);
+
+        $this->syncInitialSalePayment(
+            $credit,
+            $payment,
+            $legacySalePayment,
+            $initialPaymentAmount,
+            $paymentType,
+            $paymentTimestamp
+        );
+
+        $this->creditCashMovementService->recordPaymentMovement(
+            $credit,
+            $payment,
+            $initialPaymentAmount,
+            0,
+            $paymentType,
+            $paymentMethod
+        );
+
+        return $payment;
+    }
+
+    private function findInitialSalePaymentForCreditSale(Sale $sale, float $initialPaymentAmount): ?SalesPayment
+    {
+        if (! $sale->id || $initialPaymentAmount <= 0) {
+            return null;
+        }
+
+        return SalesPayment::query()
+            ->where('sale_id', $sale->id)
+            ->where('amount', $initialPaymentAmount)
+            ->where(function ($query) {
+                $query->whereNull('reference')
+                    ->orWhere(
+                        'reference',
+                        'not like',
+                        CreditCashMovementService::LEGACY_REFERENCE_PREFIX.'%'
+                    );
+            })
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    private function syncInitialSalePayment(
+        Credit $credit,
+        CreditPayment $payment,
+        ?SalesPayment $salePayment,
+        float $amount,
+        ?int $paymentType,
+        Carbon $paymentTimestamp
+    ): void
+    {
+        if (! $credit->sale_id || $amount <= 0) {
+            return;
+        }
+
+        $payload = [
+            'reference' => $this->creditCashMovementService->legacySalesPaymentReference($payment),
+            'payment_date' => $paymentTimestamp->format('Y-m-d'),
+            'payment_type' => $paymentType ?? SalesPayment::OTHER,
+            'amount' => $amount,
+            'received_amount' => $amount,
+        ];
+
+        if ($salePayment) {
+            $salePayment->update($payload);
+        } else {
+            SalesPayment::create(array_merge($payload, [
+                'sale_id' => $credit->sale_id,
+            ]));
+        }
 
         app(SalesPaymentRepository::class)->recalculateSalePaymentSummary((int) $credit->sale_id);
     }
@@ -1322,6 +1777,24 @@ class CreditService
         };
     }
 
+    private function paymentMethodAuditLabel(?string $paymentMethod, ?int $paymentType): string
+    {
+        $normalizedMethod = strtolower(trim((string) $paymentMethod));
+
+        return match ($normalizedMethod !== '' ? $normalizedMethod : null) {
+            'cash', 'efectivo' => 'efectivo',
+            'cheque' => 'cheque',
+            'bank_transfer', 'transferencia', 'transferencia bancaria' => 'transferencia',
+            'other', 'otro', 'otros' => 'otro',
+            default => match ($paymentType) {
+                SalesPayment::CASH => 'efectivo',
+                SalesPayment::CHEQUE => 'cheque',
+                SalesPayment::BANK_TRANSFER => 'transferencia',
+                default => 'otro',
+            },
+        };
+    }
+
     private function getCustomerCreditConfigOrFail(int $customerId, bool $lockRow = false): CustomerCreditConfig
     {
         $config = $this->findCustomerCreditConfig($customerId, $lockRow);
@@ -1369,15 +1842,15 @@ class CreditService
             max($requestedInterestRate ?? (float) ($config->interest_rate ?? 0), 0),
             2
         );
-        $requestedAmount = $this->calculateProjectedCreditBalance(
+        $projectedTotalAmount = $this->calculateProjectedCreditBalance(
             $requestedPrincipalAmount,
             $requestedInterestRate
         );
-        $snapshot = $this->buildCustomerCreditSnapshot($config, $requestedAmount, $lockRows);
+        $snapshot = $this->buildCustomerCreditSnapshot($config, $requestedPrincipalAmount, $lockRows);
         $snapshot['requested_principal_amount'] = $requestedPrincipalAmount;
         $snapshot['requested_interest_rate'] = $requestedInterestRate;
         $snapshot['projected_interest_amount'] = round(
-            max($requestedAmount - $requestedPrincipalAmount, 0),
+            max($projectedTotalAmount - $requestedPrincipalAmount, 0),
             2
         );
         $snapshot['message'] = $this->resolveCreditAvailabilityMessage($config, $snapshot);
@@ -1707,6 +2180,11 @@ class CreditService
             ->where('balance', '>', 0);
     }
 
+    private function creditLineUsageExpression(): string
+    {
+        return 'COALESCE(principal_balance, balance)';
+    }
+
     private function buildCustomerCreditSnapshot(
         CustomerCreditConfig $config,
         float $requestedAmount = 0,
@@ -1789,17 +2267,29 @@ class CreditService
             return 'El cliente esta moroso y no puede recibir nuevos creditos.';
         }
 
-        if (round((float) $snapshot['requested_amount'] - (float) $snapshot['available_credit'], 2) > 0) {
+        $requestedPrincipalAmount = (float) ($snapshot['requested_principal_amount'] ?? $snapshot['requested_amount']);
+
+        if (round($requestedPrincipalAmount - (float) $snapshot['available_credit'], 2) > 0) {
             return sprintf(
-                'Credito insuficiente. Disponible: %.2f, solicitado: %.2f (capital %.2f + interes %.2f).',
+                'Credito insuficiente. Disponible: %.2f, saldo solicitado: %.2f (interes proyectado %.2f).',
                 (float) $snapshot['available_credit'],
-                (float) $snapshot['requested_amount'],
-                (float) ($snapshot['requested_principal_amount'] ?? $snapshot['requested_amount']),
+                $requestedPrincipalAmount,
                 (float) ($snapshot['projected_interest_amount'] ?? 0)
             );
         }
 
         return 'Credito disponible.';
+    }
+
+    private function creditSalesRequireInitialPayment(): bool
+    {
+        $value = Setting::query()->where('key', 'require_initial_payment')->value('value');
+
+        if ($value === null) {
+            return false;
+        }
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN);
     }
 
     private function resolveComputedCreditStatus(Credit $credit): string
@@ -1852,6 +2342,19 @@ class CreditService
         $type = strtolower((string) ($column->Type ?? ''));
 
         return $this->creditStatusSupportsPartial = str_contains($type, "'parcial'");
+    }
+
+    private function creditPaymentsEntryTypeColumnExists(): bool
+    {
+        if ($this->creditPaymentsEntryTypeColumnExists !== null) {
+            return $this->creditPaymentsEntryTypeColumnExists;
+        }
+
+        if (! Schema::hasTable('credit_payments')) {
+            return $this->creditPaymentsEntryTypeColumnExists = false;
+        }
+
+        return $this->creditPaymentsEntryTypeColumnExists = Schema::hasColumn('credit_payments', 'entry_type');
     }
 
     private function syncInstallmentStatusesForCredit(int $creditId, bool $lockRows = false): void
@@ -1999,13 +2502,36 @@ class CreditService
 
     private function transformCreditRow(Credit $credit): array
     {
-        $paidTotal = round((float) $credit->total_with_interest - (float) $credit->balance, 2);
-        $paidPrincipal = round((float) $credit->total_amount - (float) $credit->principal_balance, 2);
+        $recordedPaymentTotal = $this->resolveRecordedPaymentTotal($credit);
+        $registeredInitialPaymentAmount = $this->resolveRegisteredInitialPaymentAmount($credit);
+        $legacyInitialPaymentAmount = $registeredInitialPaymentAmount > 0
+            ? 0
+            : $this->resolveLegacyInitialPaymentAmount($credit);
+        $initialPaymentAmount = round($registeredInitialPaymentAmount + $legacyInitialPaymentAmount, 2);
+        $paidFromCreditBalance = round((float) $credit->total_with_interest - (float) $credit->balance, 2);
+        $paidTotal = round(max($recordedPaymentTotal, $paidFromCreditBalance) + $legacyInitialPaymentAmount, 2);
+        $paidPrincipal = round(
+            max((float) $credit->total_amount - (float) $credit->principal_balance, 0) + $initialPaymentAmount,
+            2
+        );
         $creditType = $this->resolveStoredCreditType($credit);
-        $restructureCount = (int) ($credit->restructures_count ?? 0);
+        $restructureCount = $credit->getAttribute('restructures_count') !== null
+            ? (int) $credit->restructures_count
+            : ($this->creditRestructureTableExists()
+                ? ($credit->relationLoaded('restructures')
+                    ? $credit->restructures->count()
+                    : (int) $credit->restructures()->count())
+                : 0);
         $hasPayments = $this->creditHasRegisteredPayments($credit);
         $isPaid = $this->creditIsPaid($credit);
         $computedStatus = $this->resolveComputedCreditStatus($credit);
+        $paymentsCount = $credit->getAttribute('payments_count') !== null
+            ? (int) $credit->payments_count
+            : ($credit->relationLoaded('payments')
+                ? $credit->payments->count()
+                : (int) $credit->payments()->count());
+        $originalTotalAmount = $this->resolveOriginalTotalAmount($credit, $initialPaymentAmount);
+        $collectionTargetAmount = round((float) $credit->total_with_interest + $initialPaymentAmount, 2);
 
         return [
             'id' => $credit->id,
@@ -2015,10 +2541,14 @@ class CreditService
             'customer_name' => optional($credit->customer)->name,
             'customer_phone' => optional($credit->customer)->phone,
             'total_amount' => (float) $credit->total_amount,
+            'original_total_amount' => $originalTotalAmount,
             'principal_balance' => (float) $credit->principal_balance,
             'balance' => (float) $credit->balance,
             'interest_rate' => (float) $credit->interest_rate,
             'total_with_interest' => (float) $credit->total_with_interest,
+            'initial_payment_amount' => $initialPaymentAmount,
+            'recovered_amount' => $paidTotal,
+            'collection_target_amount' => $collectionTargetAmount,
             'paid_total' => $paidTotal,
             'paid_principal' => $paidPrincipal,
             'paid_interest' => round(max($paidTotal - $paidPrincipal, 0), 2),
@@ -2042,18 +2572,124 @@ class CreditService
                 ? ($credit->previous_balance !== null ? (float) $credit->previous_balance : null)
                 : null,
             'restructure_count' => $restructureCount,
-            'payments_count' => (int) ($credit->payments_count ?? 0),
+            'payments_count' => $paymentsCount,
             'created_at' => optional($credit->created_at)->format('Y-m-d H:i:s'),
         ];
     }
 
-    private function log(int $creditId, string $action, ?string $description = null): void
+    private function resolveRecordedPaymentTotal(Credit $credit): float
     {
-        CreditLog::create([
+        if ($credit->relationLoaded('payments')) {
+            return round((float) $credit->payments->sum('amount'), 2);
+        }
+
+        $paymentsTotal = $credit->getAttribute('payments_total_amount');
+        if ($paymentsTotal !== null) {
+            return round((float) $paymentsTotal, 2);
+        }
+
+        return round((float) $credit->payments()->sum('amount'), 2);
+    }
+
+    private function resolveRegisteredInitialPaymentAmount(Credit $credit): float
+    {
+        if (! $this->creditPaymentsEntryTypeColumnExists()) {
+            return 0;
+        }
+
+        if ($credit->relationLoaded('payments')) {
+            return round((float) $credit->payments
+                ->filter(function (CreditPayment $payment) {
+                    return $this->normalizeCreditPaymentEntryType($payment->entry_type)
+                        === CreditPayment::ENTRY_TYPE_INITIAL_PAYMENT;
+                })
+                ->sum('amount'), 2);
+        }
+
+        $initialPaymentsTotal = $credit->getAttribute('initial_payments_total_amount');
+        if ($initialPaymentsTotal !== null) {
+            return round((float) $initialPaymentsTotal, 2);
+        }
+
+        return round((float) $credit->payments()
+            ->where('entry_type', CreditPayment::ENTRY_TYPE_INITIAL_PAYMENT)
+            ->sum('amount'), 2);
+    }
+
+    private function resolveLegacyInitialPaymentAmount(Credit $credit): float
+    {
+        $saleGrandTotal = optional($credit->sale)->grand_total;
+        if ($saleGrandTotal === null) {
+            return 0;
+        }
+
+        return round(max((float) $saleGrandTotal - (float) $credit->total_amount, 0), 2);
+    }
+
+    private function resolveOriginalTotalAmount(Credit $credit, float $initialPaymentAmount): float
+    {
+        $saleGrandTotal = optional($credit->sale)->grand_total;
+        if ($saleGrandTotal !== null) {
+            return round((float) $saleGrandTotal, 2);
+        }
+
+        return round((float) $credit->total_amount + $initialPaymentAmount, 2);
+    }
+
+    private function normalizeCreditPaymentEntryType(?string $entryType): string
+    {
+        return trim(strtoupper((string) $entryType)) === CreditPayment::ENTRY_TYPE_INITIAL_PAYMENT
+            ? CreditPayment::ENTRY_TYPE_INITIAL_PAYMENT
+            : CreditPayment::ENTRY_TYPE_PAYMENT;
+    }
+
+    private function creditPaymentEntryTypeLabel(?string $entryType): string
+    {
+        return $this->normalizeCreditPaymentEntryType($entryType) === CreditPayment::ENTRY_TYPE_INITIAL_PAYMENT
+            ? 'Pago inicial'
+            : 'Pago';
+    }
+
+    private function buildCreditCreationLogDescription(
+        Credit $credit,
+        Sale $sale,
+        float $initialPaymentAmount,
+        float $creditPrincipalAmount
+    ): string {
+        $initialPaymentText = $initialPaymentAmount > 0
+            ? sprintf('pago inicial %.2f', $initialPaymentAmount)
+            : 'sin pago inicial';
+
+        return sprintf(
+            'Credito #%d generado automaticamente desde la venta #%d. Total venta %.2f, %s, saldo financiado %.2f.',
+            $credit->id,
+            $sale->id,
+            (float) $sale->grand_total,
+            $initialPaymentText,
+            $creditPrincipalAmount
+        );
+    }
+
+    private function log(
+        int $creditId,
+        string $action,
+        ?string $description = null,
+        $createdAt = null
+    ): void
+    {
+        $payload = [
             'credit_id' => $creditId,
             'action' => $action,
             'description' => $description,
-        ]);
+        ];
+
+        if ($createdAt !== null) {
+            $payload['created_at'] = $createdAt instanceof Carbon
+                ? $createdAt
+                : Carbon::parse($createdAt);
+        }
+
+        CreditLog::create($payload);
     }
 
     private function creditDetailRelations(): array

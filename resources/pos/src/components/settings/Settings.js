@@ -73,6 +73,7 @@ const Settings = (props) => {
         show_version_on_footer: "",
         show_logo_in_receipt: "",
         show_app_name_in_sidebar: "",
+        require_initial_payment: "",
         country: "",
         countries: "",
         state: "",
@@ -112,6 +113,7 @@ const Settings = (props) => {
         show_version_on_footer: "",
         show_logo_in_receipt: "",
         show_app_name_in_sidebar: "",
+        require_initial_payment: "",
         city: "",
         // postCode: '',
         country: "",
@@ -123,6 +125,8 @@ const Settings = (props) => {
     const [checked, setChecked] = useState(false);
     const [logoChecked, setLogoChecked] = useState(false);
     const [showAppName, setShowAppName] = useState(false);
+    const [requireInitialPaymentChecked, setRequireInitialPaymentChecked] =
+        useState(false);
 
     const newLanguages = languages.filter((language) => language.value);
     // const currencies = useSelector((state) => state.currencies)
@@ -284,6 +288,12 @@ const Settings = (props) => {
                     settings.attributes.show_app_name_in_sidebar !== "1"
                         ? false
                         : true,
+                require_initial_payment:
+                    settings.attributes &&
+                    (settings.attributes.require_initial_payment === "1" ||
+                        settings.attributes.require_initial_payment === true)
+                        ? true
+                        : false,
                 city:
                     settings.attributes && settings.attributes.city
                         ? settings.attributes.city
@@ -351,6 +361,16 @@ const Settings = (props) => {
                 setShowAppName(true);
             } else {
                 setShowAppName(false);
+            }
+
+            if (
+                settings.attributes &&
+                (settings.attributes.require_initial_payment === "1" ||
+                    settings.attributes.require_initial_payment === true)
+            ) {
+                setRequireInitialPaymentChecked(true);
+            } else {
+                setRequireInitialPaymentChecked(false);
             }
         }
     }, [settings, defaultDate]);
@@ -495,6 +515,12 @@ const Settings = (props) => {
                 ...settingValue,
                 show_app_name_in_sidebar: checked,
             }));
+        } else if (checkboxType === "requireInitialPayment") {
+            setRequireInitialPaymentChecked(checked);
+            setSettingValue((settingValue) => ({
+                ...settingValue,
+                require_initial_payment: checked,
+            }));
         }
     };
 
@@ -574,6 +600,10 @@ const Settings = (props) => {
         formData.append(
             "show_app_name_in_sidebar",
             data.show_app_name_in_sidebar === true ? "1" : "0"
+        );
+        formData.append(
+            "require_initial_payment",
+            data.require_initial_payment === true ? "1" : "0"
         );
         formData.append("city", data.city);
         formData.append("postcode", data.postCode);
@@ -1209,6 +1239,30 @@ const Settings = (props) => {
                                                 "settings.system-settings.select.appname-sidebar.placeholder.label"
                                             )}
                                         </label>
+                                    </div>
+                                </div>
+                                <div className="col-lg-6 mb-3">
+                                    <div className="col-md-12">
+                                        <label className="form-check form-check-custom form-check-solid form-check-inline d-flex align-items-center my-3 cursor-pointer custom-label">
+                                            <input
+                                                type="checkbox"
+                                                name="require_initial_payment"
+                                                value={requireInitialPaymentChecked}
+                                                checked={requireInitialPaymentChecked}
+                                                onChange={(event) =>
+                                                    handleChanged(
+                                                        event,
+                                                        "requireInitialPayment"
+                                                    )
+                                                }
+                                                className="me-3 form-check-input cursor-pointer"
+                                            />
+                                            <div className="control__indicator" />{" "}
+                                            Requerir pago inicial en ventas a credito
+                                        </label>
+                                        <div className="small text-muted ps-6">
+                                            Si se desactiva, el pago inicial sera opcional y se tomara como 0.
+                                        </div>
                                     </div>
                                 </div>
 

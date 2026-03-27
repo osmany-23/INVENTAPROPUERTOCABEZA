@@ -24,7 +24,7 @@ class CreditLimitEnforcementTest extends TestCase
         }
     }
 
-    public function test_customer_cannot_exceed_global_limit_even_if_legacy_allow_exceed_flag_exists(): void
+    public function test_customer_can_use_remaining_credit_line_even_when_interest_increases_projected_total(): void
     {
         $customer = $this->createCustomer();
         $this->createConfig($customer, [
@@ -59,26 +59,82 @@ class CreditLimitEnforcementTest extends TestCase
 
         $this->assertSame(450.0, (float) $snapshot['used_credit']);
         $this->assertSame(50.0, (float) $snapshot['available_credit']);
-        $this->assertSame(60.0, (float) $snapshot['requested_amount']);
+        $this->assertSame(50.0, (float) $snapshot['requested_amount']);
+        $this->assertSame(50.0, (float) $snapshot['requested_principal_amount']);
         $this->assertSame(10.0, (float) $snapshot['projected_interest_amount']);
-        $this->assertFalse((bool) $snapshot['allowed']);
+        $this->assertTrue((bool) $snapshot['allowed']);
         $this->assertFalse((bool) $snapshot['allow_exceed']);
+
+        $service->createManualCredit([
+            'customer_id' => $customer->id,
+            'total_amount' => 50,
+            'interest_rate' => 20,
+            'installments' => 2,
+            'start_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addMonths(2)->format('Y-m-d'),
+            'note' => 'Credito permitido por saldo',
+        ]);
+
+        $afterCreation = $service->checkLimit($customer->id, 1, 0);
+
+        $this->assertSame(500.0, (float) $afterCreation['used_credit']);
+        $this->assertSame(0.0, (float) $afterCreation['available_credit']);
+        $this->assertFalse((bool) $afterCreation['allowed']);
+    }
+
+    public function test_customer_cannot_exceed_remaining_credit_line_by_principal_amount(): void
+    {
+        $customer = $this->createCustomer();
+        $this->createConfig($customer, [
+            'credit_limit' => 500,
+            'allow_exceed' => true,
+            'interest_rate' => 10,
+        ]);
+
+        $service = app(CreditService::class);
+
+        $service->createManualCredit([
+            'customer_id' => $customer->id,
+            'total_amount' => 200,
+            'interest_rate' => 0,
+            'installments' => 2,
+            'start_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addMonths(2)->format('Y-m-d'),
+            'note' => 'Primer credito',
+        ]);
+
+        $service->createManualCredit([
+            'customer_id' => $customer->id,
+            'total_amount' => 250,
+            'interest_rate' => 0,
+            'installments' => 2,
+            'start_date' => now()->format('Y-m-d'),
+            'due_date' => now()->addMonths(2)->format('Y-m-d'),
+            'note' => 'Segundo credito',
+        ]);
+
+        $snapshot = $service->checkLimit($customer->id, 50.01, 20);
+
+        $this->assertFalse((bool) $snapshot['allowed']);
+        $this->assertSame(450.0, (float) $snapshot['used_credit']);
+        $this->assertSame(50.0, (float) $snapshot['available_credit']);
+        $this->assertSame(50.01, (float) $snapshot['requested_amount']);
 
         try {
             $service->createManualCredit([
                 'customer_id' => $customer->id,
-                'total_amount' => 50,
+                'total_amount' => 50.01,
                 'interest_rate' => 20,
                 'installments' => 2,
                 'start_date' => now()->format('Y-m-d'),
                 'due_date' => now()->addMonths(2)->format('Y-m-d'),
-                'note' => 'Credito bloqueado por limite',
+                'note' => 'Credito bloqueado por principal',
             ]);
 
             $this->fail('Se esperaba una validacion de limite global.');
         } catch (UnprocessableEntityHttpException $exception) {
             $this->assertStringContainsString('Credito insuficiente.', $exception->getMessage());
-            $this->assertStringContainsString('capital 50.00 + interes 10.00', $exception->getMessage());
+            $this->assertStringContainsString('saldo solicitado: 50.01', $exception->getMessage());
         }
     }
 

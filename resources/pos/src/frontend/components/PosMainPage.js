@@ -82,6 +82,16 @@ const toMoneyNumber = (value) => {
 const calculateCreditPendingAmount = (grandTotal, initialPayment) =>
     Math.max(toMoneyNumber(grandTotal) - toMoneyNumber(initialPayment), 0);
 
+const isTruthySettingValue = (value) => {
+    if (typeof value === "string") {
+        const normalizedValue = value.trim().toLowerCase();
+
+        return normalizedValue === "1" || normalizedValue === "true";
+    }
+
+    return value === true || value === 1;
+};
+
 const createInitialCashPaymentValue = (getFormattedMessage) => ({
     notes: "",
     credit_enabled: false,
@@ -240,9 +250,8 @@ const PosMainPage = (props) => {
     const creditInitialPaymentAmount = toMoneyNumber(
         cashPaymentValue?.credit_initial_payment
     );
-    const creditPendingAmount = calculateCreditPendingAmount(
-        grandTotal,
-        creditInitialPaymentAmount
+    const creditInitialPaymentRequired = isTruthySettingValue(
+        settings?.attributes?.require_initial_payment
     );
 
     const customCart = useMemo(() => prepareCartArray(posAllProducts), [posAllProducts]);
@@ -593,6 +602,10 @@ const PosMainPage = (props) => {
     const grandTotal = (
         Number(mainTotal) + Number(cartItemValue.shipping)
     ).toFixed(2);
+    const creditPendingAmount = calculateCreditPendingAmount(
+        grandTotal,
+        creditInitialPaymentAmount
+    );
 
     useEffect(() => {
         setPaymentPrint((previous) => ({
@@ -670,7 +683,14 @@ const PosMainPage = (props) => {
                 "The notes must not be greater than 100 characters";
         } else if (
             isCreditSaleMode &&
-            creditInitialPaymentAmount >= toMoneyNumber(grandTotal)
+            creditInitialPaymentRequired &&
+            creditInitialPaymentAmount <= 0
+        ) {
+            errors["credit_initial_payment"] =
+                "El pago inicial es obligatorio para ventas a credito.";
+        } else if (
+            isCreditSaleMode &&
+            creditPendingAmount <= 0
         ) {
             errors["credit_initial_payment"] =
                 "El pago inicial debe ser menor al total de la venta.";
@@ -2475,6 +2495,7 @@ const PosMainPage = (props) => {
                     }
                     creditAvailability={creditAvailability}
                     isLoadingCreditAvailability={isLoadingCreditAvailability}
+                    isInitialPaymentRequired={creditInitialPaymentRequired}
                     selectedCustomerName={getSelectedCustomerName()}
                     setPaymentValue={setPaymentValue}
                 />
