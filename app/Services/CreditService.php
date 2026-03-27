@@ -252,7 +252,12 @@ class CreditService
         $this->log(
             $credit->id,
             'credito_creado',
-            sprintf('Credito #%d generado automaticamente desde la venta #%d.', $credit->id, $sale->id)
+            sprintf(
+                'Credito #%d generado automaticamente por %s desde la venta #%d.',
+                $credit->id,
+                $this->currentAuditUserName(),
+                $sale->id
+            )
         );
 
         $this->creditInventoryService->attachSaleItems($credit, $sale->loadMissing('saleItems'));
@@ -305,7 +310,12 @@ class CreditService
             $this->log(
                 $credit->id,
                 'credito_manual',
-                sprintf('Credito #%d creado manualmente para el cliente #%d.', $credit->id, $credit->customer_id)
+                sprintf(
+                    'Credito #%d creado manualmente por %s para el cliente #%d.',
+                    $credit->id,
+                    $this->currentAuditUserName(),
+                    $credit->customer_id
+                )
             );
 
             return $credit->fresh($this->creditDetailRelations());
@@ -330,11 +340,16 @@ class CreditService
                 $this->creditInventoryService->persistManualItems($credit, $preparedItems);
             }
 
-            $this->log(
-                $credit->id,
-                'credito_manual',
-                sprintf('Credito #%d creado manualmente para el cliente #%d.', $credit->id, $credit->customer_id)
-            );
+                $this->log(
+                    $credit->id,
+                    'credito_manual',
+                    sprintf(
+                        'Credito #%d creado manualmente por %s para el cliente #%d.',
+                        $credit->id,
+                        $this->currentAuditUserName(),
+                        $credit->customer_id
+                    )
+                );
 
             return $credit->fresh($this->creditDetailRelations());
         });
@@ -966,6 +981,9 @@ class CreditService
     private function paginateCreditRows(string $search, ?string $status, int $page, int $limit): array
     {
         $paginator = $this->buildCreditListQuery($search, $status)
+            ->reorder()
+            ->orderByRaw('CASE WHEN balance <= 0 THEN 1 ELSE 0 END ASC')
+            ->orderByDesc('id')
             ->paginate($limit, ['*'], 'page', $page);
 
         return [
@@ -1342,6 +1360,34 @@ class CreditService
         $this->refreshStatuses();
         $credit = $credit->fresh($this->creditDetailRelations());
 
+        return $this->buildCreditDetailPayload($credit);
+    }
+
+    public function getPrintableCreditState(Credit $credit): array
+    {
+        $this->ensureCreditTablesExist();
+        $this->refreshStatuses();
+        $credit = $credit->fresh($this->creditDetailRelations());
+        $creditDetail = $this->buildCreditDetailPayload($credit);
+
+        return [
+            'business' => $this->buildPrintableBusinessInfo(),
+            'customer' => $this->buildPrintableCustomerInfo($creditDetail),
+            'credit' => $this->buildPrintableCreditInfo($credit, $creditDetail),
+            'summary' => $this->buildPrintableSummary($creditDetail),
+            'products' => $this->buildPrintableProductLines($creditDetail),
+            'payments' => $this->buildPrintablePaymentHistory($credit, $creditDetail),
+            'footer' => [
+                'thank_you_message' => 'Gracias por su preferencia',
+                'note' => 'Este documento refleja el estado actual del credito',
+            ],
+        ];
+    }
+
+    private function buildCreditDetailPayload(Credit $credit): array
+    {
+        $credit->loadMissing($this->creditDetailRelations());
+
         $creditRow = $this->transformCreditRow($credit);
         $creditRow['installments_count'] = (int) $credit->installments;
         $creditRow['payments'] = $credit->payments->map(function (CreditPayment $payment) {
@@ -1395,6 +1441,317 @@ class CreditService
         $creditRow['returns'] = $this->creditInventoryService->getDetailReturns($credit);
 
         return $creditRow;
+    }
+
+    private function buildPrintableBusinessInfo(): array
+    {
+        $settings = Setting::query()
+            ->whereIn('key', ['company_name', 'address', 'phone'])
+            ->pluck('value', 'key');
+        $logoSetting = Setting::query()
+            ->where('key', 'logo')
+            ->with('media')
+            ->first();
+
+        $companyName = trim((string) ($settings->get('company_name') ?? ''));
+        $logoUrl = $logoSetting ? $logoSetting->logo : asset('images/infyom.png');
+
+        return [
+            'name' => $companyName !== '' ? $companyName : 'AUTO REPUESTOS BRYAN',
+            'address' => ($address = trim((string) ($settings->get('address') ?? ''))) !== '' ? $address : null,
+            'phone' => ($phone = trim((string) ($settings->get('phone') ?? ''))) !== '' ? $phone : null,
+            'logo_url' => $logoUrl,
+            'printed_at' => Carbon::now()->format('Y-m-d H:i:s'),
+        ];
+    }
+
+    private function buildPrintableCustomerInfo(array $creditDetail): array
+    {
+        $phone = trim((string) ($creditDetail['customer_phone'] ?? ''));
+        $email = trim((string) ($creditDetail['customer_email'] ?? ''));
+
+        return [
+            'id' => (int) ($creditDetail['customer_id'] ?? 0),
+            'name' => $creditDetail['customer_name'] ?? 'Cliente sin nombre',
+            'phone' => $phone !== '' ? $phone : null,
+            'email' => $email !== '' ? $email : null,
+            'address' => ($address = trim((string) ($creditDetail['customer_address'] ?? ''))) !== '' ? $address : null,
+            'identifier_or_phone' => $phone !== '' ? $phone : ($email !== '' ? $email : null),
+            'code' => ($code = trim((string) ($creditDetail['customer_code'] ?? ''))) !== '' ? $code : null,
+        ];
+    }
+
+    private function buildPrintableCreditInfo(Credit $credit, array $creditDetail): array
+    {
+        $creditId = (int) ($creditDetail['id'] ?? 0);
+
+        return [
+            'id' => $creditId,
+            'reference_code' => $this->formatPrintableCreditReferenceCode($creditId),
+            'internal_reference_code' => $creditDetail['credit_reference_code'] ?? $this->formatCreditReferenceCode($creditId),
+            'sale_reference_code' => $creditDetail['sale_reference_code'] ?? null,
+            'served_by_name' => $creditDetail['sale_user_name'] ?? null,
+            'responsible_user_name' => $this->resolvePrintableResponsibleUserName($credit),
+            'created_at' => $creditDetail['created_at'] ?? null,
+            'start_date' => $creditDetail['start_date'] ?? null,
+            'due_date' => $creditDetail['due_date'] ?? null,
+            'credit_type' => $creditDetail['credit_type'] ?? Credit::TYPE_AUTOMATIC,
+            'credit_type_label' => $creditDetail['credit_type_label'] ?? 'Automatico',
+            'interest_rate' => round((float) ($creditDetail['interest_rate'] ?? 0), 2),
+            'status' => $creditDetail['status'] ?? Credit::STATUS_PENDING,
+            'status_label' => ucfirst((string) ($creditDetail['status'] ?? Credit::STATUS_PENDING)),
+            'note' => $creditDetail['note'] ?? null,
+        ];
+    }
+
+    private function buildPrintableSummary(array $creditDetail): array
+    {
+        return [
+            'total_original' => round((float) ($creditDetail['original_total_amount'] ?? $creditDetail['total_amount'] ?? 0), 2),
+            'total_paid' => round((float) ($creditDetail['paid_total'] ?? $creditDetail['recovered_amount'] ?? 0), 2),
+            'current_balance' => round((float) ($creditDetail['balance'] ?? 0), 2),
+            'principal_balance' => round((float) ($creditDetail['principal_balance'] ?? 0), 2),
+            'total_with_interest' => round((float) ($creditDetail['total_with_interest'] ?? 0), 2),
+            'initial_payment_amount' => round((float) ($creditDetail['initial_payment_amount'] ?? 0), 2),
+            'collection_target_amount' => round((float) ($creditDetail['collection_target_amount'] ?? 0), 2),
+        ];
+    }
+
+    private function buildPrintableProductLines(array $creditDetail): array
+    {
+        return collect($creditDetail['items'] ?? [])
+            ->map(function (array $item) {
+                return [
+                    'id' => $item['credit_item_id'] ?? $item['id'] ?? null,
+                    'name' => $item['product_name'] ?? 'Producto',
+                    'warehouse_name' => $item['warehouse_name'] ?? null,
+                    'quantity' => round((float) ($item['quantity'] ?? 0), 2),
+                    'price' => round((float) ($item['product_price'] ?? 0), 2),
+                    'subtotal' => round((float) ($item['sub_total'] ?? 0), 2),
+                    'source_label' => $item['source_label'] ?? null,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function buildPrintablePaymentHistory(Credit $credit, array $creditDetail): array
+    {
+        $paymentRows = collect($creditDetail['payments'] ?? [])
+            ->map(function (array $payment) {
+                return [
+                    'id' => $payment['id'] ?? null,
+                    'amount' => round((float) ($payment['amount'] ?? 0), 2),
+                    'payment_type' => $payment['payment_type'] ?? null,
+                    'payment_method' => $payment['payment_method'] ?? null,
+                    'payment_method_label' => $this->paymentMethodDisplayLabelForPrint(
+                        $payment['payment_method'] ?? null,
+                        isset($payment['payment_type']) ? (int) $payment['payment_type'] : null
+                    ),
+                    'entry_type' => $payment['entry_type'] ?? CreditPayment::ENTRY_TYPE_PAYMENT,
+                    'entry_type_label' => $payment['entry_type_label'] ?? 'Pago',
+                    'note' => $payment['note'] ?? null,
+                    'created_at' => $payment['created_at'] ?? null,
+                    'timeline_kind' => 'payment',
+                    'timeline_order' => 0,
+                ];
+            });
+
+        $syntheticInitialPayment = $this->buildPrintableSyntheticInitialPaymentRow($credit, $creditDetail);
+        if ($syntheticInitialPayment) {
+            $paymentRows->push($syntheticInitialPayment);
+        }
+
+        if ($paymentRows->isEmpty()) {
+            return [];
+        }
+
+        $restructureEvents = collect($creditDetail['restructures'] ?? [])
+            ->map(function (array $restructure) {
+                return [
+                    'id' => $restructure['id'] ?? null,
+                    'created_at' => $restructure['created_at'] ?? null,
+                    'old_balance' => round((float) ($restructure['old_balance'] ?? 0), 2),
+                    'new_balance' => round((float) ($restructure['new_balance'] ?? 0), 2),
+                    'timeline_kind' => 'restructure',
+                    'timeline_order' => 1,
+                ];
+            });
+
+        $totalPaid = round((float) $paymentRows->sum('amount'), 2);
+        $restructureDelta = round((float) $restructureEvents->sum(function (array $event) {
+            return (float) ($event['new_balance'] ?? 0) - (float) ($event['old_balance'] ?? 0);
+        }), 2);
+
+        $outstandingBalance = round(
+            max((float) ($creditDetail['balance'] ?? 0) + $totalPaid - $restructureDelta, 0),
+            2
+        );
+
+        $timeline = $paymentRows
+            ->concat($restructureEvents)
+            ->sort(function (array $left, array $right) {
+                $leftAt = $left['created_at'] ?? '9999-12-31 23:59:59';
+                $rightAt = $right['created_at'] ?? '9999-12-31 23:59:59';
+
+                if ($leftAt !== $rightAt) {
+                    return strcmp($leftAt, $rightAt);
+                }
+
+                if (($left['timeline_order'] ?? 0) !== ($right['timeline_order'] ?? 0)) {
+                    return ($left['timeline_order'] ?? 0) <=> ($right['timeline_order'] ?? 0);
+                }
+
+                return (int) ($left['id'] ?? 0) <=> (int) ($right['id'] ?? 0);
+            })
+            ->values();
+
+        $history = [];
+
+        foreach ($timeline as $event) {
+            if (($event['timeline_kind'] ?? null) === 'restructure') {
+                $outstandingBalance = round((float) ($event['new_balance'] ?? $outstandingBalance), 2);
+                continue;
+            }
+
+            $outstandingBalance = round(
+                max($outstandingBalance - (float) ($event['amount'] ?? 0), 0),
+                2
+            );
+
+            $history[] = [
+                'id' => $event['id'] ?? null,
+                'date' => $event['created_at'] ?? null,
+                'type' => $event['entry_type'] ?? CreditPayment::ENTRY_TYPE_PAYMENT,
+                'type_label' => $event['entry_type_label'] ?? 'Pago',
+                'amount' => round((float) ($event['amount'] ?? 0), 2),
+                'method' => $event['payment_method'] ?? null,
+                'method_label' => $event['payment_method_label'] ?? 'Otro',
+                'remaining_balance' => $outstandingBalance,
+                'note' => $event['note'] ?? null,
+            ];
+        }
+
+        return $history;
+    }
+
+    private function buildPrintableSyntheticInitialPaymentRow(Credit $credit, array $creditDetail): ?array
+    {
+        $initialPaymentAmount = round((float) ($creditDetail['initial_payment_amount'] ?? 0), 2);
+        if ($initialPaymentAmount <= 0) {
+            return null;
+        }
+
+        $hasInitialPaymentRow = collect($creditDetail['payments'] ?? [])->contains(function (array $payment) {
+            return $this->normalizeCreditPaymentEntryType($payment['entry_type'] ?? null)
+                === CreditPayment::ENTRY_TYPE_INITIAL_PAYMENT;
+        });
+
+        if ($hasInitialPaymentRow) {
+            return null;
+        }
+
+        $legacySalePayment = $credit->sale
+            ? $this->findInitialSalePaymentForCreditSale($credit->sale, $initialPaymentAmount)
+            : null;
+
+        $paymentTimestamp = $legacySalePayment?->created_at
+            ? Carbon::parse($legacySalePayment->created_at)
+            : ($credit->sale?->created_at
+                ? Carbon::parse($credit->sale->created_at)
+                : ($credit->created_at ? Carbon::parse($credit->created_at) : Carbon::now()));
+
+        return [
+            'id' => 0,
+            'amount' => $initialPaymentAmount,
+            'payment_type' => $legacySalePayment?->payment_type,
+            'payment_method' => null,
+            'payment_method_label' => $this->paymentMethodDisplayLabelForPrint(
+                null,
+                $legacySalePayment?->payment_type
+            ),
+            'entry_type' => CreditPayment::ENTRY_TYPE_INITIAL_PAYMENT,
+            'entry_type_label' => 'Pago inicial',
+            'note' => 'Pago inicial registrado en la venta original.',
+            'created_at' => $paymentTimestamp->format('Y-m-d H:i:s'),
+            'timeline_kind' => 'payment',
+            'timeline_order' => 0,
+        ];
+    }
+
+    private function paymentMethodDisplayLabelForPrint(?string $paymentMethod, ?int $paymentType): string
+    {
+        $normalizedMethod = strtolower(trim((string) $paymentMethod));
+
+        return match ($normalizedMethod !== '' ? $normalizedMethod : null) {
+            'cash', 'efectivo' => 'Efectivo',
+            'cheque' => 'Cheque',
+            'bank_transfer', 'transferencia', 'transferencia bancaria' => 'Transferencia',
+            'other', 'otro', 'otros' => 'Otro',
+            default => match ($paymentType) {
+                SalesPayment::CASH => 'Efectivo',
+                SalesPayment::CHEQUE => 'Cheque',
+                SalesPayment::BANK_TRANSFER => 'Transferencia',
+                SalesPayment::OTHER => 'Otro',
+                default => $normalizedMethod !== ''
+                    ? ucfirst(str_replace(['_', '-'], ' ', $normalizedMethod))
+                    : 'Otro',
+            },
+        };
+    }
+
+    private function resolveCustomerPrintableCode(?Customer $customer): ?string
+    {
+        if (! $customer) {
+            return null;
+        }
+
+        foreach (['customer_code', 'code', 'reference_code'] as $attribute) {
+            $value = trim((string) $customer->getAttribute($attribute));
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    private function formatCreditReferenceCode(int $creditId): string
+    {
+        return sprintf('CRD-%04d', max($creditId, 0));
+    }
+
+    private function formatPrintableCreditReferenceCode(int $creditId): string
+    {
+        return sprintf('Credito #%d', max($creditId, 0));
+    }
+
+    private function resolvePrintableResponsibleUserName(Credit $credit): ?string
+    {
+        $saleUserName = trim((string) $this->resolveUserDisplayName($credit->sale?->user));
+        if ($saleUserName !== '') {
+            return $saleUserName;
+        }
+
+        $creationLog = $credit->logs->first(function (CreditLog $log) {
+            return in_array($log->action, ['credito_creado', 'credito_manual'], true);
+        });
+
+        if (! $creationLog || ! $creationLog->description) {
+            return null;
+        }
+
+        if (preg_match(
+            '/Credito #\d+ (?:generado automaticamente|creado manualmente) por (.+?) (?:desde la venta|para el cliente)/iu',
+            (string) $creationLog->description,
+            $matches
+        )) {
+            $userName = trim((string) ($matches[1] ?? ''));
+
+            return $userName !== '' ? $userName : null;
+        }
+
+        return null;
     }
 
     private function storeCreditRecord(array $data): Credit
@@ -2535,11 +2892,16 @@ class CreditService
 
         return [
             'id' => $credit->id,
+            'credit_reference_code' => $this->formatCreditReferenceCode((int) $credit->id),
             'sale_id' => $credit->sale_id,
             'sale_reference_code' => optional($credit->sale)->reference_code,
+            'sale_user_name' => $this->resolveUserDisplayName($credit->sale?->user),
             'customer_id' => $credit->customer_id,
             'customer_name' => optional($credit->customer)->name,
             'customer_phone' => optional($credit->customer)->phone,
+            'customer_email' => optional($credit->customer)->email,
+            'customer_address' => optional($credit->customer)->address,
+            'customer_code' => $this->resolveCustomerPrintableCode($credit->customer),
             'total_amount' => (float) $credit->total_amount,
             'original_total_amount' => $originalTotalAmount,
             'principal_balance' => (float) $credit->principal_balance,
@@ -2661,13 +3023,46 @@ class CreditService
             : 'sin pago inicial';
 
         return sprintf(
-            'Credito #%d generado automaticamente desde la venta #%d. Total venta %.2f, %s, saldo financiado %.2f.',
+            'Credito #%d generado automaticamente por %s desde la venta #%d. Total venta %.2f, %s, saldo financiado %.2f.',
             $credit->id,
+            $this->currentAuditUserName(),
             $sale->id,
             (float) $sale->grand_total,
             $initialPaymentText,
             $creditPrincipalAmount
         );
+    }
+
+    private function currentAuditUserName(): string
+    {
+        $userName = trim((string) $this->resolveUserDisplayName(auth()->user()));
+
+        return $userName !== '' ? $userName : 'Usuario';
+    }
+
+    private function resolveUserDisplayName(?User $user): ?string
+    {
+        if (! $user) {
+            return null;
+        }
+
+        $fullName = trim(collect([
+            trim((string) ($user->first_name ?? '')),
+            trim((string) ($user->last_name ?? '')),
+        ])->filter()->implode(' '));
+
+        if ($fullName !== '') {
+            return $fullName;
+        }
+
+        foreach (['name', 'email', 'phone'] as $attribute) {
+            $value = trim((string) $user->getAttribute($attribute));
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
     }
 
     private function log(
@@ -2694,7 +3089,7 @@ class CreditService
 
     private function creditDetailRelations(): array
     {
-        $relations = ['customer', 'sale', 'installmentItems', 'payments', 'logs'];
+        $relations = ['customer', 'sale', 'sale.user', 'installmentItems', 'payments', 'logs'];
 
         if ($this->creditRestructureTableExists()) {
             $relations[] = 'restructures';

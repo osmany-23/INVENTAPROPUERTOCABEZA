@@ -72,6 +72,11 @@ const PaymentModal = lazy(() =>
         default: module.PaymentModal,
     }))
 );
+const CreditPrintPreviewModal = lazy(() =>
+    import("./CreditPrintPreviewModal").then((module) => ({
+        default: module.default,
+    }))
+);
 const RestructureCreditModal = lazy(() =>
     import("./CreditModals").then((module) => ({
         default: module.RestructureCreditModal,
@@ -82,6 +87,10 @@ const ReturnModal = lazy(() =>
         default: module.ReturnModal,
     }))
 );
+const preloadCreditModalBundles = () => {
+    import("./CreditModals");
+    import("./CreditPrintPreviewModal");
+};
 
 const PAGE_SIZE = 3;
 const PAGE_WINDOW_SIZE = 5;
@@ -151,8 +160,10 @@ const Credits = () => {
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [showPrintPreviewModal, setShowPrintPreviewModal] = useState(false);
     const [showRestructureModal, setShowRestructureModal] = useState(false);
     const [showReturnModal, setShowReturnModal] = useState(false);
+    const [printPreviewCreditId, setPrintPreviewCreditId] = useState(null);
     const [currentAction, setCurrentAction] = useState(null);
     const [configForm, setConfigForm] = useState(DEFAULT_CONFIG_FORM);
     const [manualForm, setManualForm] = useState(createDefaultManualForm);
@@ -173,6 +184,7 @@ const Credits = () => {
     const manualProductsCacheRef = useRef(new Map());
     const manualProductsRequestIdRef = useRef(0);
     const manualLastAutoAddedQueryRef = useRef("");
+    const detailRequestIdRef = useRef(0);
     const routeCreditId = Number(creditId || 0);
     const routeAction = useMemo(
         () => new URLSearchParams(location.search).get("action"),
@@ -333,6 +345,7 @@ const Credits = () => {
         setShowDetailModal(false);
         setShowEditModal(false);
         setShowPaymentModal(false);
+        setShowPrintPreviewModal(false);
         setShowRestructureModal(false);
         setShowReturnModal(false);
     }, []);
@@ -354,6 +367,7 @@ const Credits = () => {
     };
 
     const closeDetailModal = useCallback(() => {
+        cancelPendingDetailRequest();
         setShowDetailModal(false);
         setCurrentAction(null);
         setCreditDetail(null);
@@ -361,9 +375,9 @@ const Credits = () => {
         if (routeCreditId) {
             navigate("/app/credits", { replace: true });
         }
-    }, [navigate, routeCreditId]);
+    }, [cancelPendingDetailRequest, navigate, routeCreditId]);
 
-    const closeEditModal = () => {
+    const closeEditModal = useCallback(() => {
         const shouldReturnToDetail = currentAction === "view" && !!creditDetail;
         setShowEditModal(false);
 
@@ -373,11 +387,17 @@ const Credits = () => {
             return;
         }
 
+        cancelPendingDetailRequest();
         setCurrentAction(null);
         setCreditDetail(null);
-    };
+    }, [
+        cancelPendingDetailRequest,
+        closeAllCreditModals,
+        creditDetail,
+        currentAction,
+    ]);
 
-    const closeRestructureModal = () => {
+    const closeRestructureModal = useCallback(() => {
         const shouldReturnToDetail = currentAction === "view" && !!creditDetail;
         setShowRestructureModal(false);
 
@@ -387,9 +407,15 @@ const Credits = () => {
             return;
         }
 
+        cancelPendingDetailRequest();
         setCurrentAction(null);
         setCreditDetail(null);
-    };
+    }, [
+        cancelPendingDetailRequest,
+        closeAllCreditModals,
+        creditDetail,
+        currentAction,
+    ]);
 
     const closeConfigModal = useCallback(() => {
         setShowConfigModal(false);
@@ -397,6 +423,7 @@ const Credits = () => {
     }, []);
 
     const closePaymentModal = useCallback(() => {
+        cancelPendingDetailRequest();
         setShowPaymentModal(false);
         setCurrentAction(null);
         setCreditDetail(null);
@@ -406,14 +433,20 @@ const Credits = () => {
         if (routeCreditId && routeAction === "payment") {
             navigate("/app/credits", { replace: true });
         }
-    }, [navigate, routeAction, routeCreditId]);
+    }, [cancelPendingDetailRequest, navigate, routeAction, routeCreditId]);
 
     const closeReturnModal = useCallback(() => {
+        cancelPendingDetailRequest();
         setShowReturnModal(false);
         setCurrentAction(null);
         setCreditDetail(null);
         setReturnForm(DEFAULT_RETURN_FORM);
         setReturnErrors({});
+    }, [cancelPendingDetailRequest]);
+
+    const closePrintPreviewModal = useCallback(() => {
+        setShowPrintPreviewModal(false);
+        setPrintPreviewCreditId(null);
     }, []);
 
     const openManualModal = useCallback(() => {
@@ -989,22 +1022,72 @@ const Credits = () => {
     }, [getErrorMessage, toast]);
 
     const fetchCreditDetail = useCallback(
-        async (creditId, onSuccess) => {
+        async (creditId, options = {}) => {
+            const requestId =
+                Number(options.requestId || 0) || detailRequestIdRef.current + 1;
+            detailRequestIdRef.current = requestId;
+
             try {
                 setDetailLoading(true);
                 const response = await apiConfig.get(`/credits/${creditId}`);
-                const detail = response?.data?.data || null;
-                setCreditDetail(detail);
-                if (onSuccess) {
-                    onSuccess(detail);
+                if (detailRequestIdRef.current !== requestId) {
+                    return null;
                 }
+
+                const detail = response?.data?.data || null;
+                window.requestAnimationFrame(() => {
+                    if (detailRequestIdRef.current !== requestId) {
+                        return;
+                    }
+                    setCreditDetail(detail);
+                    options.onSuccess?.(detail);
+                });
+
+                return detail;
             } catch (error) {
+                if (detailRequestIdRef.current !== requestId) {
+                    return null;
+                }
+
                 toast(getErrorMessage(error), toastType.ERROR);
+                return null;
             } finally {
-                setDetailLoading(false);
+                if (detailRequestIdRef.current === requestId) {
+                    setDetailLoading(false);
+                }
             }
         },
         [getErrorMessage, toast]
+    );
+
+    const cancelPendingDetailRequest = useCallback(() => {
+        detailRequestIdRef.current += 1;
+        setDetailLoading(false);
+    }, []);
+
+    const openModalWithCreditDetail = useCallback(
+        (creditId, { action, openModal, onSuccess } = {}) => {
+            const resolvedCreditId = Number(creditId || 0);
+            if (resolvedCreditId <= 0 || typeof openModal !== "function") {
+                return;
+            }
+
+            const requestId = detailRequestIdRef.current + 1;
+            detailRequestIdRef.current = requestId;
+            setCurrentAction(action || null);
+            setCreditDetail(null);
+            setDetailLoading(true);
+            closeAllCreditModals();
+            openModal(true);
+
+            window.requestAnimationFrame(() => {
+                fetchCreditDetail(resolvedCreditId, {
+                    requestId,
+                    onSuccess,
+                });
+            });
+        },
+        [closeAllCreditModals, fetchCreditDetail]
     );
 
     const fetchSectionPage = useCallback(
@@ -1020,58 +1103,63 @@ const Credits = () => {
 
     const handleOpenDetailModal = useCallback(
         (creditId) => {
-            setCurrentAction("view");
-            fetchCreditDetail(creditId, () => {
-                closeAllCreditModals();
-                setShowDetailModal(true);
+            openModalWithCreditDetail(creditId, {
+                action: "view",
+                openModal: setShowDetailModal,
             });
         },
-        [closeAllCreditModals, fetchCreditDetail]
+        [openModalWithCreditDetail]
     );
 
     const handleOpenPaymentModal = useCallback(
         (creditId) => {
             setPaymentErrors({});
-            setCurrentAction("payment");
-            fetchCreditDetail(creditId, (detail) => {
-                setPaymentForm({
-                    ...DEFAULT_PAYMENT_FORM,
-                    amount:
-                        Number(detail?.balance || 0) > 0
-                            ? String(detail.balance)
-                            : "",
-                });
-                closeAllCreditModals();
-                setShowPaymentModal(true);
+            setPaymentForm(DEFAULT_PAYMENT_FORM);
+            openModalWithCreditDetail(creditId, {
+                action: "payment",
+                openModal: setShowPaymentModal,
+                onSuccess: (detail) => {
+                    setPaymentForm({
+                        ...DEFAULT_PAYMENT_FORM,
+                        amount:
+                            Number(detail?.balance || 0) > 0
+                                ? String(detail.balance)
+                                : "",
+                    });
+                },
             });
         },
-        [closeAllCreditModals, fetchCreditDetail]
+        [openModalWithCreditDetail]
     );
 
     const handleOpenEditCreditModalFromRow = useCallback(
         (creditId) => {
-            setCurrentAction("edit");
-            fetchCreditDetail(creditId, (detail) => {
-                setEditErrors({});
-                setEditForm(buildCreditEditForm(detail));
-                closeAllCreditModals();
-                setShowEditModal(true);
+            setEditErrors({});
+            setEditForm(DEFAULT_EDIT_CREDIT_FORM);
+            openModalWithCreditDetail(creditId, {
+                action: "edit",
+                openModal: setShowEditModal,
+                onSuccess: (detail) => {
+                    setEditForm(buildCreditEditForm(detail));
+                },
             });
         },
-        [closeAllCreditModals, fetchCreditDetail]
+        [openModalWithCreditDetail]
     );
 
     const handleOpenRestructureModalFromRow = useCallback(
         (creditId) => {
-            setCurrentAction("restructure");
-            fetchCreditDetail(creditId, (detail) => {
-                setRestructureErrors({});
-                setRestructureForm(buildCreditRestructureForm(detail));
-                closeAllCreditModals();
-                setShowRestructureModal(true);
+            setRestructureErrors({});
+            setRestructureForm(DEFAULT_RESTRUCTURE_CREDIT_FORM);
+            openModalWithCreditDetail(creditId, {
+                action: "restructure",
+                openModal: setShowRestructureModal,
+                onSuccess: (detail) => {
+                    setRestructureForm(buildCreditRestructureForm(detail));
+                },
             });
         },
-        [closeAllCreditModals, fetchCreditDetail]
+        [openModalWithCreditDetail]
     );
 
     useEffect(() => {
@@ -1079,6 +1167,28 @@ const Credits = () => {
         fetchWarehouses();
         fetchDashboard();
     }, [fetchDashboard]);
+
+    useEffect(() => {
+        let idleId = null;
+        let timeoutId = null;
+
+        if ("requestIdleCallback" in window) {
+            idleId = window.requestIdleCallback(preloadCreditModalBundles, {
+                timeout: 1200,
+            });
+        } else {
+            timeoutId = window.setTimeout(preloadCreditModalBundles, 500);
+        }
+
+        return () => {
+            if (idleId && "cancelIdleCallback" in window) {
+                window.cancelIdleCallback(idleId);
+            }
+            if (timeoutId) {
+                window.clearTimeout(timeoutId);
+            }
+        };
+    }, []);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -1579,7 +1689,7 @@ const Credits = () => {
         setShowConfigModal(true);
     }, [closeAllCreditModals]);
 
-    const openEditCreditModal = (detail = creditDetail) => {
+    const openEditCreditModal = useCallback((detail = creditDetail) => {
         if (!detail) {
             return;
         }
@@ -1588,9 +1698,9 @@ const Credits = () => {
         setEditForm(buildCreditEditForm(detail));
         closeAllCreditModals();
         setShowEditModal(true);
-    };
+    }, [closeAllCreditModals, creditDetail]);
 
-    const openRestructureModal = (detail = creditDetail) => {
+    const openRestructureModal = useCallback((detail = creditDetail) => {
         if (!detail) {
             return;
         }
@@ -1599,9 +1709,9 @@ const Credits = () => {
         setRestructureForm(buildCreditRestructureForm(detail));
         closeAllCreditModals();
         setShowRestructureModal(true);
-    };
+    }, [closeAllCreditModals, creditDetail]);
 
-    const openReturnModal = (detail = creditDetail) => {
+    const openReturnModal = useCallback((detail = creditDetail) => {
         if (!detail) {
             return;
         }
@@ -1618,7 +1728,20 @@ const Credits = () => {
         });
         closeAllCreditModals();
         setShowReturnModal(true);
-    };
+    }, [closeAllCreditModals, creditDetail]);
+
+    const openPrintPreviewModal = useCallback(
+        (nextCreditId) => {
+            const resolvedCreditId = Number(nextCreditId || creditDetail?.id || 0);
+            if (resolvedCreditId <= 0) {
+                return;
+            }
+
+            setPrintPreviewCreditId(resolvedCreditId);
+            setShowPrintPreviewModal(true);
+        },
+        [creditDetail]
+    );
 
     const handleSectionChange = useCallback((nextSection) => {
         setActiveSection(nextSection);
@@ -1680,6 +1803,26 @@ const Credits = () => {
         [activeMeta.last_page]
     );
 
+    const handleOpenEditFromDetail = useCallback(
+        () => openEditCreditModal(),
+        [openEditCreditModal]
+    );
+
+    const handleOpenPrintFromDetail = useCallback(() => {
+        setShowDetailModal(false);
+        openPrintPreviewModal(creditDetail?.id);
+    }, [creditDetail, openPrintPreviewModal]);
+
+    const handleOpenRestructureFromDetail = useCallback(
+        () => openRestructureModal(),
+        [openRestructureModal]
+    );
+
+    const handleOpenReturnFromDetail = useCallback(
+        () => openReturnModal(),
+        [openReturnModal]
+    );
+
     const renderSkeletonCards = useMemo(
         () =>
             Array.from({ length: pagination.limit }, (_, index) => (
@@ -1688,80 +1831,82 @@ const Credits = () => {
         [pagination.limit]
     );
 
-    const renderCreditCards = (rows) => {
-        if (!rows.length) {
+    const activeSectionContent = useMemo(() => {
+        if (loading || shouldShowListSkeleton) {
+            return renderSkeletonCards;
+        }
+
+        if (activeSection === "customers") {
+            if (!activeRows.length) {
+                return (
+                    <EmptyStateCard text="No hay clientes configurados para credito." />
+                );
+            }
+
+            return activeRows.map((row) => (
+                <CustomerCreditCard
+                    key={row.id}
+                    row={row}
+                    money={money}
+                    onEdit={openConfigModal}
+                />
+            ));
+        }
+
+        if (activeSection === "overdue") {
+            if (!activeRows.length) {
+                return <EmptyStateCard text="No hay clientes morosos." />;
+            }
+
+            return activeRows.map((row) => (
+                <OverdueCustomerCard
+                    key={row.customer_id}
+                    row={row}
+                    money={money}
+                />
+            ));
+        }
+
+        if (activeSection === "interest") {
+            if (!activeRows.length) {
+                return <EmptyStateCard text="No hay datos de interes disponibles." />;
+            }
+
+            return activeRows.map((row) => (
+                <InterestCard key={row.credit_id} row={row} money={money} />
+            ));
+        }
+
+        if (!activeRows.length) {
             return <EmptyStateCard text="No hay creditos registrados." />;
         }
 
-        return rows.map((row) => (
+        return activeRows.map((row) => (
             <CreditCard
                 key={row.id}
                 row={row}
                 money={money}
                 onView={handleOpenDetailModal}
+                onPrint={openPrintPreviewModal}
                 onEdit={handleOpenEditCreditModalFromRow}
                 onPay={handleOpenPaymentModal}
                 onRestructure={handleOpenRestructureModalFromRow}
             />
         ));
-    };
-
-    const renderCustomerCards = (rows) => {
-        if (!rows.length) {
-            return (
-                <EmptyStateCard text="No hay clientes configurados para credito." />
-            );
-        }
-
-        return rows.map((row) => (
-            <CustomerCreditCard
-                key={row.id}
-                row={row}
-                money={money}
-                onEdit={openConfigModal}
-            />
-        ));
-    };
-
-    const renderOverdueCards = (rows) => {
-        if (!rows.length) {
-            return <EmptyStateCard text="No hay clientes morosos." />;
-        }
-
-        return rows.map((row) => (
-            <OverdueCustomerCard
-                key={row.customer_id}
-                row={row}
-                money={money}
-            />
-        ));
-    };
-
-    const renderInterestCards = (rows) => {
-        if (!rows.length) {
-            return <EmptyStateCard text="No hay datos de interes disponibles." />;
-        }
-
-        return rows.map((row) => (
-            <InterestCard key={row.credit_id} row={row} money={money} />
-        ));
-    };
-
-    const renderActiveSection = () => {
-        if (activeSection === "customers") {
-            return renderCustomerCards(activeRows);
-        }
-
-        if (activeSection === "overdue") {
-            return renderOverdueCards(activeRows);
-        }
-
-        if (activeSection === "interest") {
-            return renderInterestCards(activeRows);
-        }
-
-        return renderCreditCards(activeRows);
-    };
+    }, [
+        activeRows,
+        activeSection,
+        handleOpenDetailModal,
+        handleOpenEditCreditModalFromRow,
+        handleOpenPaymentModal,
+        handleOpenRestructureModalFromRow,
+        loading,
+        money,
+        openConfigModal,
+        openPrintPreviewModal,
+        renderSkeletonCards,
+        shouldShowListSkeleton,
+    ]);
 
     const summary = dashboard.summary || {};
 
@@ -1880,9 +2025,7 @@ const Credits = () => {
                                         : ""
                                 }`}
                             >
-                                {loading || shouldShowListSkeleton
-                                    ? renderSkeletonCards
-                                    : renderActiveSection()}
+                                {activeSectionContent}
                             </div>
 
                             {listError ? (
@@ -2035,9 +2178,10 @@ const Credits = () => {
                     detailLoading={detailLoading}
                     creditDetail={creditDetail}
                     money={money}
-                    onOpenEdit={() => openEditCreditModal()}
-                    onOpenRestructure={() => openRestructureModal()}
-                    onOpenReturn={() => openReturnModal()}
+                    onOpenEdit={handleOpenEditFromDetail}
+                    onOpenPrint={handleOpenPrintFromDetail}
+                    onOpenRestructure={handleOpenRestructureFromDetail}
+                    onOpenReturn={handleOpenReturnFromDetail}
                 />
                 <EditCreditModal
                     show={showEditModal}
@@ -2061,6 +2205,12 @@ const Credits = () => {
                     errors={paymentErrors}
                     saving={saving}
                     onSubmit={savePayment}
+                />
+                <CreditPrintPreviewModal
+                    show={showPrintPreviewModal}
+                    onHide={closePrintPreviewModal}
+                    creditId={printPreviewCreditId}
+                    money={money}
                 />
                 <RestructureCreditModal
                     show={showRestructureModal}

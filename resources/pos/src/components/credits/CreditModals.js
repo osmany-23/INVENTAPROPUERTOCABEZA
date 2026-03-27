@@ -48,7 +48,7 @@ const formatHistoryDateTime = (value) => {
     return parsedValue.format("YYYY-MM-DD hh:mm A");
 };
 
-const TableBox = ({ headers, rows, emptyText }) => (
+const TableBox = React.memo(({ headers, rows, emptyText }) => (
     <div className="credits-table-wrapper">
         <div className="table-responsive">
             <Table hover className="align-middle credits-table">
@@ -73,13 +73,40 @@ const TableBox = ({ headers, rows, emptyText }) => (
             </Table>
         </div>
     </div>
-);
+));
 
-const ModalLoading = () => (
-    <div className="text-center py-8">
+const ModalLoading = React.memo(() => (
+    <div className="credits-modal-loading">
         <Spinner animation="border" />
     </div>
-);
+));
+
+const useDeferredModalContent = (show, ready = true) => {
+    const [shouldRenderContent, setShouldRenderContent] = React.useState(false);
+
+    React.useEffect(() => {
+        if (!show || !ready) {
+            setShouldRenderContent(false);
+            return undefined;
+        }
+
+        let frameId = 0;
+        let nestedFrameId = 0;
+
+        frameId = window.requestAnimationFrame(() => {
+            nestedFrameId = window.requestAnimationFrame(() => {
+                setShouldRenderContent(true);
+            });
+        });
+
+        return () => {
+            window.cancelAnimationFrame(frameId);
+            window.cancelAnimationFrame(nestedFrameId);
+        };
+    }, [ready, show]);
+
+    return shouldRenderContent;
+};
 
 const toFiniteNumber = (value, fallback = 0) => {
     const parsed = parseNumber(value, fallback);
@@ -325,7 +352,7 @@ const CreditTermsFields = ({
     </div>
 );
 
-export const ConfigModal = ({
+export const ConfigModal = React.memo(({
     show,
     onHide,
     form,
@@ -335,129 +362,141 @@ export const ConfigModal = ({
     saving,
     onSubmit,
     existingCustomerIds,
-}) => (
-    <Modal show={show} onHide={onHide} size="lg" {...MODAL_PROPS}>
-        <Modal.Header closeButton>
-            <Modal.Title>Configurar credito de cliente</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-            <div className="credits-form-panel">
-                <Row className="g-4 credits-manual-layout">
-                    <Col md={12} className="credits-manual-layout__field">
-                        <ReactSelect
-                            title="Cliente"
-                            data={customers}
-                            value={form.customer_id}
-                            onChange={(value) =>
-                                setForm((prev) => ({ ...prev, customer_id: value }))
-                            }
-                            errors={errors.customer_id}
-                            customSelectProps={{
-                                isDisabled: existingCustomerIds.includes(
-                                    Number(form.customer_id?.value)
-                                ),
-                            }}
-                        />
-                    </Col>
-                    <Col md={6}>
-                        <Form.Label>Limite de credito</Form.Label>
-                        <Form.Control
-                            className="credits-form-control"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={form.credit_limit}
-                            onChange={(event) =>
-                                setForm((prev) => ({
-                                    ...prev,
-                                    credit_limit: event.target.value,
-                                }))
-                            }
-                        />
-                        {errors.credit_limit ? (
-                            <div className="text-danger mt-2">
-                                {errors.credit_limit}
-                            </div>
-                        ) : null}
-                    </Col>
-                    <Col md={6}>
-                        <Form.Label>Interes (%)</Form.Label>
-                        <Form.Control
-                            className="credits-form-control"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={form.interest_rate}
-                            onChange={(event) =>
-                                setForm((prev) => ({
-                                    ...prev,
-                                    interest_rate: event.target.value,
-                                }))
-                            }
-                        />
-                    </Col>
-                    <Col md={6}>
-                        <Form.Label>Maximo de cuotas</Form.Label>
-                        <Form.Control
-                            className="credits-form-control"
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={form.max_installments}
-                            onChange={(event) =>
-                                setForm((prev) => ({
-                                    ...prev,
-                                    max_installments: event.target.value,
-                                }))
-                            }
-                        />
-                        {errors.max_installments ? (
-                            <div className="text-danger mt-2">
-                                {errors.max_installments}
-                            </div>
-                        ) : null}
-                    </Col>
-                    <Col md={6}>
-                        <Form.Label>Estado</Form.Label>
-                        <Form.Select
-                            className="credits-form-control"
-                            value={form.status}
-                            onChange={(event) =>
-                                setForm((prev) => ({
-                                    ...prev,
-                                    status: event.target.value,
-                                }))
-                            }
-                        >
-                            <option value="activo">Activo</option>
-                            <option value="bloqueado">Bloqueado</option>
-                        </Form.Select>
-                    </Col>
-                    <Col md={12} className="credits-manual-layout__field">
-                        <div className="small text-muted">
-                            El limite de credito es estricto y siempre se valida
-                            en backend usando el saldo pendiente real del cliente.
-                        </div>
-                    </Col>
-                </Row>
-            </div>
-        </Modal.Body>
-        <Modal.Footer>
-            <CreditActionButton action="cancel-modal" onClick={onHide}>
-                Cancelar
-            </CreditActionButton>
-            <CreditActionButton
-                action="save-config"
-                onClick={onSubmit}
-                disabled={saving}
-            >
-                {saving ? "Guardando..." : "Guardar"}
-            </CreditActionButton>
-        </Modal.Footer>
-    </Modal>
-);
+}) => {
+    const shouldRenderBody = useDeferredModalContent(show);
 
-export const ManualCreditModal = ({
+    return (
+        <Modal show={show} onHide={onHide} size="lg" {...MODAL_PROPS}>
+            <Modal.Header closeButton>
+                <Modal.Title>Configurar credito de cliente</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+                {shouldRenderBody ? (
+                    <div className="credits-form-panel">
+                        <Row className="g-4 credits-manual-layout">
+                            <Col md={12} className="credits-manual-layout__field">
+                                <ReactSelect
+                                    title="Cliente"
+                                    data={customers}
+                                    value={form.customer_id}
+                                    onChange={(value) =>
+                                        setForm((prev) => ({
+                                            ...prev,
+                                            customer_id: value,
+                                        }))
+                                    }
+                                    errors={errors.customer_id}
+                                    customSelectProps={{
+                                        isDisabled: existingCustomerIds.includes(
+                                            Number(form.customer_id?.value)
+                                        ),
+                                    }}
+                                />
+                            </Col>
+                            <Col md={6}>
+                                <Form.Label>Limite de credito</Form.Label>
+                                <Form.Control
+                                    className="credits-form-control"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={form.credit_limit}
+                                    onChange={(event) =>
+                                        setForm((prev) => ({
+                                            ...prev,
+                                            credit_limit: event.target.value,
+                                        }))
+                                    }
+                                />
+                                {errors.credit_limit ? (
+                                    <div className="text-danger mt-2">
+                                        {errors.credit_limit}
+                                    </div>
+                                ) : null}
+                            </Col>
+                            <Col md={6}>
+                                <Form.Label>Interes (%)</Form.Label>
+                                <Form.Control
+                                    className="credits-form-control"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={form.interest_rate}
+                                    onChange={(event) =>
+                                        setForm((prev) => ({
+                                            ...prev,
+                                            interest_rate: event.target.value,
+                                        }))
+                                    }
+                                />
+                            </Col>
+                            <Col md={6}>
+                                <Form.Label>Maximo de cuotas</Form.Label>
+                                <Form.Control
+                                    className="credits-form-control"
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    value={form.max_installments}
+                                    onChange={(event) =>
+                                        setForm((prev) => ({
+                                            ...prev,
+                                            max_installments: event.target.value,
+                                        }))
+                                    }
+                                />
+                                {errors.max_installments ? (
+                                    <div className="text-danger mt-2">
+                                        {errors.max_installments}
+                                    </div>
+                                ) : null}
+                            </Col>
+                            <Col md={6}>
+                                <Form.Label>Estado</Form.Label>
+                                <Form.Select
+                                    className="credits-form-control"
+                                    value={form.status}
+                                    onChange={(event) =>
+                                        setForm((prev) => ({
+                                            ...prev,
+                                            status: event.target.value,
+                                        }))
+                                    }
+                                >
+                                    <option value="activo">Activo</option>
+                                    <option value="bloqueado">Bloqueado</option>
+                                </Form.Select>
+                            </Col>
+                            <Col md={12} className="credits-manual-layout__field">
+                                <div className="small text-muted">
+                                    El limite de credito es estricto y siempre se
+                                    valida en backend usando el saldo pendiente real
+                                    del cliente.
+                                </div>
+                            </Col>
+                        </Row>
+                    </div>
+                ) : (
+                    <ModalLoading />
+                )}
+            </Modal.Body>
+            <Modal.Footer>
+                <CreditActionButton action="cancel-modal" onClick={onHide}>
+                    Cancelar
+                </CreditActionButton>
+                <CreditActionButton
+                    action="save-config"
+                    onClick={onSubmit}
+                    disabled={saving}
+                >
+                    {saving ? "Guardando..." : "Guardar"}
+                </CreditActionButton>
+            </Modal.Footer>
+        </Modal>
+    );
+});
+
+export const ManualCreditModal = React.memo(({
     show,
     onHide,
     form,
@@ -480,18 +519,22 @@ export const ManualCreditModal = ({
     onQuantityChange,
     onRemoveItem,
     onSubmit,
-}) => (
-    <Modal
-        show={show}
-        onHide={onHide}
-        {...MODAL_PROPS}
-        dialogClassName="credits-modal-dialog credits-modal-dialog--manual"
-    >
-        <Modal.Header closeButton>
-            <Modal.Title>Crear credito manual</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-            <div className="credits-form-panel">
+}) => {
+    const shouldRenderBody = useDeferredModalContent(show);
+
+    return (
+        <Modal
+            show={show}
+            onHide={onHide}
+            {...MODAL_PROPS}
+            dialogClassName="credits-modal-dialog credits-modal-dialog--manual"
+        >
+            <Modal.Header closeButton>
+                <Modal.Title>Crear credito manual</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+                {shouldRenderBody ? (
+                    <div className="credits-form-panel">
                 <Row className="g-4 credits-manual-layout">
                     <Col md={12} className="credits-manual-layout__field">
                         <ReactSelect
@@ -1006,25 +1049,29 @@ export const ManualCreditModal = ({
                             }
                         />
                     </Col>
-                </Row>
-            </div>
-        </Modal.Body>
-        <Modal.Footer>
-            <CreditActionButton action="cancel-modal" onClick={onHide}>
-                Cancelar
-            </CreditActionButton>
-            <CreditActionButton
-                action="create-credit"
-                onClick={onSubmit}
-                disabled={saving}
-            >
-                {saving ? "Guardando..." : "Crear credito"}
-            </CreditActionButton>
-        </Modal.Footer>
-    </Modal>
-);
+                        </Row>
+                    </div>
+                ) : (
+                    <ModalLoading />
+                )}
+            </Modal.Body>
+            <Modal.Footer>
+                <CreditActionButton action="cancel-modal" onClick={onHide}>
+                    Cancelar
+                </CreditActionButton>
+                <CreditActionButton
+                    action="create-credit"
+                    onClick={onSubmit}
+                    disabled={saving}
+                >
+                    {saving ? "Guardando..." : "Crear credito"}
+                </CreditActionButton>
+            </Modal.Footer>
+        </Modal>
+    );
+});
 
-const DetailBody = ({ creditDetail, money }) => (
+const DetailBody = React.memo(({ creditDetail, money }) => (
     <>
         <div className="credits-modal-hero">
             <div>
@@ -1252,533 +1299,580 @@ const DetailBody = ({ creditDetail, money }) => (
             />
         </div>
     </>
-);
+));
 
-export const DetailModal = ({
+export const DetailModal = React.memo(({
     show,
     onHide,
     detailLoading,
     creditDetail,
     money,
     onOpenEdit,
+    onOpenPrint,
     onOpenRestructure,
     onOpenReturn,
-}) => (
-    <Modal show={show} onHide={onHide} size="xl" {...MODAL_PROPS}>
-        <Modal.Header closeButton>
-            <Modal.Title>Detalle de credito</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-            {detailLoading || !creditDetail ? (
-                <ModalLoading />
-            ) : (
-                <DetailBody creditDetail={creditDetail} money={money} />
-            )}
-        </Modal.Body>
-        <Modal.Footer className="credits-detail-modal__footer">
-            <CreditActionButton
-                action="close-modal"
-                className="credits-detail-modal__btn credits-detail-modal__btn--secondary"
-                onClick={onHide}
-            >
-                Cerrar
-            </CreditActionButton>
-            {creditDetail?.can_edit_directly ? (
+}) => {
+    const shouldRenderBody = useDeferredModalContent(
+        show,
+        !detailLoading && !!creditDetail
+    );
+
+    return (
+        <Modal show={show} onHide={onHide} size="xl" {...MODAL_PROPS}>
+            <Modal.Header closeButton>
+                <Modal.Title>Detalle de credito</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+                {shouldRenderBody ? (
+                    <DetailBody creditDetail={creditDetail} money={money} />
+                ) : (
+                    <ModalLoading />
+                )}
+            </Modal.Body>
+            <Modal.Footer className="credits-detail-modal__footer">
                 <CreditActionButton
-                    action="edit-credit"
+                    action="print-credit-state"
                     className="credits-detail-modal__btn"
-                    onClick={onOpenEdit}
+                    onClick={onOpenPrint}
+                    disabled={!creditDetail}
                 >
-                    Editar credito
+                    Imprimir estado
                 </CreditActionButton>
-            ) : null}
-            {creditDetail?.can_restructure ? (
                 <CreditActionButton
-                    action="restructure-credit"
-                    className="credits-detail-modal__btn"
-                    onClick={onOpenRestructure}
+                    action="close-modal"
+                    className="credits-detail-modal__btn credits-detail-modal__btn--secondary"
+                    onClick={onHide}
                 >
-                    Reestructurar credito
+                    Cerrar
                 </CreditActionButton>
-            ) : null}
-            {creditDetail?.items?.some(
-                (item) => Number(item.available_return_quantity) > 0
-            ) ? (
+                {creditDetail?.can_edit_directly ? (
+                    <CreditActionButton
+                        action="edit-credit"
+                        className="credits-detail-modal__btn"
+                        onClick={onOpenEdit}
+                    >
+                        Editar credito
+                    </CreditActionButton>
+                ) : null}
+                {creditDetail?.can_restructure ? (
+                    <CreditActionButton
+                        action="restructure-credit"
+                        className="credits-detail-modal__btn"
+                        onClick={onOpenRestructure}
+                    >
+                        Reestructurar credito
+                    </CreditActionButton>
+                ) : null}
+                {creditDetail?.items?.some(
+                    (item) => Number(item.available_return_quantity) > 0
+                ) ? (
+                    <CreditActionButton
+                        action="register-return"
+                        className="credits-detail-modal__btn"
+                        onClick={onOpenReturn}
+                    >
+                        Registrar devolucion
+                    </CreditActionButton>
+                ) : null}
+            </Modal.Footer>
+        </Modal>
+    );
+});
+
+export const EditCreditModal = React.memo(({
+    show,
+    onHide,
+    creditDetail,
+    money,
+    form,
+    setForm,
+    errors,
+    saving,
+    onSubmit,
+}) => {
+    const shouldRenderBody = useDeferredModalContent(show, !!creditDetail);
+
+    return (
+        <Modal show={show} onHide={onHide} size="xl" {...MODAL_PROPS}>
+            <Modal.Header closeButton>
+                <Modal.Title>Editar credito</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+                {shouldRenderBody ? (
+                    <>
+                        <CreditTermsSummary
+                            creditDetail={creditDetail}
+                            form={form}
+                            money={money}
+                            title="Resumen previo"
+                            description="Ajuste cuotas, fechas, interes y tipo manteniendo intacto el historial existente."
+                        />
+
+                        <div className="credits-detail-grid mb-4 mt-4">
+                            <div className="credits-detail-item">
+                                <strong>Cliente</strong>
+                                <span>{creditDetail.customer_name}</span>
+                            </div>
+                            <div className="credits-detail-item">
+                                <strong>Plan actual</strong>
+                                <span>
+                                    {resolveInstallmentsCount(creditDetail)} cuotas /{" "}
+                                    {creditDetail.credit_type_label || "Automatico"}
+                                </span>
+                            </div>
+                            <div className="credits-detail-item">
+                                <strong>Total original</strong>
+                                <span>
+                                    {money(
+                                        creditDetail.original_total_amount ||
+                                            creditDetail.total_amount
+                                    )}
+                                </span>
+                            </div>
+                            <div className="credits-detail-item">
+                                <strong>Interes actual</strong>
+                                <span>
+                                    {Number(creditDetail.interest_rate || 0).toFixed(
+                                        2
+                                    )}
+                                    %
+                                </span>
+                            </div>
+                        </div>
+
+                        <CreditTermsFields
+                            form={form}
+                            setForm={setForm}
+                            errors={errors}
+                            confirmLabel="Confirmo que deseo actualizar este credito sin reestructurarlo."
+                        />
+                    </>
+                ) : (
+                    <ModalLoading />
+                )}
+            </Modal.Body>
+            <Modal.Footer>
+                <CreditActionButton action="cancel-modal" onClick={onHide}>
+                    Cancelar
+                </CreditActionButton>
+                <CreditActionButton
+                    action="save-credit-edit"
+                    onClick={onSubmit}
+                    disabled={saving || !creditDetail}
+                >
+                    {saving ? "Guardando..." : "Guardar cambios"}
+                </CreditActionButton>
+            </Modal.Footer>
+        </Modal>
+    );
+});
+
+export const RestructureCreditModal = React.memo(({
+    show,
+    onHide,
+    creditDetail,
+    money,
+    form,
+    setForm,
+    errors,
+    saving,
+    onSubmit,
+}) => {
+    const shouldRenderBody = useDeferredModalContent(show, !!creditDetail);
+
+    return (
+        <Modal show={show} onHide={onHide} size="xl" {...MODAL_PROPS}>
+            <Modal.Header closeButton>
+                <Modal.Title>Reestructurar credito</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+                {shouldRenderBody ? (
+                    <>
+                        <CreditTermsSummary
+                            creditDetail={creditDetail}
+                            form={form}
+                            money={money}
+                            title="Nuevo plan sobre saldo vigente"
+                            description="Se recalculara un nuevo plan tomando el saldo pendiente actual como base."
+                            isRestructure
+                        />
+
+                        <div className="credits-detail-grid mb-4 mt-4">
+                            <div className="credits-detail-item">
+                                <strong>Cliente</strong>
+                                <span>{creditDetail.customer_name}</span>
+                            </div>
+                            <div className="credits-detail-item">
+                                <strong>Saldo a reestructurar</strong>
+                                <span>{money(creditDetail.balance)}</span>
+                            </div>
+                            <div className="credits-detail-item">
+                                <strong>Estado actual</strong>
+                                <span>{creditDetail.status}</span>
+                            </div>
+                            <div className="credits-detail-item">
+                                <strong>Pagos historicos</strong>
+                                <span>{Number(creditDetail.payments_count || 0)}</span>
+                            </div>
+                        </div>
+
+                        <div className="credits-info-banner credits-info-banner--warning mb-4">
+                            Las cuotas actuales seran reemplazadas por un nuevo plan
+                            y el cambio quedara auditado en historial.
+                        </div>
+
+                        <CreditTermsFields
+                            form={form}
+                            setForm={setForm}
+                            errors={errors}
+                            confirmLabel="Confirmo que deseo reestructurar este credito y generar un nuevo plan."
+                            isRestructure
+                        />
+                    </>
+                ) : (
+                    <ModalLoading />
+                )}
+            </Modal.Body>
+            <Modal.Footer>
+                <CreditActionButton action="cancel-modal" onClick={onHide}>
+                    Cancelar
+                </CreditActionButton>
+                <CreditActionButton
+                    action="apply-restructure"
+                    onClick={onSubmit}
+                    disabled={saving || !creditDetail}
+                >
+                    {saving ? "Guardando..." : "Aplicar reestructuracion"}
+                </CreditActionButton>
+            </Modal.Footer>
+        </Modal>
+    );
+});
+
+export const PaymentModal = React.memo(({
+    show,
+    onHide,
+    detailLoading,
+    creditDetail,
+    money,
+    form,
+    setForm,
+    errors,
+    saving,
+    onSubmit,
+}) => {
+    const shouldRenderBody = useDeferredModalContent(
+        show,
+        !detailLoading && !!creditDetail
+    );
+
+    return (
+        <Modal
+            show={show}
+            onHide={onHide}
+            size="xl"
+            {...MODAL_PROPS}
+            contentClassName={`${MODAL_PROPS.contentClassName} credits-payment-modal`}
+        >
+            <Modal.Header closeButton>
+                <Modal.Title>Registrar pago</Modal.Title>
+            </Modal.Header>
+            <Modal.Body className="credits-payment-modal__body">
+                {shouldRenderBody ? (
+                    <>
+                        <div className="credits-detail-grid mb-5">
+                            <div className="credits-detail-item">
+                                <strong>Cliente</strong>
+                                <span>{creditDetail.customer_name}</span>
+                            </div>
+                            <div className="credits-detail-item">
+                                <strong>Saldo actual</strong>
+                                <span>{money(creditDetail.balance)}</span>
+                            </div>
+                            <div className="credits-detail-item">
+                                <strong>Vencimiento</strong>
+                                <span>{creditDetail.due_date}</span>
+                            </div>
+                        </div>
+
+                        <div className="credits-form-panel mb-5">
+                            {errors.general ? (
+                                <div className="alert alert-danger mb-4">
+                                    {errors.general}
+                                </div>
+                            ) : null}
+                            <Row className="g-4">
+                                <Col md={4}>
+                                    <Form.Label>Monto recibido</Form.Label>
+                                    <Form.Control
+                                        className="credits-form-control"
+                                        type="number"
+                                        min="0.01"
+                                        max={creditDetail.balance}
+                                        step="0.01"
+                                        value={form.amount}
+                                        onChange={(event) =>
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                amount: event.target.value,
+                                            }))
+                                        }
+                                    />
+                                    {errors.amount ? (
+                                        <div className="text-danger mt-2">
+                                            {errors.amount}
+                                        </div>
+                                    ) : null}
+                                </Col>
+                                <Col md={4}>
+                                    <Form.Label>Metodo de pago</Form.Label>
+                                    <Form.Select
+                                        className="credits-form-control"
+                                        value={form.payment_type}
+                                        onChange={(event) =>
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                payment_type: event.target.value,
+                                            }))
+                                        }
+                                    >
+                                        {PAYMENT_METHOD_OPTIONS.map((option) => (
+                                            <option
+                                                key={option.value}
+                                                value={option.value}
+                                            >
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </Form.Select>
+                                </Col>
+                                <Col md={12}>
+                                    <Form.Label>Nota</Form.Label>
+                                    <Form.Control
+                                        as="textarea"
+                                        rows={3}
+                                        className="credits-form-control"
+                                        value={form.note}
+                                        onChange={(event) =>
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                note: event.target.value,
+                                            }))
+                                        }
+                                    />
+                                </Col>
+                            </Row>
+                        </div>
+
+                        <div className="credits-modal-section">
+                            <h5 className="credits-modal-section-title">
+                                Cuotas pendientes
+                            </h5>
+                            <TableBox
+                                headers={[
+                                    "#",
+                                    "Monto",
+                                    "Pagado",
+                                    "Pendiente",
+                                    "Vence",
+                                    "Estado",
+                                ]}
+                                rows={[...(creditDetail.installments || [])]
+                                    .filter((row) => Number(row.pending_amount) > 0)
+                                    .sort((left, right) => {
+                                        const dueDateComparison = String(
+                                            left.due_date || ""
+                                        ).localeCompare(
+                                            String(right.due_date || "")
+                                        );
+                                        if (dueDateComparison !== 0) {
+                                            return dueDateComparison;
+                                        }
+
+                                        return (
+                                            Number(left.installment_number || 0) -
+                                            Number(right.installment_number || 0)
+                                        );
+                                    })
+                                    .map((row) => (
+                                        <tr key={row.id}>
+                                            <td>{row.installment_number}</td>
+                                            <td>{money(row.amount)}</td>
+                                            <td>{money(row.paid_amount)}</td>
+                                            <td>{money(row.pending_amount)}</td>
+                                            <td>{row.due_date}</td>
+                                            <td>
+                                                <StatusBadge status={row.status} />
+                                            </td>
+                                        </tr>
+                                    ))}
+                                emptyText="No hay cuotas pendientes."
+                            />
+                        </div>
+                    </>
+                ) : (
+                    <ModalLoading />
+                )}
+            </Modal.Body>
+            <Modal.Footer className="credits-payment-modal__footer">
+                <CreditActionButton action="close-modal" onClick={onHide}>
+                    Cerrar
+                </CreditActionButton>
+                <CreditActionButton
+                    action="register-payment"
+                    onClick={onSubmit}
+                    disabled={saving || !creditDetail}
+                    className="credits-payment-modal__submit"
+                >
+                    {saving ? "Guardando..." : "Registrar pago"}
+                </CreditActionButton>
+            </Modal.Footer>
+        </Modal>
+    );
+});
+
+export const ReturnModal = React.memo(({
+    show,
+    onHide,
+    detailLoading,
+    creditDetail,
+    money,
+    form,
+    setForm,
+    errors,
+    saving,
+    onSubmit,
+}) => {
+    const shouldRenderBody = useDeferredModalContent(
+        show,
+        !detailLoading && !!creditDetail
+    );
+
+    return (
+        <Modal show={show} onHide={onHide} size="xl" {...MODAL_PROPS}>
+            <Modal.Header closeButton>
+                <Modal.Title>Registrar devolucion</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+                {shouldRenderBody ? (
+                    <>
+                        <div className="credits-detail-grid mb-5">
+                            <div className="credits-detail-item">
+                                <strong>Cliente</strong>
+                                <span>{creditDetail.customer_name}</span>
+                            </div>
+                            <div className="credits-detail-item">
+                                <strong>Credito</strong>
+                                <span>#{creditDetail.id}</span>
+                            </div>
+                            <div className="credits-detail-item">
+                                <strong>Saldo actual</strong>
+                                <span>{money(creditDetail.balance)}</span>
+                            </div>
+                        </div>
+
+                        <div className="credits-modal-section">
+                            <h5 className="credits-modal-section-title">
+                                Productos disponibles para devolucion
+                            </h5>
+                            <TableBox
+                                headers={[
+                                    "Producto",
+                                    "Entregado",
+                                    "Devuelto",
+                                    "Disponible",
+                                    "Precio",
+                                    "Cantidad a devolver",
+                                ]}
+                                rows={(creditDetail.items || [])
+                                    .filter(
+                                        (row) =>
+                                            Number(row.available_return_quantity) > 0
+                                    )
+                                    .map((row) => (
+                                        <tr key={row.credit_item_id || row.id}>
+                                            <td>{row.product_name}</td>
+                                            <td>
+                                                {Number(row.quantity).toFixed(2)}
+                                            </td>
+                                            <td>
+                                                {Number(
+                                                    row.returned_quantity
+                                                ).toFixed(2)}
+                                            </td>
+                                            <td>
+                                                {Number(
+                                                    row.available_return_quantity
+                                                ).toFixed(2)}
+                                            </td>
+                                            <td>{money(row.product_price)}</td>
+                                            <td style={{ minWidth: 160 }}>
+                                                <Form.Control
+                                                    className="credits-form-control"
+                                                    type="number"
+                                                    min="0"
+                                                    max={row.available_return_quantity}
+                                                    step="0.01"
+                                                    value={
+                                                        form.quantities?.[
+                                                            row.credit_item_id
+                                                        ] || ""
+                                                    }
+                                                    onChange={(event) =>
+                                                        setForm((prev) => ({
+                                                            ...prev,
+                                                            quantities: {
+                                                                ...prev.quantities,
+                                                                [row.credit_item_id]:
+                                                                    event.target.value,
+                                                            },
+                                                        }))
+                                                    }
+                                                />
+                                            </td>
+                                        </tr>
+                                    ))}
+                                emptyText="Este credito no tiene productos devolvibles."
+                            />
+                            {errors.items ? (
+                                <div className="text-danger mt-2">
+                                    {errors.items}
+                                </div>
+                            ) : null}
+                        </div>
+
+                        <div className="credits-form-panel mt-4">
+                            <Form.Label>Nota</Form.Label>
+                            <Form.Control
+                                as="textarea"
+                                rows={3}
+                                className="credits-form-control"
+                                value={form.note}
+                                onChange={(event) =>
+                                    setForm((prev) => ({
+                                        ...prev,
+                                        note: event.target.value,
+                                    }))
+                                }
+                            />
+                        </div>
+                    </>
+                ) : (
+                    <ModalLoading />
+                )}
+            </Modal.Body>
+            <Modal.Footer>
+                <CreditActionButton action="close-modal" onClick={onHide}>
+                    Cerrar
+                </CreditActionButton>
                 <CreditActionButton
                     action="register-return"
-                    className="credits-detail-modal__btn"
-                    onClick={onOpenReturn}
+                    onClick={onSubmit}
+                    disabled={saving || !creditDetail}
                 >
-                    Registrar devolucion
+                    {saving ? "Guardando..." : "Registrar devolucion"}
                 </CreditActionButton>
-            ) : null}
-        </Modal.Footer>
-    </Modal>
-);
-
-export const EditCreditModal = ({
-    show,
-    onHide,
-    creditDetail,
-    money,
-    form,
-    setForm,
-    errors,
-    saving,
-    onSubmit,
-}) => (
-    <Modal show={show} onHide={onHide} size="xl" {...MODAL_PROPS}>
-        <Modal.Header closeButton>
-            <Modal.Title>Editar credito</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-            {!creditDetail ? (
-                <ModalLoading />
-            ) : (
-                <>
-                    <CreditTermsSummary
-                        creditDetail={creditDetail}
-                        form={form}
-                        money={money}
-                        title="Resumen previo"
-                        description="Ajuste cuotas, fechas, interes y tipo manteniendo intacto el historial existente."
-                    />
-
-                    <div className="credits-detail-grid mb-4 mt-4">
-                        <div className="credits-detail-item">
-                            <strong>Cliente</strong>
-                            <span>{creditDetail.customer_name}</span>
-                        </div>
-                        <div className="credits-detail-item">
-                            <strong>Plan actual</strong>
-                            <span>
-                                {resolveInstallmentsCount(creditDetail)} cuotas /{" "}
-                                {creditDetail.credit_type_label || "Automatico"}
-                            </span>
-                        </div>
-                        <div className="credits-detail-item">
-                            <strong>Total original</strong>
-                            <span>
-                                {money(
-                                    creditDetail.original_total_amount ||
-                                        creditDetail.total_amount
-                                )}
-                            </span>
-                        </div>
-                        <div className="credits-detail-item">
-                            <strong>Interes actual</strong>
-                            <span>
-                                {Number(creditDetail.interest_rate || 0).toFixed(2)}%
-                            </span>
-                        </div>
-                    </div>
-
-                    <CreditTermsFields
-                        form={form}
-                        setForm={setForm}
-                        errors={errors}
-                        confirmLabel="Confirmo que deseo actualizar este credito sin reestructurarlo."
-                    />
-                </>
-            )}
-        </Modal.Body>
-        <Modal.Footer>
-            <CreditActionButton action="cancel-modal" onClick={onHide}>
-                Cancelar
-            </CreditActionButton>
-            <CreditActionButton
-                action="save-credit-edit"
-                onClick={onSubmit}
-                disabled={saving || !creditDetail}
-            >
-                {saving ? "Guardando..." : "Guardar cambios"}
-            </CreditActionButton>
-        </Modal.Footer>
-    </Modal>
-);
-
-export const RestructureCreditModal = ({
-    show,
-    onHide,
-    creditDetail,
-    money,
-    form,
-    setForm,
-    errors,
-    saving,
-    onSubmit,
-}) => (
-    <Modal show={show} onHide={onHide} size="xl" {...MODAL_PROPS}>
-        <Modal.Header closeButton>
-            <Modal.Title>Reestructurar credito</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-            {!creditDetail ? (
-                <ModalLoading />
-            ) : (
-                <>
-                    <CreditTermsSummary
-                        creditDetail={creditDetail}
-                        form={form}
-                        money={money}
-                        title="Nuevo plan sobre saldo vigente"
-                        description="Se recalculara un nuevo plan tomando el saldo pendiente actual como base."
-                        isRestructure
-                    />
-
-                    <div className="credits-detail-grid mb-4 mt-4">
-                        <div className="credits-detail-item">
-                            <strong>Cliente</strong>
-                            <span>{creditDetail.customer_name}</span>
-                        </div>
-                        <div className="credits-detail-item">
-                            <strong>Saldo a reestructurar</strong>
-                            <span>{money(creditDetail.balance)}</span>
-                        </div>
-                        <div className="credits-detail-item">
-                            <strong>Estado actual</strong>
-                            <span>{creditDetail.status}</span>
-                        </div>
-                        <div className="credits-detail-item">
-                            <strong>Pagos historicos</strong>
-                            <span>{Number(creditDetail.payments_count || 0)}</span>
-                        </div>
-                    </div>
-
-                    <div className="credits-info-banner credits-info-banner--warning mb-4">
-                        Las cuotas actuales seran reemplazadas por un nuevo plan y el
-                        cambio quedara auditado en historial.
-                    </div>
-
-                    <CreditTermsFields
-                        form={form}
-                        setForm={setForm}
-                        errors={errors}
-                        confirmLabel="Confirmo que deseo reestructurar este credito y generar un nuevo plan."
-                        isRestructure
-                    />
-                </>
-            )}
-        </Modal.Body>
-        <Modal.Footer>
-            <CreditActionButton action="cancel-modal" onClick={onHide}>
-                Cancelar
-            </CreditActionButton>
-            <CreditActionButton
-                action="apply-restructure"
-                onClick={onSubmit}
-                disabled={saving || !creditDetail}
-            >
-                {saving ? "Guardando..." : "Aplicar reestructuracion"}
-            </CreditActionButton>
-        </Modal.Footer>
-    </Modal>
-);
-
-export const PaymentModal = ({
-    show,
-    onHide,
-    detailLoading,
-    creditDetail,
-    money,
-    form,
-    setForm,
-    errors,
-    saving,
-    onSubmit,
-}) => (
-    <Modal
-        show={show}
-        onHide={onHide}
-        size="xl"
-        {...MODAL_PROPS}
-        contentClassName={`${MODAL_PROPS.contentClassName} credits-payment-modal`}
-    >
-        <Modal.Header closeButton>
-            <Modal.Title>Registrar pago</Modal.Title>
-        </Modal.Header>
-        <Modal.Body className="credits-payment-modal__body">
-            {detailLoading || !creditDetail ? (
-                <ModalLoading />
-            ) : (
-                <>
-                    <div className="credits-detail-grid mb-5">
-                        <div className="credits-detail-item">
-                            <strong>Cliente</strong>
-                            <span>{creditDetail.customer_name}</span>
-                        </div>
-                        <div className="credits-detail-item">
-                            <strong>Saldo actual</strong>
-                            <span>{money(creditDetail.balance)}</span>
-                        </div>
-                        <div className="credits-detail-item">
-                            <strong>Vencimiento</strong>
-                            <span>{creditDetail.due_date}</span>
-                        </div>
-                    </div>
-
-                    <div className="credits-form-panel mb-5">
-                        {errors.general ? (
-                            <div className="alert alert-danger mb-4">
-                                {errors.general}
-                            </div>
-                        ) : null}
-                        <Row className="g-4">
-                            <Col md={4}>
-                                <Form.Label>Monto recibido</Form.Label>
-                                <Form.Control
-                                    className="credits-form-control"
-                                    type="number"
-                                    min="0.01"
-                                    max={creditDetail.balance}
-                                    step="0.01"
-                                    value={form.amount}
-                                    onChange={(event) =>
-                                        setForm((prev) => ({
-                                            ...prev,
-                                            amount: event.target.value,
-                                        }))
-                                    }
-                                />
-                                {errors.amount ? (
-                                    <div className="text-danger mt-2">
-                                        {errors.amount}
-                                    </div>
-                                ) : null}
-                            </Col>
-                            <Col md={4}>
-                                <Form.Label>Metodo de pago</Form.Label>
-                                <Form.Select
-                                    className="credits-form-control"
-                                    value={form.payment_type}
-                                    onChange={(event) =>
-                                        setForm((prev) => ({
-                                            ...prev,
-                                            payment_type: event.target.value,
-                                        }))
-                                    }
-                                >
-                                    {PAYMENT_METHOD_OPTIONS.map((option) => (
-                                        <option
-                                            key={option.value}
-                                            value={option.value}
-                                        >
-                                            {option.label}
-                                        </option>
-                                    ))}
-                                </Form.Select>
-                            </Col>
-                            <Col md={12}>
-                                <Form.Label>Nota</Form.Label>
-                                <Form.Control
-                                    as="textarea"
-                                    rows={3}
-                                    className="credits-form-control"
-                                    value={form.note}
-                                    onChange={(event) =>
-                                        setForm((prev) => ({
-                                            ...prev,
-                                            note: event.target.value,
-                                        }))
-                                    }
-                                />
-                            </Col>
-                        </Row>
-                    </div>
-
-                    <div className="credits-modal-section">
-                        <h5 className="credits-modal-section-title">
-                            Cuotas pendientes
-                        </h5>
-                        <TableBox
-                            headers={[
-                                "#",
-                                "Monto",
-                                "Pagado",
-                                "Pendiente",
-                                "Vence",
-                                "Estado",
-                            ]}
-                            rows={[...(creditDetail.installments || [])]
-                                .filter((row) => Number(row.pending_amount) > 0)
-                                .sort((left, right) => {
-                                    const dueDateComparison = String(
-                                        left.due_date || ""
-                                    ).localeCompare(String(right.due_date || ""));
-                                    if (dueDateComparison !== 0) {
-                                        return dueDateComparison;
-                                    }
-
-                                    return (
-                                        Number(left.installment_number || 0) -
-                                        Number(right.installment_number || 0)
-                                    );
-                                })
-                                .map((row) => (
-                                    <tr key={row.id}>
-                                        <td>{row.installment_number}</td>
-                                        <td>{money(row.amount)}</td>
-                                        <td>{money(row.paid_amount)}</td>
-                                        <td>{money(row.pending_amount)}</td>
-                                        <td>{row.due_date}</td>
-                                        <td>
-                                            <StatusBadge status={row.status} />
-                                        </td>
-                                    </tr>
-                                ))}
-                            emptyText="No hay cuotas pendientes."
-                        />
-                    </div>
-                </>
-            )}
-        </Modal.Body>
-        <Modal.Footer className="credits-payment-modal__footer">
-            <CreditActionButton action="close-modal" onClick={onHide}>
-                Cerrar
-            </CreditActionButton>
-            <CreditActionButton
-                action="register-payment"
-                onClick={onSubmit}
-                disabled={saving || !creditDetail}
-                className="credits-payment-modal__submit"
-            >
-                {saving ? "Guardando..." : "Registrar pago"}
-            </CreditActionButton>
-        </Modal.Footer>
-    </Modal>
-);
-
-export const ReturnModal = ({
-    show,
-    onHide,
-    detailLoading,
-    creditDetail,
-    money,
-    form,
-    setForm,
-    errors,
-    saving,
-    onSubmit,
-}) => (
-    <Modal show={show} onHide={onHide} size="xl" {...MODAL_PROPS}>
-        <Modal.Header closeButton>
-            <Modal.Title>Registrar devolucion</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-            {detailLoading || !creditDetail ? (
-                <ModalLoading />
-            ) : (
-                <>
-                    <div className="credits-detail-grid mb-5">
-                        <div className="credits-detail-item">
-                            <strong>Cliente</strong>
-                            <span>{creditDetail.customer_name}</span>
-                        </div>
-                        <div className="credits-detail-item">
-                            <strong>Credito</strong>
-                            <span>#{creditDetail.id}</span>
-                        </div>
-                        <div className="credits-detail-item">
-                            <strong>Saldo actual</strong>
-                            <span>{money(creditDetail.balance)}</span>
-                        </div>
-                    </div>
-
-                    <div className="credits-modal-section">
-                        <h5 className="credits-modal-section-title">
-                            Productos disponibles para devolucion
-                        </h5>
-                        <TableBox
-                            headers={[
-                                "Producto",
-                                "Entregado",
-                                "Devuelto",
-                                "Disponible",
-                                "Precio",
-                                "Cantidad a devolver",
-                            ]}
-                            rows={(creditDetail.items || [])
-                                .filter(
-                                    (row) =>
-                                        Number(row.available_return_quantity) > 0
-                                )
-                                .map((row) => (
-                                    <tr key={row.credit_item_id || row.id}>
-                                        <td>{row.product_name}</td>
-                                        <td>{Number(row.quantity).toFixed(2)}</td>
-                                        <td>
-                                            {Number(row.returned_quantity).toFixed(
-                                                2
-                                            )}
-                                        </td>
-                                        <td>
-                                            {Number(
-                                                row.available_return_quantity
-                                            ).toFixed(2)}
-                                        </td>
-                                        <td>{money(row.product_price)}</td>
-                                        <td style={{ minWidth: 160 }}>
-                                            <Form.Control
-                                                className="credits-form-control"
-                                                type="number"
-                                                min="0"
-                                                max={row.available_return_quantity}
-                                                step="0.01"
-                                                value={
-                                                    form.quantities?.[
-                                                        row.credit_item_id
-                                                    ] || ""
-                                                }
-                                                onChange={(event) =>
-                                                    setForm((prev) => ({
-                                                        ...prev,
-                                                        quantities: {
-                                                            ...prev.quantities,
-                                                            [row.credit_item_id]:
-                                                                event.target.value,
-                                                        },
-                                                    }))
-                                                }
-                                            />
-                                        </td>
-                                    </tr>
-                                ))}
-                            emptyText="Este credito no tiene productos devolvibles."
-                        />
-                        {errors.items ? (
-                            <div className="text-danger mt-2">{errors.items}</div>
-                        ) : null}
-                    </div>
-
-                    <div className="credits-form-panel mt-4">
-                        <Form.Label>Nota</Form.Label>
-                        <Form.Control
-                            as="textarea"
-                            rows={3}
-                            className="credits-form-control"
-                            value={form.note}
-                            onChange={(event) =>
-                                setForm((prev) => ({
-                                    ...prev,
-                                    note: event.target.value,
-                                }))
-                            }
-                        />
-                    </div>
-                </>
-            )}
-        </Modal.Body>
-        <Modal.Footer>
-            <CreditActionButton action="close-modal" onClick={onHide}>
-                Cerrar
-            </CreditActionButton>
-            <CreditActionButton
-                action="register-return"
-                onClick={onSubmit}
-                disabled={saving || !creditDetail}
-            >
-                {saving ? "Guardando..." : "Registrar devolucion"}
-            </CreditActionButton>
-        </Modal.Footer>
-    </Modal>
-);
+            </Modal.Footer>
+        </Modal>
+    );
+});

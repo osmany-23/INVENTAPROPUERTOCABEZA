@@ -367,6 +367,37 @@
     gap: 0.75rem;
 }
 
+.creditos-module .credits-sections .credits-action-btn {
+    --credits-btn-hover-brightness: 1.03;
+    --credits-btn-active-brightness: 0.97;
+    background: linear-gradient(180deg, #d6e3f6 0%, #c5d7ef 100%) !important;
+    border: 0 !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+}
+
+.creditos-module .credits-sections .credits-action-btn:hover,
+.creditos-module .credits-sections .credits-action-btn:focus,
+.creditos-module .credits-sections .credits-action-btn:active {
+    background: linear-gradient(180deg, #d6e3f6 0%, #c5d7ef 100%) !important;
+    border: 0 !important;
+    color: #ffffff !important;
+}
+
+.creditos-module .credits-sections .credits-action-btn--primary,
+.creditos-module .credits-sections .credits-action-btn--primary:hover,
+.creditos-module .credits-sections .credits-action-btn--primary:focus,
+.creditos-module .credits-sections .credits-action-btn--primary:active {
+    --credits-btn-hover-brightness: 1.08;
+    --credits-btn-active-brightness: 0.95;
+    background: linear-gradient(180deg, #7779f8 0%, #626cf3 100%) !important;
+    border: 0 !important;
+    box-shadow:
+        0 10px 20px rgba(99, 102, 241, 0.18),
+        inset 0 -2px 0 rgba(255, 255, 255, 0.18) !important;
+    color: #ffffff !important;
+}
+
 .credits-page .credits-action-btn,
 .credits-modal-content .credits-action-btn,
 .credit-alerts-modal .credits-action-btn {
@@ -959,9 +990,12 @@
 }
 
 .credits-modal-dialog {
-    opacity: 1;
-    transform: scale(0.96);
-    transition: transform 0.2s ease, opacity 0.2s ease;
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+    transition:
+        transform 0.18s ease-out,
+        opacity 0.18s ease-out;
+    will-change: transform, opacity;
 }
 
 .credits-modal-dialog--manual {
@@ -970,13 +1004,27 @@
 }
 
 .modal.show .credits-modal-dialog {
-    transform: scale(1);
+    opacity: 1;
+    transform: translateY(0) scale(1);
 }
 
 .credits-modal-content {
     border-radius: 1.25rem;
     box-shadow: 0 18px 36px rgba(15, 23, 42, 0.14);
     overflow: hidden;
+    backface-visibility: hidden;
+    contain: paint;
+    transform: translateZ(0);
+}
+
+.credits-modal-backdrop {
+    will-change: opacity;
+}
+
+.credits-modal-loading {
+    display: grid;
+    min-height: 220px;
+    place-items: center;
 }
 
 .credits-payment-modal {
@@ -2454,5 +2502,353 @@
     .creditos-module .credit-alerts-modal__button:active {
         filter: none !important;
         transform: none !important;
+    }
+}
+
+.credits-print-modal__body {
+    background:
+        radial-gradient(circle at top, rgba(15, 23, 42, 0.06), transparent 48%),
+        linear-gradient(180deg, #f8fafc, #eef2f7);
+    min-height: 68vh;
+}
+
+.credits-print-modal__toolbar {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    justify-content: space-between;
+    margin-bottom: 1.1rem;
+}
+
+.credits-print-modal__format-switch {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.credits-print-modal__meta {
+    color: #64748b;
+    font-size: 0.92rem;
+    font-weight: 700;
+}
+
+.credits-print-modal__loading,
+.credits-print-modal__error {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    justify-content: center;
+    min-height: 50vh;
+}
+
+.credits-print-modal__footer {
+    border-top: 1px solid rgba(var(--bs-secondary-rgb), 0.12);
+}
+
+.credits-print-preview-shell {
+    background: rgba(15, 23, 42, 0.04);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 20px;
+    overflow: auto;
+    padding: 1.25rem;
+}
+
+.credits-print-preview-shell--pos {
+    display: flex;
+    justify-content: center;
+}
+
+.credit-print-document {
+    background: #ffffff;
+    color: #000000;
+}
+
+.credit-print-document--pos {
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+    font-family: Poppins, Helvetica, "sans-serif";
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.35;
+    letter-spacing: 0;
+    max-width: 100%;
+    padding: 0.9rem 0.9rem 1rem;
+    width: 80mm;
+}
+
+.credit-print-document--letter {
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+    font-family: "Segoe UI", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0 auto;
+    max-width: 900px;
+    padding: 1.75rem;
+}
+
+.credit-print-pos__header,
+.credit-print-pos__footer {
+    text-align: center;
+}
+
+.credit-print-pos__logo-wrap {
+    margin-bottom: 0.6rem;
+}
+
+.credit-print-pos__title {
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.05;
+    margin-bottom: 0.6rem;
+    text-transform: uppercase;
+}
+
+.credit-print-logo {
+    display: block;
+    height: auto;
+    object-fit: contain;
+}
+
+.credit-print-logo--pos {
+    margin: 0 auto;
+    max-width: 100px;
+    max-height: 60px;
+}
+
+.credit-print-pos__block {
+    border-bottom: 3px dotted rgba(0, 0, 0, 0.84);
+    margin-top: 0;
+    padding: 0.45rem 0 0.55rem;
+}
+
+.credit-print-pos__label {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0;
+    margin-bottom: 0.2rem;
+    text-transform: uppercase;
+}
+
+.credit-print-pos__line {
+    align-items: flex-start;
+    display: flex;
+    gap: 0.5rem;
+    justify-content: space-between;
+}
+
+.credit-print-pos__item,
+.credit-print-pos__payment {
+    border-bottom: 3px dotted rgba(0, 0, 0, 0.84);
+    padding: 0.45rem 0;
+}
+
+.credit-print-pos__item:last-child,
+.credit-print-pos__payment:last-child {
+    border-bottom: 0;
+}
+
+.credit-print-pos__item-name {
+    font-weight: 500;
+}
+
+.credit-print-pos__payment-balance {
+    color: #000000;
+    margin-top: 0.12rem;
+}
+
+.credit-print-pos__empty {
+    color: #000000;
+    padding-top: 0.25rem;
+}
+
+.credit-print-pos__footer {
+    border-top: 0;
+    margin-top: 0.85rem;
+    padding-top: 0;
+}
+
+.credit-print-pos__footer div {
+    font-size: 15px;
+    line-height: 1.25;
+}
+
+.credit-print-pos__footer div + div {
+    margin-top: 0.3rem;
+}
+
+.credit-print-letter__header {
+    align-items: flex-start;
+    border-bottom: 2px solid #111827;
+    display: flex;
+    gap: 1.5rem;
+    justify-content: space-between;
+    padding-bottom: 1.25rem;
+}
+
+.credit-print-letter__brand {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.credit-print-logo--letter {
+    max-width: 120px;
+    max-height: 72px;
+}
+
+.credit-print-letter__eyebrow {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.35rem;
+    text-transform: uppercase;
+}
+
+.credit-print-letter__title {
+    font-size: 1.75rem;
+    font-weight: 800;
+    line-height: 1.1;
+    margin: 0 0 0.45rem;
+}
+
+.credit-print-letter__meta {
+    color: #334155;
+}
+
+.credit-print-letter__header-card {
+    border: 1px solid #111827;
+    display: grid;
+    gap: 0.75rem;
+    min-width: 230px;
+    padding: 1rem 1.1rem;
+}
+
+.credit-print-letter__header-card div,
+.credit-print-letter__panel-grid div {
+    display: grid;
+    gap: 0.18rem;
+}
+
+.credit-print-letter__grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 1.25rem;
+}
+
+.credit-print-letter__panel,
+.credit-print-letter__section {
+    border: 1px solid #111827;
+    margin-top: 1.25rem;
+    padding: 1rem 1.1rem;
+}
+
+.credit-print-letter__panel h2,
+.credit-print-letter__section h2 {
+    font-size: 1rem;
+    font-weight: 800;
+    margin: 0 0 0.85rem;
+    text-transform: uppercase;
+}
+
+.credit-print-letter__panel-grid {
+    display: grid;
+    gap: 0.9rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.credit-print-letter__summary {
+    display: grid;
+    gap: 0.85rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-top: 1.25rem;
+}
+
+.credit-print-letter__summary-card {
+    border: 1px solid #111827;
+    display: grid;
+    gap: 0.3rem;
+    padding: 1rem 1.1rem;
+}
+
+.credit-print-letter__summary-card span {
+    color: #334155;
+    font-size: 0.86rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.credit-print-letter__summary-card strong {
+    font-size: 1.3rem;
+}
+
+.credit-print-table {
+    margin-bottom: 0;
+    width: 100%;
+}
+
+.credit-print-table th,
+.credit-print-table td {
+    border-color: #111827 !important;
+    color: #000000;
+    padding: 0.55rem 0.6rem;
+    vertical-align: top;
+}
+
+.credit-print-table th {
+    background: rgba(15, 23, 42, 0.08);
+    font-size: 0.84rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.credit-print-table__empty {
+    color: #334155;
+    padding: 0.5rem 0;
+    text-align: center;
+}
+
+.credit-print-letter__footer {
+    border-top: 2px solid #111827;
+    display: grid;
+    gap: 0.35rem;
+    margin-top: 1.35rem;
+    padding-top: 1rem;
+    text-align: center;
+}
+
+@media (max-width: 991.98px) {
+    .credit-print-letter__header,
+    .credit-print-letter__grid,
+    .credit-print-letter__summary,
+    .credit-print-letter__panel-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .credit-print-letter__header {
+        flex-direction: column;
+    }
+
+    .credit-print-letter__header-card {
+        min-width: 0;
+        width: 100%;
+    }
+}
+
+@media print {
+    .credit-print-document {
+        box-shadow: none !important;
+        margin: 0 !important;
+    }
+
+    .credit-print-document--letter {
+        max-width: none;
+        padding: 0;
+    }
+
+    .credit-print-document--pos {
+        padding: 0.9rem 0.9rem 1rem;
     }
 }

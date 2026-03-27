@@ -84,6 +84,7 @@ const CREDIT_BUTTON_TONE_BY_ACTION = {
     "manual-qty": "neutral",
     "page-current": "primary",
     "page-nav": "neutral",
+    "print-credit-state": "primary",
     "register-payment": "success",
     "register-return": "danger",
     "remove-manual-item": "danger",
@@ -408,7 +409,7 @@ export const StatusBadge = React.memo(({ status }) => {
 });
 
 export const CreditCard = React.memo(
-    ({ row, money, onView, onPay, onEdit, onRestructure }) => {
+    ({ row, money, onView, onPay, onEdit, onRestructure, onPrint }) => {
     const normalizedStatus = normalizeStatus(row.status);
     const recoveredAmount = Number(row.recovered_amount ?? row.paid_total ?? 0);
     const collectionTarget = Number(
@@ -499,6 +500,15 @@ export const CreditCard = React.memo(
                         onClick={() => onView(row.id)}
                     >
                         Ver detalle
+                    </CreditActionButton>
+                </TooltipWrap>
+                <TooltipWrap text="Generar una vista previa e imprimir el estado actual del credito">
+                    <CreditActionButton
+                        action="print-credit-state"
+                        size="sm"
+                        onClick={() => onPrint(row.id)}
+                    >
+                        Imprimir estado
                     </CreditActionButton>
                 </TooltipWrap>
                 {row.can_edit_directly ? (

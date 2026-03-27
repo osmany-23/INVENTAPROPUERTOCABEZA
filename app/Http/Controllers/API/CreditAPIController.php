@@ -103,6 +103,16 @@ class CreditAPIController extends AppBaseController
         );
     }
 
+    public function printableState(Credit $credit): JsonResponse
+    {
+        abort_unless(hasPermissionStrict('pos.view'), 403);
+
+        return $this->sendResponse(
+            $this->creditService->getPrintableCreditState($credit),
+            'Printable credit state retrieved successfully'
+        );
+    }
+
     public function checkLimit(Request $request): JsonResponse
     {
         abort_unless(hasPermissionStrict('pos.view'), 403);

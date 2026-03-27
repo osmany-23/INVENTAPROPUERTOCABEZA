@@ -211,6 +211,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('credits/check-limit', [CreditAPIController::class, 'checkLimit']);
         Route::post('credits/customer-config', [CreditAPIController::class, 'upsertCustomerConfig']);
         Route::post('credits/manual', [CreditAPIController::class, 'storeManual']);
+        Route::get('creditos/{credit}/estado-imprimible', [CreditAPIController::class, 'printableState']);
+        Route::get('credits/{credit}/printable-state', [CreditAPIController::class, 'printableState']);
         Route::get('credits/{credit}', [CreditAPIController::class, 'show']);
         Route::put('credits/{credit}', [CreditAPIController::class, 'updateTerms']);
         Route::post('credits/{credit}/restructure', [CreditAPIController::class, 'restructure']);
