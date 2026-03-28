@@ -1035,13 +1035,8 @@ const Credits = () => {
                 }
 
                 const detail = response?.data?.data || null;
-                window.requestAnimationFrame(() => {
-                    if (detailRequestIdRef.current !== requestId) {
-                        return;
-                    }
-                    setCreditDetail(detail);
-                    options.onSuccess?.(detail);
-                });
+                setCreditDetail(detail);
+                options.onSuccess?.(detail);
 
                 return detail;
             } catch (error) {
@@ -1079,12 +1074,9 @@ const Credits = () => {
             setDetailLoading(true);
             closeAllCreditModals();
             openModal(true);
-
-            window.requestAnimationFrame(() => {
-                fetchCreditDetail(resolvedCreditId, {
-                    requestId,
-                    onSuccess,
-                });
+            fetchCreditDetail(resolvedCreditId, {
+                requestId,
+                onSuccess,
             });
         },
         [closeAllCreditModals, fetchCreditDetail]
@@ -1174,10 +1166,10 @@ const Credits = () => {
 
         if ("requestIdleCallback" in window) {
             idleId = window.requestIdleCallback(preloadCreditModalBundles, {
-                timeout: 1200,
+                timeout: 350,
             });
         } else {
-            timeoutId = window.setTimeout(preloadCreditModalBundles, 500);
+            timeoutId = window.setTimeout(preloadCreditModalBundles, 180);
         }
 
         return () => {
@@ -2137,104 +2129,120 @@ const Credits = () => {
             </div>
 
             <Suspense fallback={null}>
-                <ConfigModal
-                    show={showConfigModal}
-                    onHide={closeConfigModal}
-                    form={configForm}
-                    setForm={setConfigForm}
-                    errors={configErrors}
-                    customers={customers}
-                    saving={saving}
-                    onSubmit={saveConfig}
-                    existingCustomerIds={existingCustomerIds}
-                />
-                <ManualCreditModal
-                    show={showManualModal}
-                    onHide={closeManualModal}
-                    form={manualForm}
-                    setForm={setManualForm}
-                    errors={manualErrors}
-                    customers={customers}
-                    warehouses={warehouses}
-                    productsById={warehouseProductsById}
-                    productsLoading={manualProductsLoading}
-                    manualTotal={manualTotal}
-                    money={money}
-                    productPreview={manualProductPreview}
-                    searchResults={manualSearchResults}
-                    productInputRef={manualProductInputRef}
-                    saving={saving}
-                    onWarehouseChange={handleManualWarehouseChange}
-                    onProductSearchChange={handleManualProductSearchChange}
-                    onProductSearchSubmit={handleManualProductSearchSubmit}
-                    onSelectSearchResult={addManualProductToForm}
-                    onQuantityChange={handleManualItemQuantityChange}
-                    onRemoveItem={handleManualItemRemove}
-                    onSubmit={saveManualCredit}
-                />
-                <DetailModal
-                    show={showDetailModal}
-                    onHide={closeDetailModal}
-                    detailLoading={detailLoading}
-                    creditDetail={creditDetail}
-                    money={money}
-                    onOpenEdit={handleOpenEditFromDetail}
-                    onOpenPrint={handleOpenPrintFromDetail}
-                    onOpenRestructure={handleOpenRestructureFromDetail}
-                    onOpenReturn={handleOpenReturnFromDetail}
-                />
-                <EditCreditModal
-                    show={showEditModal}
-                    onHide={closeEditModal}
-                    creditDetail={creditDetail}
-                    money={money}
-                    form={editForm}
-                    setForm={setEditForm}
-                    errors={editErrors}
-                    saving={saving}
-                    onSubmit={saveCreditEdit}
-                />
-                <PaymentModal
-                    show={showPaymentModal}
-                    onHide={closePaymentModal}
-                    detailLoading={detailLoading}
-                    creditDetail={creditDetail}
-                    money={money}
-                    form={paymentForm}
-                    setForm={setPaymentForm}
-                    errors={paymentErrors}
-                    saving={saving}
-                    onSubmit={savePayment}
-                />
-                <CreditPrintPreviewModal
-                    show={showPrintPreviewModal}
-                    onHide={closePrintPreviewModal}
-                    creditId={printPreviewCreditId}
-                    money={money}
-                />
-                <RestructureCreditModal
-                    show={showRestructureModal}
-                    onHide={closeRestructureModal}
-                    creditDetail={creditDetail}
-                    money={money}
-                    form={restructureForm}
-                    setForm={setRestructureForm}
-                    errors={restructureErrors}
-                    saving={saving}
-                    onSubmit={saveCreditRestructure}
-                />
-                <ReturnModal
-                    show={showReturnModal}
-                    onHide={closeReturnModal}
-                    detailLoading={detailLoading}
-                    creditDetail={creditDetail}
-                    money={money}
-                    form={returnForm}
-                    setForm={setReturnForm}
-                    errors={returnErrors}
-                    saving={saving}
-                    onSubmit={saveReturn}
-                />
+                {showConfigModal ? (
+                    <ConfigModal
+                        show={showConfigModal}
+                        onHide={closeConfigModal}
+                        form={configForm}
+                        setForm={setConfigForm}
+                        errors={configErrors}
+                        customers={customers}
+                        saving={saving}
+                        onSubmit={saveConfig}
+                        existingCustomerIds={existingCustomerIds}
+                    />
+                ) : null}
+                {showManualModal ? (
+                    <ManualCreditModal
+                        show={showManualModal}
+                        onHide={closeManualModal}
+                        form={manualForm}
+                        setForm={setManualForm}
+                        errors={manualErrors}
+                        customers={customers}
+                        warehouses={warehouses}
+                        productsById={warehouseProductsById}
+                        productsLoading={manualProductsLoading}
+                        manualTotal={manualTotal}
+                        money={money}
+                        productPreview={manualProductPreview}
+                        searchResults={manualSearchResults}
+                        productInputRef={manualProductInputRef}
+                        saving={saving}
+                        onWarehouseChange={handleManualWarehouseChange}
+                        onProductSearchChange={handleManualProductSearchChange}
+                        onProductSearchSubmit={handleManualProductSearchSubmit}
+                        onSelectSearchResult={addManualProductToForm}
+                        onQuantityChange={handleManualItemQuantityChange}
+                        onRemoveItem={handleManualItemRemove}
+                        onSubmit={saveManualCredit}
+                    />
+                ) : null}
+                {showDetailModal ? (
+                    <DetailModal
+                        show={showDetailModal}
+                        onHide={closeDetailModal}
+                        detailLoading={detailLoading}
+                        creditDetail={creditDetail}
+                        money={money}
+                        onOpenEdit={handleOpenEditFromDetail}
+                        onOpenPrint={handleOpenPrintFromDetail}
+                        onOpenRestructure={handleOpenRestructureFromDetail}
+                        onOpenReturn={handleOpenReturnFromDetail}
+                    />
+                ) : null}
+                {showEditModal ? (
+                    <EditCreditModal
+                        show={showEditModal}
+                        onHide={closeEditModal}
+                        creditDetail={creditDetail}
+                        money={money}
+                        form={editForm}
+                        setForm={setEditForm}
+                        errors={editErrors}
+                        saving={saving}
+                        onSubmit={saveCreditEdit}
+                    />
+                ) : null}
+                {showPaymentModal ? (
+                    <PaymentModal
+                        show={showPaymentModal}
+                        onHide={closePaymentModal}
+                        detailLoading={detailLoading}
+                        creditDetail={creditDetail}
+                        money={money}
+                        form={paymentForm}
+                        setForm={setPaymentForm}
+                        errors={paymentErrors}
+                        saving={saving}
+                        onSubmit={savePayment}
+                    />
+                ) : null}
+                {showPrintPreviewModal ? (
+                    <CreditPrintPreviewModal
+                        show={showPrintPreviewModal}
+                        onHide={closePrintPreviewModal}
+                        creditId={printPreviewCreditId}
+                        money={money}
+                    />
+                ) : null}
+                {showRestructureModal ? (
+                    <RestructureCreditModal
+                        show={showRestructureModal}
+                        onHide={closeRestructureModal}
+                        creditDetail={creditDetail}
+                        money={money}
+                        form={restructureForm}
+                        setForm={setRestructureForm}
+                        errors={restructureErrors}
+                        saving={saving}
+                        onSubmit={saveCreditRestructure}
+                    />
+                ) : null}
+                {showReturnModal ? (
+                    <ReturnModal
+                        show={showReturnModal}
+                        onHide={closeReturnModal}
+                        detailLoading={detailLoading}
+                        creditDetail={creditDetail}
+                        money={money}
+                        form={returnForm}
+                        setForm={setReturnForm}
+                        errors={returnErrors}
+                        saving={saving}
+                        onSubmit={saveReturn}
+                    />
+                ) : null}
             </Suspense>
         </MasterLayout>
     );

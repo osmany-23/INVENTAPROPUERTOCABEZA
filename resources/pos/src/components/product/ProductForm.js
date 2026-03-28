@@ -1363,13 +1363,14 @@ const ProductForm = (props) => {
 
 
     return (
-        <div className="card">
-            <div className="card-body">
+        <div className="card product-form-shell">
+            <div className="card-body product-form-shell__body">
                 <Form>
                     <div className="row">
                         <div className="col-xl-8">
-                            <div className="card">
-                                <div className="row">
+                            <div className="card product-form-panel product-form-panel--main">
+                                <div className="card-body product-form-panel__body">
+                                    <div className="row">
                                     <div className="col-md-6 mb-3">
                                         <label className="form-label">
                                             {getFormattedMessage(
@@ -1614,95 +1615,95 @@ const ProductForm = (props) => {
                                                 : null}
                                         </span>
                                     </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                         <div className="col-xl-4">
-                            <div className="card">
-                                <label className="form-label">
-                                    {getFormattedMessage(
-                                        "product.input.multiple-image.label"
+                            <div className="card product-form-panel product-form-panel--aside">
+                                <div className="card-body product-form-panel__body">
+                                    <label className="form-label">
+                                        {getFormattedMessage(
+                                            "product.input.multiple-image.label"
+                                        )}
+                                        :{" "}
+                                    </label>
+                                    <MultipleImage
+                                        product={singleProduct}
+                                        fetchFiles={onChangeFiles}
+                                        transferImage={transferImage}
+                                        transferDeletedImageIds={
+                                            transferDeletedImageIds
+                                        }
+                                    />
+                                    {!singleProduct && (
+                                        <div className="product-form-panel__aside-stack">
+                                            <div className="mb-3">
+                                                <h1 className="text-center product-form-panel__aside-heading">
+                                                    {getFormattedMessage(
+                                                        "add-stock.title"
+                                                    )}{" "}
+                                                    :{" "}
+                                                </h1>
+                                            </div>
+                                            <div className="mb-3">
+                                                <ReactSelect
+                                                    data={warehouses}
+                                                    onChange={onWarehouseChange}
+                                                    defaultValue={
+                                                        productValue.warehouse_id
+                                                    }
+                                                    isWarehouseDisable={true}
+                                                    title={getFormattedMessage(
+                                                        "warehouse.title"
+                                                    )}
+                                                    errors={errors["warehouse_id"]}
+                                                    placeholder={formatPlaceholder(
+                                                        "purchase.select.warehouse.placeholder.label"
+                                                    )}
+                                                />
+                                            </div>
+                                            <div className="mb-3">
+                                                <ReactSelect
+                                                    data={suppliers}
+                                                    onChange={onSupplierChange}
+                                                    defaultValue={
+                                                        productValue.supplier_id
+                                                    }
+                                                    title={getFormattedMessage(
+                                                        "supplier.title"
+                                                    )}
+                                                    errors={errors["supplier_id"]}
+                                                    placeholder={formatPlaceholder(
+                                                        "purchase.select.supplier.placeholder.label"
+                                                    )}
+                                                />
+                                            </div>
+                                            <div className="mb-3">
+                                                <ReactSelect
+                                                    multiLanguageOption={
+                                                        statusFilterOptions
+                                                    }
+                                                    onChange={onStatusChange}
+                                                    name="status"
+                                                    title={getFormattedMessage(
+                                                        "purchase.select.status.label"
+                                                    )}
+                                                    value={productValue.status_id}
+                                                    errors={errors["status_id"]}
+                                                    defaultValue={statusDefaultValue[0]}
+                                                    placeholder={getFormattedMessage(
+                                                        "purchase.select.status.label"
+                                                    )}
+                                                />
+                                            </div>
+                                        </div>
                                     )}
-                                    :{" "}
-                                </label>
-                                <MultipleImage
-                                    product={singleProduct}
-                                    fetchFiles={onChangeFiles}
-                                    transferImage={transferImage}
-                                    transferDeletedImageIds={
-                                        transferDeletedImageIds
-                                    }
-                                />
-                            </div>
-                            {singleProduct ? (
-                                ""
-                            ) : (
-                                <div>
-                                    <div className="col-md-12 mb-3">
-                                        <h1 className={"text-center"}>
-                                            {getFormattedMessage(
-                                                "add-stock.title"
-                                            )}{" "}
-                                            :{" "}
-                                        </h1>
-                                    </div>
-                                    <div className="col-md-12 mb-3">
-                                        <ReactSelect
-                                            data={warehouses}
-                                            onChange={onWarehouseChange}
-                                            defaultValue={
-                                                productValue.warehouse_id
-                                            }
-                                            isWarehouseDisable={true}
-                                            title={getFormattedMessage(
-                                                "warehouse.title"
-                                            )}
-                                            errors={errors["warehouse_id"]}
-                                            placeholder={formatPlaceholder(
-                                                "purchase.select.warehouse.placeholder.label"
-                                            )}
-                                        />
-                                    </div>
-                                    <div className="col-md-12 mb-3">
-                                        <ReactSelect
-                                            data={suppliers}
-                                            onChange={onSupplierChange}
-                                            defaultValue={
-                                                productValue.supplier_id
-                                            }
-                                            title={getFormattedMessage(
-                                                "supplier.title"
-                                            )}
-                                            errors={errors["supplier_id"]}
-                                            placeholder={formatPlaceholder(
-                                                "purchase.select.supplier.placeholder.label"
-                                            )}
-                                        />
-                                    </div>
-
-                                    <div className="col-md-12 mb-3">
-                                        <ReactSelect
-                                            multiLanguageOption={
-                                                statusFilterOptions
-                                            }
-                                            onChange={onStatusChange}
-                                            name="status"
-                                            title={getFormattedMessage(
-                                                "purchase.select.status.label"
-                                            )}
-                                            value={productValue.status_id}
-                                            errors={errors["status_id"]}
-                                            defaultValue={statusDefaultValue[0]}
-                                            placeholder={getFormattedMessage(
-                                                "purchase.select.status.label"
-                                            )}
-                                        />
-                                    </div>
                                 </div>
-                            )}
+                            </div>
                         </div>
                         {!singleProduct && (
-                            <div className="row border-top pt-4">
+                            <div className="row product-form-shell__type-row border-top pt-4">
                                 <div className="col-md-4 mb-3">
                                     {!singleProduct ? (
                                         <ReactSelect
@@ -1819,7 +1820,7 @@ const ProductForm = (props) => {
                         !singleProduct &&
                         productValue.product_type?.value ===
                             SINGLE_PRODUCT_TYPE ? (
-                            <div className="row border-top pt-3">
+                            <div className="row product-form-shell__pricing-row border-top pt-3">
                                 <div className="col-md-3 mb-3">
                                     <label className="form-label">
                                         {getFormattedMessage(

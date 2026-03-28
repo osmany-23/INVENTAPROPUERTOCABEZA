@@ -14,6 +14,7 @@ import {
 } from "./totalRecordAction";
 import { setLoading } from "./loadingAction";
 import { getFormattedMessage } from "../../shared/sharedMethod";
+import { logAsyncDuration } from "../../shared/performance/posPerformance";
 
 export const fetchBaseUnits =
     (filter = {}, isLoading = true) =>
@@ -161,9 +162,13 @@ export const deleteBaseUnit = (unitId) => async (dispatch) => {
 };
 
 export const fetchAllBaseUnits = () => async (dispatch) => {
+    const startedAt =
+        typeof performance !== "undefined" ? performance.now() : 0;
+
     apiConfig
         .get(`base-units?page[size]=0`)
         .then((response) => {
+            logAsyncDuration("API products/filter-base-units", startedAt, 120);
             dispatch({
                 type: baseUnitsActionType.FETCH_ALL_BASE_UNITS,
                 payload: response.data.data,

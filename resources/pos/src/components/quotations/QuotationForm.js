@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Form, InputGroup } from 'react-bootstrap-v5';
 import moment from 'moment';
 import { connect, useDispatch } from 'react-redux';
-import { fetchProductsByWarehouse } from '../../store/action/productAction';
 import { editSale } from '../../store/action/salesAction';
 import ProductSearch from '../../shared/components/product-cart/search/ProductSearch';
 import ProductRowTable from '../../shared/components/sales/ProductRowTable';
@@ -20,7 +19,6 @@ import {
 import ReactDatePicker from '../../shared/datepicker/ReactDatePicker';
 import ProductMainCalculation from './ProductMainCalculation';
 import { calculateCartTotalAmount, calculateCartTotalTaxAmount } from '../../shared/calculation/calculation';
-import { prepareSaleProductArray } from '../../shared/prepareArray/prepareSaleArray';
 import ModelFooter from '../../shared/components/modelFooter';
 import { addToast } from '../../store/action/toastAction';
 import { quotationStatusOptions, toastType } from '../../constants';
@@ -35,9 +33,7 @@ const QuotationForm = ( props ) => {
         customers,
         warehouses,
         singleQuotation,
-        customProducts,
         products,
-        fetchProductsByWarehouse,
         fetchFrontSetting,
         frontSetting,
         editQuotation,
@@ -46,6 +42,7 @@ const QuotationForm = ( props ) => {
 
     const navigate = useNavigate();
     const dispatch = useDispatch();
+    const useFastQuotationSearch = true;
     const [ updateProducts, setUpdateProducts ] = useState( [] );
     const [ quantity, setQuantity ] = useState( 0 );
     const [ newCost, setNewCost ] = useState( '' );
@@ -108,10 +105,6 @@ const QuotationForm = ( props ) => {
             setUpdateProducts( singleQuotation.quotation_items );
         }
     }, [] );
-
-    useEffect( () => {
-        saleValue.warehouse_id.value && fetchProductsByWarehouse( saleValue?.warehouse_id?.value )
-    }, [ saleValue.warehouse_id.value ] )
 
     const handleValidation = () => {
         let error = {};
@@ -278,7 +271,11 @@ const QuotationForm = ( props ) => {
                         </label>
                         <ProductSearch values={saleValue} products={products} handleValidation={handleValidation}
                             updateProducts={updateProducts}
-                            setUpdateProducts={setUpdateProducts} customProducts={customProducts} />
+                            setUpdateProducts={setUpdateProducts}
+                            incrementOnDuplicate={true}
+                            enableWarehouseFastSearch={useFastQuotationSearch}
+                            fastSearchMinChars={1}
+                            fastSearchDebounceMs={120} />
                     </div>
                     <div>
                         <label className='form-label'>
@@ -362,7 +359,7 @@ const QuotationForm = ( props ) => {
 
 const mapStateToProps = ( state ) => {
     const { purchaseProducts, products, frontSetting, allConfigData } = state;
-    return { customProducts: prepareSaleProductArray( products ), purchaseProducts, products, frontSetting, allConfigData }
+    return { purchaseProducts, products, frontSetting, allConfigData }
 }
 
-export default connect( mapStateToProps, { editSale, editQuotation, fetchProductsByWarehouse, fetchFrontSetting } )( QuotationForm )
+export default connect( mapStateToProps, { editSale, editQuotation, fetchFrontSetting } )( QuotationForm )

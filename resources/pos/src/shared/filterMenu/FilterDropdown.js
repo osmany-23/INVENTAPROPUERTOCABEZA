@@ -60,6 +60,9 @@ const FilterDropdown = (props) => {
     const isReset = useSelector((state) => state.resetOption);
     const isShow = useSelector((state) => state.dropDownToggle);
     const menuRef = useRef(null);
+    const hasFetchedBaseUnitsRef = useRef(false);
+    const hasFetchedBrandsRef = useRef(false);
+    const hasFetchedProductCategoriesRef = useRef(false);
     const baseUnitFilterOptions = getFormattedOptions(baseUnitOptions);
     const statusFilterOptions = getFormattedOptions(statusOptions);
     const paymentFilterOptions = getFormattedOptions(paymentStatusOptions);
@@ -101,20 +104,74 @@ const FilterDropdown = (props) => {
         : undefined;
 
     useEffect(() => {
+        if (
+            !isShow ||
+            !isUnitFilter ||
+            hasFetchedBaseUnitsRef.current ||
+            (Array.isArray(base) && base.length > 0)
+        ) {
+            return;
+        }
+
+        hasFetchedBaseUnitsRef.current = true;
         fetchAllBaseUnits();
-    }, [fetchAllBaseUnits]);
+    }, [base, fetchAllBaseUnits, isShow, isUnitFilter]);
 
     useEffect(() => {
-        if (!Array.isArray(brands) || brands.length === 0) {
-            fetchAllBrands();
+        if (!isShow && (!Array.isArray(base) || base.length === 0)) {
+            hasFetchedBaseUnitsRef.current = false;
         }
-    }, [brands, fetchAllBrands]);
+    }, [base, isShow]);
 
     useEffect(() => {
-        if (!Array.isArray(productCategories) || productCategories.length === 0) {
-            fetchAllProductCategories();
+        if (
+            !isShow ||
+            !isBrandFilter ||
+            hasFetchedBrandsRef.current ||
+            (Array.isArray(brands) && brands.length > 0)
+        ) {
+            return;
         }
-    }, [productCategories, fetchAllProductCategories]);
+
+        hasFetchedBrandsRef.current = true;
+        fetchAllBrands();
+    }, [brands, fetchAllBrands, isBrandFilter, isShow]);
+
+    useEffect(() => {
+        if (!isShow && (!Array.isArray(brands) || brands.length === 0)) {
+            hasFetchedBrandsRef.current = false;
+        }
+    }, [brands, isShow]);
+
+    useEffect(() => {
+        if (
+            !isShow ||
+            !isProductCategoryFilter ||
+            hasFetchedProductCategoriesRef.current ||
+            (Array.isArray(productCategories) &&
+                productCategories.length > 0)
+        ) {
+            return;
+        }
+
+        hasFetchedProductCategoriesRef.current = true;
+        fetchAllProductCategories();
+    }, [
+        fetchAllProductCategories,
+        isProductCategoryFilter,
+        isShow,
+        productCategories,
+    ]);
+
+    useEffect(() => {
+        if (
+            !isShow &&
+            (!Array.isArray(productCategories) ||
+                productCategories.length === 0)
+        ) {
+            hasFetchedProductCategoriesRef.current = false;
+        }
+    }, [isShow, productCategories]);
 
     const transferStatusFilterOptions = getFormattedOptions(
         transferStatusOptions
@@ -127,7 +184,8 @@ const FilterDropdown = (props) => {
         };
     });
 
-    let baseOptions = [{ value: "0", label: "All" }, ...base];
+    const normalizedBaseOptions = Array.isArray(base) ? base : [];
+    let baseOptions = [{ value: "0", label: "All" }, ...normalizedBaseOptions];
 
     const statusDefaultValue = statusFilterOptions.map((option) => {
         return {

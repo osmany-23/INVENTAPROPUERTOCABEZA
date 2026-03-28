@@ -531,7 +531,7 @@
     "warehouse.details.title": "detalles del almac\u00e9n",
     "select.payment-type.label": "Tipo de pago",
     "payment-type.filter.cash.label": "Efectivo",
-    "payment-type.filter.cheque.label": "Credito",
+    "payment-type.filter.cheque.label": "Cheque",
     "payment-type.filter.bank-transfer.label": "Transferencia bancaria",
     "payment-type.filter.other.label": "Otra",
     "paying-amount-title": "Monto de pago",

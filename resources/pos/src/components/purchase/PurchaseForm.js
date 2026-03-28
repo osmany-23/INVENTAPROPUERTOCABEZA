@@ -101,6 +101,14 @@ const PurchaseForm = ( props ) => {
         const duplicateManufacturerLots = new Set();
 
         for ( const row of batchRows ) {
+            if ( !row?.batch_form_confirmed ) {
+                dispatch( addToast( {
+                    text: `Acepte el lote temporal para ${ row?.name || 'el producto por lote' } antes de guardar la compra.`,
+                    type: toastType.ERROR
+                } ) );
+                return false;
+            }
+
             const manufacturerLot = ( row?.lote_fabricante || '' ).trim();
             const quantityValue = parseNumber( row?.quantity, 0 );
             const costValue = parseNumber( row?.product_cost, 0 );

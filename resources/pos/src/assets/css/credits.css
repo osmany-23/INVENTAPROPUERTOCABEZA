@@ -365,29 +365,73 @@
 
 .credits-sections {
     gap: 0.75rem;
+    padding-bottom: 0.75rem;
 }
 
 .creditos-module .credits-sections .credits-action-btn {
-    --credits-btn-hover-brightness: 1.03;
-    --credits-btn-active-brightness: 0.97;
-    background: linear-gradient(180deg, #d6e3f6 0%, #c5d7ef 100%) !important;
+    --credits-btn-hover-brightness: 1;
+    --credits-btn-active-brightness: 1;
+    background: linear-gradient(180deg, #edf4ff 0%, #dde8fb 100%) !important;
     border: 0 !important;
-    color: #ffffff !important;
     box-shadow: none !important;
+    color: #6a88d6 !important;
+    filter: none !important;
+    overflow: visible !important;
+    position: relative;
+    transform: none !important;
+    transition: all 0.25s ease !important;
+    will-change: background, color, box-shadow;
 }
 
-.creditos-module .credits-sections .credits-action-btn:hover,
-.creditos-module .credits-sections .credits-action-btn:focus,
-.creditos-module .credits-sections .credits-action-btn:active {
-    background: linear-gradient(180deg, #d6e3f6 0%, #c5d7ef 100%) !important;
+.creditos-module .credits-sections .credits-action-btn::after {
+    background: #3f5fd8;
+    border-radius: 999px;
+    bottom: -0.65rem;
+    content: "";
+    height: 4px;
+    left: 50%;
+    opacity: 0;
+    pointer-events: none;
+    position: absolute;
+    transform: translateX(-50%) scaleX(0.65);
+    transform-origin: center;
+    transition: all 0.25s ease;
+    width: calc(100% - 0.9rem);
+}
+
+.creditos-module
+    .credits-sections
+    .credits-action-btn:not(.credits-action-btn--primary):not(:disabled):not(
+        .disabled
+    ):hover,
+.creditos-module
+    .credits-sections
+    .credits-action-btn:not(.credits-action-btn--primary):not(:disabled):not(
+        .disabled
+    ):focus,
+.creditos-module
+    .credits-sections
+    .credits-action-btn:not(.credits-action-btn--primary):not(:disabled):not(
+        .disabled
+    ):active {
+    background: linear-gradient(180deg, #e3efff 0%, #cfddfb 100%) !important;
+    box-shadow: none !important;
     border: 0 !important;
-    color: #ffffff !important;
+    color: #5a78d4 !important;
+    filter: none !important;
+    transform: none !important;
 }
 
 .creditos-module .credits-sections .credits-action-btn--primary,
-.creditos-module .credits-sections .credits-action-btn--primary:hover,
-.creditos-module .credits-sections .credits-action-btn--primary:focus,
-.creditos-module .credits-sections .credits-action-btn--primary:active {
+.creditos-module
+    .credits-sections
+    .credits-action-btn--primary:not(:disabled):not(.disabled):hover,
+.creditos-module
+    .credits-sections
+    .credits-action-btn--primary:not(:disabled):not(.disabled):focus,
+.creditos-module
+    .credits-sections
+    .credits-action-btn--primary:not(:disabled):not(.disabled):active {
     --credits-btn-hover-brightness: 1.08;
     --credits-btn-active-brightness: 0.95;
     background: linear-gradient(180deg, #7779f8 0%, #626cf3 100%) !important;
@@ -396,6 +440,13 @@
         0 10px 20px rgba(99, 102, 241, 0.18),
         inset 0 -2px 0 rgba(255, 255, 255, 0.18) !important;
     color: #ffffff !important;
+    filter: none !important;
+    transform: none !important;
+}
+
+.creditos-module .credits-sections .credits-action-btn--primary::after {
+    opacity: 1;
+    transform: translateX(-50%) scaleX(1);
 }
 
 .credits-page .credits-action-btn,
@@ -1861,7 +1912,7 @@
 
     .credits-sections {
         overflow-x: auto;
-        padding-bottom: 0.25rem;
+        padding-bottom: 0.75rem;
         white-space: nowrap;
     }
 

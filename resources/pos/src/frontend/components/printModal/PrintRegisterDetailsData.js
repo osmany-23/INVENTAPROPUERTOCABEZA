@@ -371,7 +371,7 @@ class PrintRegisterDetailsData extends React.PureComponent {
                                     padding: "8px 15px",
                                 }}
                             >
-                                Cobros de crédito
+                                {getFormattedMessage("credit.collections.title")}
                             </td>
                             <td
                                 style={{

@@ -10,6 +10,7 @@ import {
 import { setLoading } from "./loadingAction";
 import { getFormattedMessage } from "../../shared/sharedMethod";
 import { callUpdateBrandApi } from "./updateBrand";
+import { logAsyncDuration } from "../../shared/performance/posPerformance";
 
 const toggleBrandRefresh = (dispatch, getState) => {
     const shouldRefresh = !getState()?.isCallBrandApi;
@@ -154,9 +155,13 @@ export const deleteBrand = (brandsId) => async (dispatch, getState) => {
 };
 
 export const fetchAllBrands = () => async (dispatch) => {
+    const startedAt =
+        typeof performance !== "undefined" ? performance.now() : 0;
+
     apiConfig
         .get(`brands?page[size]=0`)
         .then((response) => {
+            logAsyncDuration("API products/filter-brands", startedAt, 120);
             dispatch({
                 type: brandsActionType.FETCH_ALL_BRANDS,
                 payload: response.data.data,

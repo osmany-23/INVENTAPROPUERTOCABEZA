@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import { Route, Navigate, Routes } from "react-router-dom";
 import "../../pos/src/assets/sass/style.react.scss";
 import { Tokens } from "./constants";
@@ -35,30 +35,32 @@ function AdminApp(props) {
     const routes = prepareRoutes(normalizedConfig);
 
     return (
-        <Routes>
-            {routes.map((route) => {
-                return route.ele ? (
-                    <Route
-                        key={route.path}
-                        exact={true}
-                        path={route.path}
-                        element={
-                            token !== null ? (
-                                <ProtectedRoute
-                                    allConfigData={allConfigData}
-                                    route={route.path}
-                                >
-                                    {route.ele}
-                                </ProtectedRoute>
-                            ) : (
-                                <Navigate replace to={"/login"} />
-                            )
-                        }
-                    />
-                ) : null;
-            })}
-            <Route path="*" element={<Navigate replace to={"/"} />} />
-        </Routes>
+        <Suspense fallback={<TopProgressBar />}>
+            <Routes>
+                {routes.map((route) => {
+                    return route.ele ? (
+                        <Route
+                            key={route.path}
+                            exact={true}
+                            path={route.path}
+                            element={
+                                token !== null ? (
+                                    <ProtectedRoute
+                                        allConfigData={allConfigData}
+                                        route={route.path}
+                                    >
+                                        {route.ele}
+                                    </ProtectedRoute>
+                                ) : (
+                                    <Navigate replace to={"/login"} />
+                                )
+                            }
+                        />
+                    ) : null;
+                })}
+                <Route path="*" element={<Navigate replace to={"/"} />} />
+            </Routes>
+        </Suspense>
     );
 }
 

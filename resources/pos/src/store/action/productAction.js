@@ -12,6 +12,7 @@ import { getFormattedMessage } from "../../shared/sharedMethod";
 import { setSavingButton } from "./saveButtonAction";
 import { callImportProductApi } from "./importProductApiAction";
 import { fetchStockAlert } from "./stockAlertAction";
+import { logAsyncDuration } from "../../shared/performance/posPerformance";
 
 export const fetchProducts =
     (filter = {}, isLoading = true) =>
@@ -215,6 +216,8 @@ export const fetchAllMainProducts =
     (filter = {}, isLoading = true, signal = null) =>
     async (dispatch) => {
         const requestId = ++mainProductsRequestSequence;
+        const startedAt =
+            typeof performance !== "undefined" ? performance.now() : 0;
         if (isLoading) {
             dispatch(setLoading(true));
         }
@@ -240,6 +243,8 @@ export const fetchAllMainProducts =
             if (requestId !== mainProductsRequestSequence || signal?.aborted) {
                 return;
             }
+
+            logAsyncDuration("API products/main-products", startedAt, 150);
 
             dispatch({
                 type: productActionType.FETCH_ALL_MAIN_PRODUCTS,

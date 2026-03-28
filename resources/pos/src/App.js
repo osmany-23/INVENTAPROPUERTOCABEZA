@@ -3,7 +3,12 @@ import { Route, useLocation, Navigate, Routes, useNavigate } from "react-router-
 import "../../pos/src/assets/sass/style.react.scss";
 import { useDispatch, useSelector } from "react-redux";
 import { IntlProvider } from "react-intl";
-import { settingsKey, Tokens } from "./constants";
+import {
+    apiBaseURL,
+    languageActionType,
+    settingsKey,
+    Tokens,
+} from "./constants";
 import Toasts from "./shared/toast/Toasts";
 import { fetchFrontSetting } from "./store/action/frontSettingAction";
 import { fetchConfig } from "./store/action/configAction";
@@ -15,6 +20,8 @@ import AdminApp from "./AdminApp";
 import { getFiles } from "./locales/index";
 import Cookies from "js-cookie";
 import { getDefaultRedirectRoute } from "./shared/permissionRoute";
+import { setupPosPerformanceMonitoring } from "./shared/performance/posPerformance";
+import apiConfig from "./config/apiConfig";
 
 const isLocaleObject = (value) =>
     Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -57,6 +64,7 @@ function App() {
     });
     const redirectTo = getDefaultRedirectRoute(config);
     const lastFetchedTokenRef = useRef(null);
+    const syncedLanguageRef = useRef(null);
 
     useEffect(() => {
         const getData = getFiles();
@@ -127,6 +135,48 @@ function App() {
         }
     }, [dispatch, isSessionExpired, location.pathname, navigate, redirectTo, token]);
 
+    useEffect(() => {
+        const activeLocale = updatedLanguage || selectedLanguage;
+
+        if (!token || !activeLocale || syncedLanguageRef.current === activeLocale) {
+            return;
+        }
+
+        syncedLanguageRef.current = activeLocale;
+
+        apiConfig
+            .get("languages?page[size]=0")
+            .then((languagesResponse) => {
+                const languagesData = languagesResponse?.data?.data || [];
+                const selectedLocaleRecord = languagesData.find(
+                    (item) => item?.attributes?.iso_code === activeLocale
+                );
+
+                if (!selectedLocaleRecord?.id) {
+                    return null;
+                }
+
+                return apiConfig.get(
+                    `${apiBaseURL.LANGUAGES}/translation/${selectedLocaleRecord.id}`
+                );
+            })
+            .then((translationResponse) => {
+                const latestTranslation = translationResponse?.data?.data;
+
+                if (!latestTranslation) {
+                    return;
+                }
+
+                dispatch({
+                    type: languageActionType.UPDATED_LANGUAGE,
+                    payload: latestTranslation,
+                });
+            })
+            .catch(() => {
+                syncedLanguageRef.current = null;
+            });
+    }, [dispatch, selectedLanguage, token, updatedLanguage]);
+
     const selectCSS = () => {
         if (updatedLanguage === "ar") {
             require("./assets/css/custom.rtl.css");
@@ -150,6 +200,10 @@ function App() {
     useEffect(() => {
         addRTLSupport(updatedLanguage ? updatedLanguage : selectedLanguage);
     }, [updatedLanguage, selectedLanguage]);
+
+    useEffect(() => {
+        setupPosPerformanceMonitoring();
+    }, []);
 
     return (
         <div className="d-flex flex-column flex-root">

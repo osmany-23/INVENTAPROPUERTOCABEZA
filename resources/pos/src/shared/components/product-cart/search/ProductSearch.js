@@ -308,25 +308,27 @@ const ProductSearch = (props) => {
                 typeof value === "string" ? value : value?.code
             );
             const normalizedCode = normalizeKey(selectedCode);
+            const selectedId = Number(value?.id);
 
             if (value?.product?.id) {
                 return value.product;
             }
 
-            const selectedId = Number(value?.id);
             if (Number.isFinite(selectedId) && selectedId > 0) {
-                const localById = localProducts.find(
-                    (item) => Number(item?.id) === selectedId
-                );
-                if (localById) {
-                    return localById;
-                }
-
                 const remoteById = remoteItems.find(
                     (item) => Number(item?.id) === selectedId
                 );
                 if (remoteById?.product) {
                     return remoteById.product;
+                }
+
+                if (!enableWarehouseFastSearch) {
+                    const localById = localProducts.find(
+                        (item) => Number(item?.id) === selectedId
+                    );
+                    if (localById) {
+                        return localById;
+                    }
                 }
             }
 
@@ -334,23 +336,22 @@ const ProductSearch = (props) => {
                 return null;
             }
 
-            const localByCode = localProducts.find((item) => {
-                const productCode = normalizeKey(item?.attributes?.code);
-                const altCode = normalizeKey(item?.attributes?.product_code);
-                return productCode === normalizedCode || altCode === normalizedCode;
-            });
-            if (localByCode) {
-                return localByCode;
+            if (!enableWarehouseFastSearch) {
+                const localByCode = localProducts.find((item) => {
+                    const productCode = normalizeKey(item?.attributes?.code);
+                    const altCode = normalizeKey(item?.attributes?.product_code);
+                    return (
+                        productCode === normalizedCode ||
+                        altCode === normalizedCode
+                    );
+                });
+                return localByCode || null;
             }
 
             const cacheKey = `${warehouseId}|${normalizedCode}`;
             const cachedProduct = exactCodeCacheRef.current.get(cacheKey);
             if (cachedProduct) {
                 return cachedProduct;
-            }
-
-            if (!enableWarehouseFastSearch) {
-                return null;
             }
 
             const fastProducts = await fetchFastProducts(selectedCode, {

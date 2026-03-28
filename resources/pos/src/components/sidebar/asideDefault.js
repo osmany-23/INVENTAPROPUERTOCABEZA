@@ -1,4 +1,4 @@
-import React from "react";
+import React, { memo } from "react";
 import AsideMenu from "./asideMenu";
 
 const AsideDefault = (props) => {
@@ -23,4 +23,4 @@ const AsideDefault = (props) => {
     );
 };
 
-export default AsideDefault;
+export default memo(AsideDefault);

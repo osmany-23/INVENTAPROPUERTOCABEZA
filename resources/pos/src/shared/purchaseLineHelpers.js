@@ -126,6 +126,12 @@ export const decoratePurchaseRow = (row = {}, attributes = {}, options = {}) => 
         ...baseRow,
         is_batch_purchase_line: true,
         is_batch_purchase_locked: Boolean(row.is_batch_purchase_locked),
+        batch_form_confirmed:
+            row.batch_form_confirmed ??
+            Boolean(row.is_batch_purchase_locked),
+        batch_form_collapsed:
+            row.batch_form_collapsed ??
+            Boolean(row.is_batch_purchase_locked),
         codigo_lote_sistema:
             row.codigo_lote_sistema || row.batch?.codigo_lote_sistema || "",
         codigo_lote_sistema_preview:

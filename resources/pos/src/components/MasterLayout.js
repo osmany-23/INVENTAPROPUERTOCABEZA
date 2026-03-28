@@ -1,4 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, {
+    Profiler,
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
 import { connect } from "react-redux";
 import AsideDefault from "./sidebar/asideDefault";
 import Header from "./header/Header";
@@ -11,17 +17,15 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBars } from "@fortawesome/free-solid-svg-icons";
 import { normalizePermissions } from "../shared/permissionRoute";
 import { useLocation } from "react-router-dom";
+import {
+    createRenderProfiler,
+    markNavigationReady,
+} from "../shared/performance/posPerformance";
 
 const SIDEBAR_COLLAPSE_STORAGE_KEY = "pos_sidebar_collapsed";
 
 const MasterLayout = (props) => {
-    const {
-        children,
-        newPermissions,
-        frontSetting,
-        config,
-        allConfigData,
-    } = props;
+    const { children, frontSetting, config, allConfigData } = props;
     const [isResponsiveMenu, setIsResponsiveMenu] = useState(false);
     const [isMenuCollapse, setIsMenuCollapse] = useState(() => {
         try {
@@ -34,10 +38,17 @@ const MasterLayout = (props) => {
             return false;
         }
     });
-    const newRoutes = config && prepareRoutes(config);
+    const newRoutes = useMemo(
+        () => (config ? prepareRoutes(config) : []),
+        [config]
+    );
     const token = localStorage.getItem(Tokens.ADMIN);
     const location = useLocation();
     const isReportRoute = location.pathname.includes("/report");
+    const sidebarRenderProfiler = useMemo(
+        () => createRenderProfiler("sidebar/AsideMenu", 20),
+        []
+    );
 
     useEffect(() => {
         if (!token) {
@@ -60,13 +71,23 @@ const MasterLayout = (props) => {
         setIsResponsiveMenu(false);
     }, [location.pathname]);
 
-    const menuClick = () => {
-        setIsResponsiveMenu((currentValue) => !currentValue);
-    };
+    useEffect(() => {
+        const animationFrameId = window.requestAnimationFrame(() => {
+            markNavigationReady(location.pathname, `route:${location.pathname}`);
+        });
 
-    const menuIconClick = () => {
+        return () => {
+            window.cancelAnimationFrame(animationFrameId);
+        };
+    }, [location.pathname]);
+
+    const menuClick = useCallback(() => {
+        setIsResponsiveMenu((currentValue) => !currentValue);
+    }, []);
+
+    const menuIconClick = useCallback(() => {
         setIsMenuCollapse((currentValue) => !currentValue);
-    };
+    }, []);
 
     return (
         <div
@@ -74,14 +95,16 @@ const MasterLayout = (props) => {
                 isMenuCollapse ? " app-shell--sidebar-collapsed" : ""
             }`}
         >
-            <AsideDefault
-                asideConfig={newRoutes}
-                frontSetting={frontSetting}
-                isResponsiveMenu={isResponsiveMenu}
-                menuClick={menuClick}
-                menuIconClick={menuIconClick}
-                isMenuCollapse={isMenuCollapse}
-            />
+            <Profiler id="Sidebar" onRender={sidebarRenderProfiler}>
+                <AsideDefault
+                    asideConfig={newRoutes}
+                    frontSetting={frontSetting}
+                    isResponsiveMenu={isResponsiveMenu}
+                    menuClick={menuClick}
+                    menuIconClick={menuIconClick}
+                    isMenuCollapse={isMenuCollapse}
+                />
+            </Profiler>
             <div
                 className={`${
                     isMenuCollapse === true ? "wrapper-res" : "wrapper"
@@ -153,16 +176,8 @@ const prepareRoutes = (config) => {
 };
 
 const mapStateToProps = (state) => {
-    const newPermissions = [];
-    const { permissions, settings, frontSetting, config, allConfigData } =
-        state;
-
-    if (permissions) {
-        permissions.forEach((permission) =>
-            newPermissions.push(permission.attributes.name)
-        );
-    }
-    return { newPermissions, settings, frontSetting, config, allConfigData };
+    const { frontSetting, config, allConfigData } = state;
+    return { frontSetting, config, allConfigData };
 };
 
 export default connect(mapStateToProps)(MasterLayout);

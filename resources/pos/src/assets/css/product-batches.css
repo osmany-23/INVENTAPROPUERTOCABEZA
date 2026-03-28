@@ -356,15 +356,109 @@
     color: #ffffff !important;
 }
 
+.product-form-shell {
+    border: 1px solid #e5eaf5;
+    border-radius: 26px;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+    box-shadow: 0 18px 38px rgba(15, 23, 42, 0.06);
+}
+
+.product-form-shell__body {
+    padding: 1.5rem 1.6rem;
+}
+
+.product-form-panel {
+    height: 100%;
+    border: 1px solid #e4e9f5 !important;
+    border-radius: 22px !important;
+    background: #ffffff;
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.05);
+}
+
+.product-form-panel__body {
+    padding: 1.35rem 1.4rem 1.15rem;
+}
+
+.product-form-panel__body > .row {
+    row-gap: 0.1rem;
+}
+
+.product-form-panel .form-label {
+    color: #1f2937;
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1.45;
+}
+
+.product-form-panel .form-control,
+.product-form-panel .form-select,
+.product-form-panel .input-group-text {
+    min-height: 46px;
+    border-radius: 14px;
+    border-color: #d7def3;
+    box-shadow: none;
+}
+
+.product-form-panel .form-control:focus,
+.product-form-panel .form-select:focus {
+    border-color: rgba(101, 113, 255, 0.52);
+    box-shadow: 0 0 0 0.15rem rgba(101, 113, 255, 0.12);
+}
+
+.product-form-panel .input-group > .form-control {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.product-form-panel .input-group > .input-group-text,
+.product-form-panel .input-group > .btn {
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+}
+
+.product-form-panel .input-group > .btn {
+    min-width: 66px;
+    border-top-right-radius: 14px !important;
+    border-bottom-right-radius: 14px !important;
+    box-shadow: none !important;
+}
+
+.product-form-panel .dropdown-side-btn .model-dtn {
+    min-width: 66px;
+    border-top-right-radius: 14px !important;
+    border-bottom-right-radius: 14px !important;
+    box-shadow: none !important;
+}
+
+.product-form-panel__aside-heading {
+    margin: 0.15rem 0 1.1rem;
+    color: #111827;
+    font-size: 1.32rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1.35;
+}
+
+.product-form-panel__aside-stack {
+    margin-top: 1.4rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid #eef2f7;
+}
+
+.product-form-shell__type-row,
+.product-form-shell__pricing-row {
+    margin-top: 0.45rem;
+    border-top-color: #e8edf7 !important;
+}
+
 .product-batch-draft {
     width: 100%;
-    padding: 1.15rem;
-    border: 1px solid rgba(101, 113, 255, 0.22);
+    padding: 1.4rem;
+    border: 1px solid #e4e9f5;
     border-radius: 22px;
-    background:
-        radial-gradient(circle at top right, rgba(101, 113, 255, 0.12), transparent 34%),
-        linear-gradient(180deg, #ffffff 0%, #f7f9ff 100%);
-    box-shadow: 0 18px 32px rgba(15, 23, 42, 0.08);
+    background: #ffffff;
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.05);
 }
 
 .product-batch-draft__header {
@@ -372,69 +466,123 @@
     justify-content: space-between;
     gap: 1rem;
     align-items: center;
-    margin-bottom: 1rem;
+    margin-bottom: 1.1rem;
+    padding-bottom: 0.95rem;
+    border-bottom: 1px solid #eef2f7;
 }
 
 .product-batch-draft__eyebrow {
     display: inline-flex;
     align-items: center;
-    padding: 0.32rem 0.72rem;
+    padding: 0.3rem 0.7rem;
     border-radius: 999px;
-    background: rgba(101, 113, 255, 0.12);
-    color: #6571ff;
-    font-size: 0.75rem;
-    font-weight: 800;
-    letter-spacing: 0.01em;
-    text-transform: uppercase;
+    background: #f3f6ff;
+    color: #4b5563;
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
 }
 
 .product-batch-draft__title {
-    margin: 0.7rem 0 0.35rem;
+    margin: 0.45rem 0 0.3rem;
     color: #111827;
-    font-size: 1.2rem;
-    font-weight: 800;
+    font-size: 1.32rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1.35;
 }
 
 .product-batch-draft__subtitle {
     margin: 0;
-    color: #374151;
-    font-size: 0.92rem;
-    line-height: 1.45;
+    color: #6b7280;
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.5;
+    max-width: 760px;
 }
 
 .product-batch-draft .form-label {
-    color: #334155;
-    font-weight: 700;
+    color: #1f2937;
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1.45;
+}
+
+.product-batch-draft .form-control,
+.product-batch-draft .form-select,
+.product-batch-draft .input-group-text {
+    min-height: 46px;
+    border-radius: 14px;
+    border-color: #d7def3;
+    background: #ffffff;
+    color: #111827;
+    box-shadow: none;
 }
 
 .product-batch-draft .form-control:focus,
+.product-batch-draft .form-select:focus,
 .product-batch-draft .input-group .form-control:focus {
-    border-color: #6571ff;
-    box-shadow: 0 0 0 0.2rem rgba(101, 113, 255, 0.12);
+    border-color: rgba(101, 113, 255, 0.52);
+    box-shadow: 0 0 0 0.15rem rgba(101, 113, 255, 0.12);
+}
+
+.product-batch-draft .input-group > .form-control {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.product-batch-draft .input-group > .input-group-text {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 700;
+}
+
+.product-batch-draft textarea.form-control {
+    min-height: 108px;
+}
+
+.product-batch-draft__notice {
+    margin-bottom: 1.1rem !important;
+    padding: 0.9rem 1rem !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(101, 113, 255, 0.16) !important;
+    background: #f8fbff !important;
+    color: #3041b8 !important;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.45;
+    box-shadow: none !important;
 }
 
 .product-batch-draft__add-btn,
 .product-batch-draft__remove-btn {
-    border: none;
-    border-radius: 10px;
-    color: #ffffff;
+    border-radius: 12px;
     cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .product-batch-draft__add-btn {
     background: #6571ff;
+    border: 1px solid #6571ff;
+    color: #ffffff;
     padding: 0.72rem 1rem;
-    font-weight: 700;
+    font-size: 0.875rem;
+    font-weight: 500;
     white-space: nowrap;
-    box-shadow: 0 12px 24px rgba(101, 113, 255, 0.24);
+    box-shadow: none;
 }
 
 .product-batch-draft__remove-btn {
-    background: #dc2626;
-    padding: 0.45rem 0.8rem;
-    font-size: 0.8rem;
-    font-weight: 700;
+    background: #f8fafc;
+    border: 1px solid #d7deeb;
+    color: #55657f;
+    padding: 0.48rem 0.85rem;
+    font-size: 0.875rem;
+    font-weight: 500;
 }
 
 .product-batch-draft__remove-btn:disabled {
@@ -452,8 +600,21 @@
 
 .product-batch-draft__add-btn:hover,
 .product-batch-draft__remove-btn:hover {
-    transform: translateY(-1px);
-    filter: brightness(1.04);
+    filter: none;
+    transform: none;
+}
+
+.product-batch-draft__add-btn:hover,
+.product-batch-draft__add-btn:focus {
+    background: #4f5af0;
+    border-color: #4f5af0;
+}
+
+.product-batch-draft__remove-btn:hover,
+.product-batch-draft__remove-btn:focus {
+    background: #eef2f7;
+    border-color: #c9d3e5;
+    color: #334155;
 }
 
 .product-batch-draft__list {
@@ -463,19 +624,19 @@
 }
 
 .product-batch-draft__card {
-    padding: 1.15rem;
-    border-radius: 20px;
-    border: 1px solid rgba(101, 113, 255, 0.2);
-    background: #ffffff;
-    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06);
+    padding: 1.2rem 1.25rem;
+    border-radius: 18px;
+    border: 1px solid #e4e9f5;
+    background: linear-gradient(180deg, #ffffff 0%, #fcfdff 100%);
+    box-shadow: none;
     animation: productBatchDraftIn 0.24s ease-out;
-    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color 0.2s ease, background 0.2s ease;
 }
 
 .product-batch-draft__card:hover {
-    transform: scale(1.02);
-    border-color: #6571ff;
-    box-shadow: 0 20px 32px rgba(15, 23, 42, 0.1);
+    transform: none;
+    border-color: #d5def1;
+    box-shadow: none;
 }
 
 .product-batch-draft__card-head,
@@ -487,9 +648,9 @@
 .product-batch-draft__card-head {
     justify-content: space-between;
     gap: 0.8rem;
-    margin-bottom: 1.05rem;
+    margin-bottom: 1.1rem;
     padding-bottom: 0.9rem;
-    border-bottom: 1px solid rgba(101, 113, 255, 0.14);
+    border-bottom: 1px solid #eef2f7;
 }
 
 .product-batch-draft__card-meta {
@@ -519,12 +680,12 @@
     align-items: center;
     padding: 0.4rem 0.8rem;
     border-radius: 999px;
-    background: #6571ff;
-    color: #ffffff;
-    font-size: 0.8rem;
-    font-weight: 800;
+    background: #eef2ff;
+    color: #5562f5;
+    font-size: 0.8125rem;
+    font-weight: 500;
     line-height: 1;
-    box-shadow: 0 8px 20px rgba(101, 113, 255, 0.24);
+    box-shadow: none;
 }
 
 .product-batch-draft__chip {
@@ -532,10 +693,10 @@
     align-items: center;
     padding: 0.34rem 0.68rem;
     border-radius: 999px;
-    background: #eef2ff;
-    color: #3242bc;
-    font-size: 0.76rem;
-    font-weight: 700;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 0.8125rem;
+    font-weight: 500;
 }
 
 @keyframes productBatchDraftIn {
@@ -1069,6 +1230,104 @@
     font-size: 0.78rem;
 }
 
+.purchase-batch-editor__error {
+    display: block;
+    margin-top: 0.38rem;
+    color: #dc2626;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.purchase-batch-editor__footer {
+    margin-top: 1rem;
+    padding-top: 0.95rem;
+    border-top: 1px solid rgba(101, 113, 255, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.9rem;
+}
+
+.purchase-batch-editor__footer-text {
+    color: #475569;
+    font-size: 0.84rem;
+    line-height: 1.45;
+}
+
+.purchase-batch-editor__accept-btn {
+    background: #6571ff !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 12px !important;
+    padding: 0.7rem 1rem !important;
+    font-weight: 700 !important;
+    white-space: nowrap;
+    box-shadow: none !important;
+}
+
+.purchase-batch-editor__accept-btn:hover,
+.purchase-batch-editor__accept-btn:focus {
+    background: #4f5af0 !important;
+    color: #ffffff !important;
+}
+
+.purchase-batch-editor__compact {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem 1rem;
+    padding: 0.95rem 1rem;
+    border-radius: 18px;
+    border: 1px solid rgba(101, 113, 255, 0.12);
+    background: #ffffff;
+}
+
+.purchase-batch-editor__compact-list {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.purchase-batch-editor__compact-label {
+    color: #6571ff;
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.purchase-batch-editor__compact-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #334155;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.purchase-batch-editor__edit-btn {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 0.45rem 0.2rem !important;
+    color: #6571ff !important;
+    font-size: 0.88rem !important;
+    font-weight: 700 !important;
+    text-decoration: none !important;
+    white-space: nowrap;
+    box-shadow: none !important;
+}
+
+.purchase-batch-editor__edit-btn:hover,
+.purchase-batch-editor__edit-btn:focus {
+    color: #4f5af0 !important;
+}
+
 .purchase-lot-card-grid {
     display: grid;
     gap: 0.9rem;
@@ -1284,6 +1543,16 @@
 }
 
 @media (max-width: 576px) {
+    .product-form-shell__body,
+    .product-form-panel__body,
+    .product-batch-draft {
+        padding: 1rem;
+    }
+
+    .product-form-panel__aside-heading {
+        font-size: 1.45rem;
+    }
+
     .batch-manager__hero,
     .batch-manager__panel,
     .batch-manager__list-panel,
@@ -1308,6 +1577,18 @@
     .purchase-batch-editor,
     .purchase-lot-card {
         padding: 1rem;
+    }
+
+    .purchase-batch-editor__footer,
+    .purchase-batch-editor__compact {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .purchase-batch-editor__accept-btn,
+    .purchase-batch-editor__edit-btn {
+        width: 100%;
+        justify-content: center;
     }
 
     .purchase-batch-editor__header,

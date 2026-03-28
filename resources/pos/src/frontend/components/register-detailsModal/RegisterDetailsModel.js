@@ -208,7 +208,10 @@ function RegisterDetailsModel(props) {
                             </tr>
                             <tr>
                                 <td>
-                                    Cobros de crédito:
+                                    {getFormattedMessage(
+                                        "credit.collections.title"
+                                    )}
+                                    :
                                 </td>
                                 <td>
                                     {currencySymbolHandling(

@@ -91,21 +91,18 @@ const useDeferredModalContent = (show, ready = true) => {
         }
 
         let frameId = 0;
-        let nestedFrameId = 0;
-
         frameId = window.requestAnimationFrame(() => {
-            nestedFrameId = window.requestAnimationFrame(() => {
-                setShouldRenderContent(true);
-            });
+            setShouldRenderContent(true);
         });
 
         return () => {
             window.cancelAnimationFrame(frameId);
-            window.cancelAnimationFrame(nestedFrameId);
         };
     }, [ready, show]);
 
-    return shouldRenderContent;
+    // Avoid rendering stale modal bodies during the close frame after detail data
+    // has already been cleared from parent state.
+    return show && ready && shouldRenderContent;
 };
 
 const toFiniteNumber = (value, fallback = 0) => {

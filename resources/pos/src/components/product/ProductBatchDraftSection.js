@@ -15,7 +15,7 @@ const ProductBatchDraftSection = ({
     const intl = useIntl();
 
     return (
-        <div className="product-batch-draft mt-3">
+        <div className="product-batch-draft product-form-panel mt-3">
             <div className="product-batch-draft__header">
                 <div>
                     <span className="product-batch-draft__eyebrow">
@@ -57,7 +57,7 @@ const ProductBatchDraftSection = ({
                 </span>
             ) : null}
 
-            <Alert variant="info" className="mb-3">
+            <Alert variant="info" className="product-batch-draft__notice mb-3">
                 {intl.formatMessage({
                     id: "product.batch.section.auto_purchase_notice",
                     defaultMessage:

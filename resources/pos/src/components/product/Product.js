@@ -1,4 +1,5 @@
 import React, {
+    Profiler,
     memo,
     useCallback,
     useEffect,
@@ -26,10 +27,14 @@ import {
     placeholderText,
 } from "../../shared/sharedMethod";
 import ActionButton from "../../shared/action-buttons/ActionButton";
-import { fetchFrontSetting } from "../../store/action/frontSettingAction";
 import TopProgressBar from "../../shared/components/loaders/TopProgressBar";
 import ImportProductModel from "./ImportProductModel";
 import { productExcelAction } from "../../store/action/productExcelAction";
+import {
+    createRenderProfiler,
+    markNavigationReady,
+    reportDetectedBottleneck,
+} from "../../shared/performance/posPerformance";
 
 const PRODUCT_NOTE_PREVIEW_LIMIT = 50;
 const PRODUCT_NOTE_TOOLTIP_WIDTH = 320;
@@ -143,6 +148,9 @@ const PRODUCT_NAME_TEXT_STYLE = {
 };
 const PRODUCT_IMAGE_URL_PROTOCOL_REGEX = /^[a-z][a-z\d+\-.]*:\/\//i;
 const PRODUCT_IMAGE_PATH_PREFIXES = ["//", "/", "data:", "blob:"];
+const PRODUCT_ROUTE_PATH = "/app/products";
+const PRODUCT_BOTTLENECK_LABEL =
+    "shared/filterMenu/FilterDropdown.js -> fetchAllBaseUnits() + fetchAllBrands() + fetchAllProductCategories()";
 
 const isProductImagePathLike = (value) => {
     const normalizedValue = String(value || "").trim().toLowerCase();
@@ -438,7 +446,6 @@ const Product = (props) => {
         totalRecord,
         isLoading,
         frontSetting,
-        fetchFrontSetting,
         productExcelAction,
         productUnitId,
         allConfigData,
@@ -452,6 +459,8 @@ const Product = (props) => {
     const [isWarehouseValue, setIsWarehouseValue] = useState(false);
 
     const activeRequestRef = useRef(null);
+    const initialProductsRequestStartedRef = useRef(false);
+    const navigationReadyLoggedRef = useRef(false);
 
     const handleClose = useCallback(() => {
         setImportProduct((previous) => !previous);
@@ -475,12 +484,31 @@ const Product = (props) => {
     }, []);
 
     useEffect(() => {
-        fetchFrontSetting();
+        reportDetectedBottleneck(
+            PRODUCT_BOTTLENECK_LABEL,
+            "cargas simultaneas de catalogos completos al montar Productos"
+        );
 
         return () => {
             cancelActiveRequest();
         };
-    }, [fetchFrontSetting, cancelActiveRequest]);
+    }, [cancelActiveRequest]);
+
+    useEffect(() => {
+        if (
+            !initialProductsRequestStartedRef.current ||
+            isLoading ||
+            navigationReadyLoggedRef.current
+        ) {
+            return;
+        }
+
+        markNavigationReady(
+            `${PRODUCT_ROUTE_PATH}::data`,
+            "components/product/Product"
+        );
+        navigationReadyLoggedRef.current = true;
+    }, [isLoading]);
 
     const onClickDeleteModel = useCallback((item = null) => {
         setDeleteModel((previous) => !previous);
@@ -490,6 +518,7 @@ const Product = (props) => {
     const onChange = useCallback(
         (filter) => {
             cancelActiveRequest();
+            initialProductsRequestStartedRef.current = true;
             const controller = new AbortController();
             activeRequestRef.current = controller;
             fetchAllMainProducts(filter, true, controller.signal);
@@ -771,39 +800,50 @@ const Product = (props) => {
         }),
         []
     );
+    const productRenderProfiler = useMemo(
+        () => createRenderProfiler("components/product/Product", 24),
+        []
+    );
 
     return (
         <MasterLayout>
             <TopProgressBar />
             <TabTitle title={placeholderText("products.title")} />
-            <ReactDataTable
-                columns={columns}
-                items={itemsValue}
-                onChange={onChange}
-                isLoading={isLoading}
-                customStyles={productTableStyles}
-                defaultLimit={10}
-                paginationRowsPerPageOptions={[10, 20, 50, 100]}
-                ButtonValue={getFormattedMessage("product.create.title")}
-                totalRows={totalRecord}
-                to="#/app/products/create"
-                isShowFilterField
-                isModernFilterModal
-                isUnitFilter
-                title={getFormattedMessage("product.input.product-unit.label")}
-                goToImport={handleClose}
-                isExportDropdown={true}
-                isImportDropdown={true}
-                onExcelClick={onExcelClick}
-                isProductCategoryFilter
-                isBrandFilter
-                brandFilterTitle={getFormattedMessage(
-                    "product.input.brand.label"
-                )}
-                productCategoryFilterTitle={getFormattedMessage(
-                    "product.input.product-category.label"
-                )}
-            />
+            <Profiler
+                id="ProductTable"
+                onRender={productRenderProfiler}
+            >
+                <ReactDataTable
+                    columns={columns}
+                    items={itemsValue}
+                    onChange={onChange}
+                    isLoading={isLoading}
+                    customStyles={productTableStyles}
+                    defaultLimit={10}
+                    paginationRowsPerPageOptions={[10, 20, 50, 100]}
+                    ButtonValue={getFormattedMessage("product.create.title")}
+                    totalRows={totalRecord}
+                    to="#/app/products/create"
+                    isShowFilterField
+                    isModernFilterModal
+                    isUnitFilter
+                    title={getFormattedMessage(
+                        "product.input.product-unit.label"
+                    )}
+                    goToImport={handleClose}
+                    isExportDropdown={true}
+                    isImportDropdown={true}
+                    onExcelClick={onExcelClick}
+                    isProductCategoryFilter
+                    isBrandFilter
+                    brandFilterTitle={getFormattedMessage(
+                        "product.input.brand.label"
+                    )}
+                    productCategoryFilterTitle={getFormattedMessage(
+                        "product.input.product-category.label"
+                    )}
+                />
+            </Profiler>
             <DeleteMainProduct
                 onClickDeleteModel={onClickDeleteModel}
                 deleteModel={deleteModel}
@@ -844,7 +884,6 @@ const mapStateToProps = (state) => {
 
 export default connect(mapStateToProps, {
     fetchAllMainProducts,
-    fetchFrontSetting,
     productExcelAction,
 })(Product);
 

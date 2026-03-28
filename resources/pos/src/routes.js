@@ -1,11 +1,7 @@
-import Dashboard from "./components/dashboard/Dashboard";
-import Brands from "./components/brands/Brands";
 import Currencies from "./components/currency/Currencies";
 import Warehouses from "./components/warehouse/Warehouses";
 import CreateWarehouse from "./components/warehouse/CreateWarehouse";
 import EditWarehouse from "./components/warehouse/EditWarehouse";
-import ProductCategory from "./components/productCategory/ProductCategory";
-import Units from "./components/units/Units";
 import Suppliers from "./components/supplier/Suppliers";
 import CreateSupplier from "./components/supplier/CreateSupplier";
 import EditSupplier from "./components/supplier/EditSupplier";
@@ -17,11 +13,6 @@ import CreateUser from "./components/users/CreateUser";
 import EditUser from "./components/users/EditUser";
 import UserDetail from "./components/users/UserDetail";
 import UpdateProfile from "./components/user-profile/UpdateProfile";
-import Product from "./components/product/Product";
-import ProductBatchManager from "./components/product/ProductBatchManager";
-import CreateProduct from "./components/product/CreateProduct";
-import EditProduct from "./components/product/EditProduct";
-import ProductDetail from "./components/product/ProductDetail";
 import Settings from "./components/settings/Settings";
 import ExpenseCategory from "./components/expense-category/ExpenseCategory";
 import Expenses from "./components/expense/Expenses";
@@ -36,7 +27,6 @@ import PrintData from "./frontend/components/printModal/PrintData";
 import Sales from "./components/sales/Sales";
 import CreateSale from "./components/sales/CreateSale";
 import EditSale from "./components/sales/EditSale";
-import Credits from "./components/credits/Credits";
 import SaleReturn from "./components/saleReturn/SaleReturn";
 import CreateSaleReturn from "./components/saleReturn/CreateSaleReturn";
 import EditSaleReturn from "./components/saleReturn/EditSaleReturn";
@@ -87,10 +77,22 @@ import SmsApi from "./components/sms-api/SmsApi";
 import EditSaleReturnFromSale from "./components/saleReturn/EditSaleReturnFromSale";
 import Language from "./components/languages/Language";
 import EditLanguageData from "./components/languages/EditLanguageData";
-import BaseUnits from "./components/base-unit/BaseUnits";
 import RegisterReport from "./components/report/registerReport/RegisterReport";
-import Variation from "./components/variation/Variation";
 import ReceiptSettings from "./components/settings/ReceiptSettings";
+import {
+    LazyBaseUnits as BaseUnits,
+    LazyBrands as Brands,
+    LazyCreateProduct as CreateProduct,
+    LazyCredits as Credits,
+    LazyDashboard as Dashboard,
+    LazyEditProduct as EditProduct,
+    LazyProduct as Product,
+    LazyProductBatchManager as ProductBatchManager,
+    LazyProductCategory as ProductCategory,
+    LazyProductDetail as ProductDetail,
+    LazyUnits as Units,
+    LazyVariation as Variation,
+} from "./shared/navigation/routePreload";
 
 export const route = [
     {

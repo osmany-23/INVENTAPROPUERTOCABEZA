@@ -174,7 +174,7 @@ const Sales = (props) => {
             return getFormattedMessage("payment-type.filter.other.label");
         }
 
-        return getFormattedMessage("payment-type.filter.cash.label");
+        return "";
     };
 
     const prepareSaleReceiptData = (saleInfo, currentSettings) => {
@@ -531,14 +531,6 @@ const Sales = (props) => {
             sortField: "payment_type",
             sortable: false,
             cell: (row) => {
-                if (row.is_credit_sale) {
-                    return (
-                        <span className="badge bg-light-info">
-                            <span>Crédito</span>
-                        </span>
-                    );
-                }
-
                 return (
                     (row.payment_status !== 2 && row.payment_type === 1 && (
                         <span className="badge bg-light-primary">

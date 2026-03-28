@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { memo, useEffect, useRef } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { getFormattedMessage } from "../../shared/sharedMethod";
 import { Dropdown } from "react-bootstrap";
@@ -594,4 +594,4 @@ const AsideTopSubMenuItem = (props) => {
     );
 };
 
-export default AsideTopSubMenuItem;
+export default memo(AsideTopSubMenuItem);

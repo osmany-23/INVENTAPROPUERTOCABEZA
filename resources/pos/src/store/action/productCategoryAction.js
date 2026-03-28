@@ -13,6 +13,7 @@ import {
 import requestParam from "../../shared/requestParam";
 import { setLoading } from "./loadingAction";
 import { getFormattedMessage } from "../../shared/sharedMethod";
+import { logAsyncDuration } from "../../shared/performance/posPerformance";
 
 export const fetchProductCategories =
     (filter = {}, isLoading = true) =>
@@ -155,9 +156,17 @@ export const deleteProductCategory = (productId) => async (dispatch) => {
 };
 
 export const fetchAllProductCategories = () => async (dispatch) => {
+    const startedAt =
+        typeof performance !== "undefined" ? performance.now() : 0;
+
     apiConfig
         .get(`product-categories?page[size]=0`)
         .then((response) => {
+            logAsyncDuration(
+                "API products/filter-categories",
+                startedAt,
+                120
+            );
             dispatch({
                 type: productCategoriesActionType.FETCH_ALL_PRODUCTS_CATEGORIES,
                 payload: response.data.data,
