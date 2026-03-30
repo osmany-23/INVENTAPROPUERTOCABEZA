@@ -8,7 +8,7 @@ import {
 import { getCartProductId } from "../../../shared/batchHelpers";
 import Skelten from "../../../shared/components/loaders/Skelten";
 
-const CLIENT_RENDER_STEP = 120;
+const CLIENT_RENDER_STEP = 60;
 
 const normalize = (value) => (value || "").toString().trim().toUpperCase();
 
@@ -104,32 +104,39 @@ const Product = (props) => {
 
     const normalizedSearchTerm = useMemo(() => normalize(searchTerm), [searchTerm]);
 
-    const filteredProducts = useMemo(() => {
-        return posAllProducts.filter((product) => {
+    const productCatalogEntries = useMemo(() => {
+        return posAllProducts.reduce((entries, product) => {
             const stockQty = Number(product?.attributes?.stock?.quantity || 0);
             if (stockQty <= 0) {
-                return false;
+                return entries;
             }
 
-            if (!normalizedSearchTerm) {
-                return true;
-            }
+            entries.push({
+                product,
+                searchText: [
+                    normalize(product?.attributes?.name),
+                    normalize(product?.attributes?.code),
+                    normalize(product?.attributes?.product_code),
+                ].join(" "),
+            });
 
-            const productName = normalize(product?.attributes?.name);
-            const productCode = normalize(product?.attributes?.code);
-            const internalCode = normalize(product?.attributes?.product_code);
+            return entries;
+        }, []);
+    }, [posAllProducts]);
 
-            return (
-                productName.includes(normalizedSearchTerm) ||
-                productCode.includes(normalizedSearchTerm) ||
-                internalCode.includes(normalizedSearchTerm)
-            );
-        });
-    }, [posAllProducts, normalizedSearchTerm]);
+    const filteredProducts = useMemo(() => {
+        if (!normalizedSearchTerm) {
+            return productCatalogEntries;
+        }
+
+        return productCatalogEntries.filter(({ searchText }) =>
+            searchText.includes(normalizedSearchTerm)
+        );
+    }, [normalizedSearchTerm, productCatalogEntries]);
 
     useEffect(() => {
         setRenderLimit(CLIENT_RENDER_STEP);
-    }, [normalizedSearchTerm, posAllProducts.length]);
+    }, [normalizedSearchTerm, productCatalogEntries.length]);
 
     const visibleProducts = useMemo(() => {
         return filteredProducts.slice(0, renderLimit);
@@ -172,7 +179,7 @@ const Product = (props) => {
                     </h4>
                 )}
 
-                {visibleProducts.map((product) => (
+                {visibleProducts.map(({ product }) => (
                     <ProductCard
                         key={product.id}
                         product={product}

@@ -102,8 +102,12 @@ class ProductAPIController extends AppBaseController
 
         $warehouseId = (int) $request->input('warehouse_id');
         $page = max((int) $request->input('page.number', 1), 1);
-        $pageSize = max(min((int) $request->input('page.size', 120), 250), 1);
+        $pageSize = max(min((int) $request->input('page.size', 80), 200), 1);
         $search = trim((string) $request->input('search', ''));
+        $searchLength = mb_strlen($search);
+        $prefixSearch = $search !== '' ? $search.'%' : '';
+        $likeSearch = '%'.$search.'%';
+        $supportsContainsSearch = $searchLength >= 2;
         $filters = $request->input('filter', []);
         $brandId = (int) Arr::get($filters, 'brand_id', 0);
         $categoryId = (int) Arr::get($filters, 'product_category_id', 0);
@@ -174,13 +178,42 @@ class ProductAPIController extends AppBaseController
             ->when($categoryId > 0, function ($query) use ($categoryId) {
                 $query->where('products.product_category_id', $categoryId);
             })
-            ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($subQuery) use ($search) {
-                    $likeSearch = '%' . $search . '%';
-                    $subQuery->where('products.name', 'LIKE', $likeSearch)
-                        ->orWhere('products.code', 'LIKE', $likeSearch)
-                        ->orWhere('products.product_code', 'LIKE', $likeSearch);
+            ->when($search !== '', function ($query) use (
+                $search,
+                $prefixSearch,
+                $likeSearch,
+                $supportsContainsSearch
+            ) {
+                $query->where(function ($subQuery) use (
+                    $search,
+                    $prefixSearch,
+                    $likeSearch,
+                    $supportsContainsSearch
+                ) {
+                    $subQuery->where('products.code', $search)
+                        ->orWhere('products.product_code', $search)
+                        ->orWhere('products.code', 'LIKE', $prefixSearch)
+                        ->orWhere('products.product_code', 'LIKE', $prefixSearch)
+                        ->orWhere('products.name', 'LIKE', $prefixSearch);
+
+                    if ($supportsContainsSearch) {
+                        $subQuery->orWhere('products.name', 'LIKE', $likeSearch)
+                            ->orWhere('products.code', 'LIKE', $likeSearch)
+                            ->orWhere('products.product_code', 'LIKE', $likeSearch);
+                    }
                 });
+
+                $query->orderByRaw(
+                    'CASE
+                        WHEN products.code = ? THEN 0
+                        WHEN products.product_code = ? THEN 1
+                        WHEN products.code LIKE ? THEN 2
+                        WHEN products.product_code LIKE ? THEN 3
+                        WHEN products.name LIKE ? THEN 4
+                        ELSE 5
+                    END',
+                    [$search, $search, $prefixSearch, $prefixSearch, $prefixSearch]
+                );
             })
             ->orderBy('products.name');
 

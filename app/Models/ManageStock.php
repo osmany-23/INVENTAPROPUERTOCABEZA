@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Models\Contracts\JsonResourceful;
 use App\Traits\HasJsonResourcefulData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Support\Facades\Log;
 
 /**
  * App\Models\ManageStock
@@ -74,29 +73,21 @@ class ManageStock extends BaseModel implements JsonResourceful
     {
         parent::boot();
 
-        static::updating(function ($model) {
-            $product = Product::find($model->product_id);
-            Log::info('Updating '.$model->quantity);
-            Log::info('Updating 1 '.$product->stock_alert);
-
-            if ($model->quantity <= $product->stock_alert) {
-                $model->alert = true;
-            } else {
-                $model->alert = false;
-            }
+        static::saving(function ($model) {
+            self::syncAlertFlag($model);
         });
+    }
 
-        static::creating(function ($model) {
-            $product = Product::find($model->product_id);
-            Log::info('Creating '.$model->quantity);
-            Log::info('Creating 1 '.$product->stock_alert);
+    private static function syncAlertFlag(self $model): void
+    {
+        $product = $model->relationLoaded('product')
+            ? $model->getRelation('product')
+            : Product::query()
+                ->select(['id', 'stock_alert'])
+                ->find($model->product_id);
 
-            if ($model->quantity <= $product->stock_alert) {
-                $model->alert = true;
-            } else {
-                $model->alert = false;
-            }
-        });
+        $stockAlert = (float) ($product?->stock_alert ?? 0);
+        $model->alert = $model->quantity <= $stockAlert;
     }
 
     public function prepareAttributes(): array

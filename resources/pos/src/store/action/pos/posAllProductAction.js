@@ -7,7 +7,7 @@ import apiConfig from "../../../config/apiConfig";
 import { addToast } from "../toastAction";
 import { setLoading } from "../loadingAction";
 
-const DEFAULT_PAGE_SIZE = 120;
+const DEFAULT_PAGE_SIZE = 80;
 
 const buildPosFeedQuery = ({
     warehouse = "",

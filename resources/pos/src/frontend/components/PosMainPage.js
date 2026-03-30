@@ -10,10 +10,7 @@ import ProductCartList from "./cart-product/ProductCartList";
 import ProductSearchbar from "./product/ProductSearchbar";
 import ProductBatchSelectionModal from "./product/ProductBatchSelectionModal";
 import FefoSaleValidationModal from "./product/FefoSaleValidationModal";
-import {
-    createCartProductTemplate,
-    prepareCartArray,
-} from "../shared/PrepareCartArray";
+import { createCartProductTemplate } from "../shared/PrepareCartArray";
 import ProductDetailsModel from "../shared/ProductDetailsModel";
 import CartItemMainCalculation from "./cart-product/CartItemMainCalculation";
 import PosHeader from "./header/PosHeader";
@@ -183,7 +180,7 @@ const PosMainPage = (props) => {
         fetchHoldLists,
         holdListData,
     } = props;
-    const PRODUCT_PAGE_SIZE = 120;
+    const PRODUCT_PAGE_SIZE = 80;
     const componentRef = useRef();
     const registerDetailsRef = useRef();
     const productRequestRef = useRef(0);
@@ -254,15 +251,14 @@ const PosMainPage = (props) => {
         settings?.attributes?.require_initial_payment
     );
 
-    const customCart = useMemo(() => prepareCartArray(posAllProducts), [posAllProducts]);
-    const customCartByProductId = useMemo(() => {
-        const cartTemplateMap = new Map();
-        customCart.forEach((item) => {
-            cartTemplateMap.set(getCartProductId(item), item);
+    const productById = useMemo(() => {
+        const productMap = new Map();
+        posAllProducts.forEach((productItem) => {
+            productMap.set(Number(productItem.id), productItem);
         });
 
-        return cartTemplateMap;
-    }, [customCart]);
+        return productMap;
+    }, [posAllProducts]);
 
     const productStockById = useMemo(() => {
         const stockMap = {};
@@ -1413,9 +1409,10 @@ const PosMainPage = (props) => {
 
         const batchContext = resolvedProduct?.attributes?.batch_context || null;
         const batchId = Number(batchContext?.id || 0) || null;
-        const template = resolvedProduct
-            ? createCartProductTemplate(resolvedProduct)
-            : customCartByProductId.get(productId);
+        const templateSourceProduct = resolvedProduct || productById.get(productId);
+        const template = templateSourceProduct
+            ? createCartProductTemplate(templateSourceProduct)
+            : null;
         const batchEnabled = Boolean(
             resolvedProduct?.attributes?.batch_enabled ?? template?.batch_enabled
         );
@@ -1614,12 +1611,11 @@ const PosMainPage = (props) => {
         buildCartRowId,
         buildReservedBatchQuantities,
         createCartProductTemplate,
-        customCartByProductId,
         decorateProductWithBatchSelection,
         dispatch,
         fetchProductBatches,
         getFormattedMessage,
-        posAllProducts,
+        productById,
         productStockById,
         resolveFefoBatchFromBatches,
         selectedOption,

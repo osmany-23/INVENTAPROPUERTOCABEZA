@@ -58,34 +58,77 @@ const ProductSearchbar = ({
     const containerRef = useRef(null);
     const scanRequestRef = useRef(0);
 
+    const searchableProducts = useMemo(() => {
+        return posAllProducts.reduce((items, product) => {
+            const stockQuantity = Number(product?.attributes?.stock?.quantity || 0);
+            if (stockQuantity <= 0) {
+                return items;
+            }
+
+            items.push({
+                id: product.id,
+                code: product?.attributes?.code || "",
+                product_code: product?.attributes?.product_code || "",
+                name: product?.attributes?.name || "",
+                normalizedCode: normalize(product?.attributes?.code),
+                normalizedProductCode: normalize(product?.attributes?.product_code),
+                normalizedName: normalize(product?.attributes?.name),
+                product,
+            });
+
+            return items;
+        }, []);
+    }, [posAllProducts]);
+
+    const exactMatchLookup = useMemo(() => {
+        const lookup = new Map();
+
+        searchableProducts.forEach((item) => {
+            if (item.normalizedCode && !lookup.has(item.normalizedCode)) {
+                lookup.set(item.normalizedCode, item.product);
+            }
+
+            if (
+                item.normalizedProductCode &&
+                !lookup.has(item.normalizedProductCode)
+            ) {
+                lookup.set(item.normalizedProductCode, item.product);
+            }
+        });
+
+        return lookup;
+    }, [searchableProducts]);
+
     const suggestionItems = useMemo(() => {
         const term = normalize(searchString);
         if (!term) {
             return [];
         }
 
-        return posAllProducts
-            .filter((item) => Number(item?.attributes?.stock?.quantity || 0) > 0)
-            .filter((item) => {
-                const name = normalize(item?.attributes?.name);
-                const code = normalize(item?.attributes?.code);
-                const productCode = normalize(item?.attributes?.product_code);
+        const nextSuggestions = [];
 
-                return (
-                    name.includes(term) ||
-                    code.includes(term) ||
-                    productCode.includes(term)
-                );
-            })
-            .slice(0, MAX_SUGGESTIONS)
-            .map((item) => ({
-                id: item.id,
-                code: item?.attributes?.code || "",
-                product_code: item?.attributes?.product_code || "",
-                name: item?.attributes?.name || "",
-                product: item,
-            }));
-    }, [posAllProducts, searchString]);
+        for (const item of searchableProducts) {
+            if (
+                item.normalizedName.includes(term) ||
+                item.normalizedCode.includes(term) ||
+                item.normalizedProductCode.includes(term)
+            ) {
+                nextSuggestions.push({
+                    id: item.id,
+                    code: item.code,
+                    product_code: item.product_code,
+                    name: item.name,
+                    product: item.product,
+                });
+            }
+
+            if (nextSuggestions.length >= MAX_SUGGESTIONS) {
+                break;
+            }
+        }
+
+        return nextSuggestions;
+    }, [searchString, searchableProducts]);
 
     useEffect(() => {
         const debounceTimer = setTimeout(() => {
@@ -147,20 +190,8 @@ const ProductSearchbar = ({
             return null;
         }
 
-        return (
-            posAllProducts.find((item) => {
-                const hasStock = Number(item?.attributes?.stock?.quantity || 0) > 0;
-                if (!hasStock) {
-                    return false;
-                }
-
-                const code = normalize(item?.attributes?.code);
-                const productCode = normalize(item?.attributes?.product_code);
-
-                return code === term || productCode === term;
-            }) || null
-        );
-    }, [posAllProducts, searchString]);
+        return exactMatchLookup.get(term) || null;
+    }, [exactMatchLookup, searchString]);
 
     const resolveScanOrExactMatch = useCallback(async () => {
         const term = normalize(searchString);
