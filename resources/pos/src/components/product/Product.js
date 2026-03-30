@@ -10,7 +10,14 @@ import React, {
 import { createPortal } from "react-dom";
 import { connect } from "react-redux";
 import moment from "moment";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+    faEye,
+    faPenToSquare,
+    faTrash,
+} from "@fortawesome/free-solid-svg-icons";
 import { Image } from "react-bootstrap-v5";
+import { useIntl } from "react-intl";
 import MasterLayout from "../MasterLayout";
 import { fetchAllMainProducts } from "../../store/action/productAction";
 import ReactDataTable from "../../shared/table/ReactDataTable";
@@ -35,6 +42,7 @@ import {
     markNavigationReady,
     reportDetectedBottleneck,
 } from "../../shared/performance/posPerformance";
+import { canCrud } from "../../shared/can";
 
 const PRODUCT_NOTE_PREVIEW_LIMIT = 50;
 const PRODUCT_NOTE_TOOLTIP_WIDTH = 320;
@@ -201,11 +209,17 @@ const ProductImageCell = memo(function ProductImageCell({
     );
 
     return (
-        <div style={PRODUCT_IMAGE_CELL_CONTENT_STYLE}>
-            <div style={PRODUCT_IMAGE_WRAPPER_STYLE}>
+        <div
+            className="product-table-card__image-cell"
+            style={PRODUCT_IMAGE_CELL_CONTENT_STYLE}
+        >
+            <div
+                className="product-table-card__image-wrapper"
+                style={PRODUCT_IMAGE_WRAPPER_STYLE}
+            >
                 <button
                     type="button"
-                    className="d-inline-flex align-items-center justify-content-center"
+                    className="d-inline-flex align-items-center justify-content-center product-table-card__image-button"
                     style={PRODUCT_IMAGE_BUTTON_STYLE}
                     onClick={handlePreview}
                 >
@@ -214,13 +228,68 @@ const ProductImageCell = memo(function ProductImageCell({
                         height={50}
                         width={50}
                         alt={productName || "Product Image"}
-                        className="cursor-pointer"
+                        className="cursor-pointer product-table-card__image"
                         style={PRODUCT_IMAGE_STYLE}
                         loading="lazy"
                         decoding="async"
                     />
                 </button>
             </div>
+        </div>
+    );
+});
+
+const ProductNameCell = memo(function ProductNameCell({ name }) {
+    return <div className="product-table-card__name">{name || "-"}</div>;
+});
+
+const ProductCodeCell = memo(function ProductCodeCell({ code, label }) {
+    return (
+        <div className="product-table-card__code">
+            <span className="badge bg-light-danger product-table-card__badge product-table-card__badge--code">
+                <span className="product-table-card__desktop-only">
+                    {code || "-"}
+                </span>
+                <span className="product-table-card__mobile-only">
+                    {label}: {code || "-"}
+                </span>
+            </span>
+        </div>
+    );
+});
+
+const ProductBrandCell = memo(function ProductBrandCell({ brandName, label }) {
+    return (
+        <div className="product-table-card__brand">
+            <span className="product-table-card__label product-table-card__mobile-only">
+                {label}:
+            </span>{" "}
+            <span className="product-table-card__value">{brandName || "-"}</span>
+        </div>
+    );
+});
+
+const ProductPriceCell = memo(function ProductPriceCell({ price }) {
+    return <div className="product-table-card__price">{price}</div>;
+});
+
+const ProductUnitCell = memo(function ProductUnitCell({ unitName }) {
+    return (
+        <div className="product-table-card__unit">
+            <span className="badge bg-light-success product-table-card__badge product-table-card__badge--unit">
+                <span>{unitName || "N/A"}</span>
+            </span>
+        </div>
+    );
+});
+
+const ProductStockCell = memo(function ProductStockCell({ stock, label }) {
+    return (
+        <div className="product-table-card__stock">
+            <span className="product-table-card__desktop-only">{stock}</span>
+            <span className="product-table-card__stock-badge product-table-card__mobile-only">
+                {label}: {stock}
+            </span>
         </div>
     );
 });
@@ -374,6 +443,7 @@ const ProductDescriptionCell = memo(function ProductDescriptionCell({
     const descriptionPreview = (
         <span
             ref={triggerRef}
+            className="product-table-card__description-trigger"
             style={PRODUCT_NOTE_PREVIEW_WRAPPER_STYLE}
             onMouseEnter={showTooltip}
             onMouseLeave={hideTooltip}
@@ -381,7 +451,12 @@ const ProductDescriptionCell = memo(function ProductDescriptionCell({
             onBlur={hideTooltip}
             tabIndex={isTruncated ? 0 : -1}
         >
-            <span style={PRODUCT_NOTE_PREVIEW_STYLE}>{displayDescription}</span>
+            <span
+                className="product-table-card__description-text"
+                style={PRODUCT_NOTE_PREVIEW_STYLE}
+            >
+                {displayDescription}
+            </span>
         </span>
     );
 
@@ -426,16 +501,64 @@ const ProductActionCell = memo(function ProductActionCell({
     onView,
     onEdit,
     onDelete,
+    viewLabel,
+    editLabel,
+    deleteLabel,
+    canUpdateProduct,
+    canDeleteProduct,
 }) {
     return (
-        <ActionButton
-            isViewIcon={true}
-            goToDetailScreen={onView}
-            item={row}
-            goToEditProduct={onEdit}
-            isEditMode={true}
-            onClickDeleteModel={onDelete}
-        />
+        <div className="product-table-card__actions">
+            <div className="product-table-card__actions-desktop">
+                <ActionButton
+                    isViewIcon={true}
+                    goToDetailScreen={onView}
+                    item={row}
+                    goToEditProduct={onEdit}
+                    isEditMode={true}
+                    onClickDeleteModel={onDelete}
+                />
+            </div>
+            <div className="product-table-card__actions-mobile">
+                <button
+                    type="button"
+                    className="product-table-card__mobile-action product-table-card__mobile-action--view"
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onView(row.id);
+                    }}
+                >
+                    <FontAwesomeIcon icon={faEye} fixedWidth />
+                    <span>{viewLabel}</span>
+                </button>
+                {canUpdateProduct ? (
+                    <button
+                        type="button"
+                        className="product-table-card__mobile-action product-table-card__mobile-action--edit"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onEdit(row);
+                        }}
+                    >
+                        <FontAwesomeIcon icon={faPenToSquare} fixedWidth />
+                        <span>{editLabel}</span>
+                    </button>
+                ) : null}
+                {canDeleteProduct ? (
+                    <button
+                        type="button"
+                        className="product-table-card__mobile-action product-table-card__mobile-action--delete"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onDelete(row);
+                        }}
+                    >
+                        <FontAwesomeIcon icon={faTrash} fixedWidth />
+                        <span>{deleteLabel}</span>
+                    </button>
+                ) : null}
+            </div>
+        </div>
     );
 });
 
@@ -450,6 +573,7 @@ const Product = (props) => {
         productUnitId,
         allConfigData,
     } = props;
+    const intl = useIntl();
 
     const [deleteModel, setDeleteModel] = useState(false);
     const [isDelete, setIsDelete] = useState(null);
@@ -581,6 +705,38 @@ const Product = (props) => {
     }, []);
 
     const currencySymbol = getCurrencySymbol(frontSetting);
+    const codeLabel = intl.formatMessage({
+        id: "product.input.code.label",
+        defaultMessage: "Codigo",
+    });
+    const brandLabel = intl.formatMessage({
+        id: "product.input.brand.label",
+        defaultMessage: "Marca",
+    });
+    const stockLabel = intl.formatMessage({
+        id: "product.product-in-stock.label",
+        defaultMessage: "Stock",
+    });
+    const viewActionLabel = (() => {
+        const translatedLabel = intl.formatMessage({
+            id: "globally.view.tooltip.label",
+            defaultMessage: "Ver",
+        });
+        return translatedLabel === "Vista" ? "Ver" : translatedLabel;
+    })();
+    const editActionLabel = intl.formatMessage({
+        id: "globally.edit.tooltip.label",
+        defaultMessage: "Editar",
+    });
+    const deleteActionLabel = (() => {
+        const translatedLabel = intl.formatMessage({
+            id: "globally.delete.tooltip.label",
+            defaultMessage: "Eliminar",
+        });
+        return translatedLabel === "Borrar" ? "Eliminar" : translatedLabel;
+    })();
+    const canUpdateProduct = useMemo(() => canCrud("update"), []);
+    const canDeleteProduct = useMemo(() => canCrud("delete"), []);
 
     const formattedPrice = useCallback(
         (productPrice) => {
@@ -679,45 +835,48 @@ const Product = (props) => {
                 style: PRODUCT_NAME_COLUMN_CELL_STYLE,
                 grow: 1.4,
                 minWidth: "220px",
-                cell: (row) => <div style={PRODUCT_NAME_TEXT_STYLE}>{row.name}</div>,
+                cell: (row) => <ProductNameCell name={row.name} />,
             },
             {
                 name: getFormattedMessage("product.input.code.label"),
-                selector: (row) => (
-                    <span className="badge bg-light-danger">
-                        <span>{row.code}</span>
-                    </span>
+                cell: (row) => (
+                    <ProductCodeCell
+                        code={row.code}
+                        label={codeLabel}
+                    />
                 ),
                 sortField: "code",
                 sortable: true,
             },
             {
                 name: getFormattedMessage("product.input.brand.label"),
-                selector: (row) => row.brand_name,
+                cell: (row) => (
+                    <ProductBrandCell
+                        brandName={row.brand_name}
+                        label={brandLabel}
+                    />
+                ),
                 sortField: "brand_name",
                 sortable: false,
             },
             {
                 name: getFormattedMessage("product.table.price.column.label"),
-                selector: (row) => row.product_price,
+                cell: (row) => <ProductPriceCell price={row.product_price} />,
             },
             {
                 name: getFormattedMessage("product.input.product-unit.label"),
                 sortField: "product_unit",
                 sortable: true,
-                cell: (row) => {
-                    return (
-                        row.product_unit && (
-                            <span className="badge bg-light-success">
-                                <span>{row.product_unit}</span>
-                            </span>
-                        )
-                    );
-                },
+                cell: (row) => <ProductUnitCell unitName={row.product_unit} />,
             },
             {
                 name: getFormattedMessage("product.product-in-stock.label"),
-                selector: (row) => formatQuantity(row.in_stock, 0),
+                cell: (row) => (
+                    <ProductStockCell
+                        stock={formatQuantity(row.in_stock, 0)}
+                        label={stockLabel}
+                    />
+                ),
                 sortField: "in_stock",
                 sortable: false,
             },
@@ -763,11 +922,29 @@ const Product = (props) => {
                         onView={goToProductDetailPage}
                         onEdit={goToEditProduct}
                         onDelete={onClickDeleteModel}
+                        viewLabel={viewActionLabel}
+                        editLabel={editActionLabel}
+                        deleteLabel={deleteActionLabel}
+                        canUpdateProduct={canUpdateProduct}
+                        canDeleteProduct={canDeleteProduct}
                     />
                 ),
             },
         ],
-        [goToEditProduct, goToProductDetailPage, onClickDeleteModel, onPreviewImage]
+        [
+            brandLabel,
+            canDeleteProduct,
+            canUpdateProduct,
+            codeLabel,
+            deleteActionLabel,
+            editActionLabel,
+            goToEditProduct,
+            goToProductDetailPage,
+            onClickDeleteModel,
+            onPreviewImage,
+            stockLabel,
+            viewActionLabel,
+        ]
     );
 
     const productTableStyles = useMemo(
@@ -813,36 +990,38 @@ const Product = (props) => {
                 id="ProductTable"
                 onRender={productRenderProfiler}
             >
-                <ReactDataTable
-                    columns={columns}
-                    items={itemsValue}
-                    onChange={onChange}
-                    isLoading={isLoading}
-                    customStyles={productTableStyles}
-                    defaultLimit={10}
-                    paginationRowsPerPageOptions={[10, 20, 50, 100]}
-                    ButtonValue={getFormattedMessage("product.create.title")}
-                    totalRows={totalRecord}
-                    to="#/app/products/create"
-                    isShowFilterField
-                    isModernFilterModal
-                    isUnitFilter
-                    title={getFormattedMessage(
-                        "product.input.product-unit.label"
-                    )}
-                    goToImport={handleClose}
-                    isExportDropdown={true}
-                    isImportDropdown={true}
-                    onExcelClick={onExcelClick}
-                    isProductCategoryFilter
-                    isBrandFilter
-                    brandFilterTitle={getFormattedMessage(
-                        "product.input.brand.label"
-                    )}
-                    productCategoryFilterTitle={getFormattedMessage(
-                        "product.input.product-category.label"
-                    )}
-                />
+                <div className="product-listing-table">
+                    <ReactDataTable
+                        columns={columns}
+                        items={itemsValue}
+                        onChange={onChange}
+                        isLoading={isLoading}
+                        customStyles={productTableStyles}
+                        defaultLimit={10}
+                        paginationRowsPerPageOptions={[10, 20, 50, 100]}
+                        ButtonValue={getFormattedMessage("product.create.title")}
+                        totalRows={totalRecord}
+                        to="#/app/products/create"
+                        isShowFilterField
+                        isModernFilterModal
+                        isUnitFilter
+                        title={getFormattedMessage(
+                            "product.input.product-unit.label"
+                        )}
+                        goToImport={handleClose}
+                        isExportDropdown={true}
+                        isImportDropdown={true}
+                        onExcelClick={onExcelClick}
+                        isProductCategoryFilter
+                        isBrandFilter
+                        brandFilterTitle={getFormattedMessage(
+                            "product.input.brand.label"
+                        )}
+                        productCategoryFilterTitle={getFormattedMessage(
+                            "product.input.product-category.label"
+                        )}
+                    />
+                </div>
             </Profiler>
             <DeleteMainProduct
                 onClickDeleteModel={onClickDeleteModel}
