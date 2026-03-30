@@ -16,6 +16,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class QuotationAPIController extends AppBaseController
@@ -91,14 +92,22 @@ class QuotationAPIController extends AppBaseController
 
     public function show($id): QuotationResource
     {
-        $quotation = $this->quotationRepository->find($id);
+        $quotationRelations = ['quotationItems.product', 'warehouse', 'customer'];
+        if (Schema::hasTable('product_batches') && Schema::hasColumn('quotation_items', 'product_batch_id')) {
+            $quotationRelations[] = 'quotationItems.productBatch';
+        }
+        $quotation = Quotation::query()->with($quotationRelations)->findOrFail($id);
 
         return new QuotationResource($quotation);
     }
 
     public function quotationInfo(Quotation $quotation): JsonResponse
     {
-        $quotation = $quotation->load('quotationItems.product', 'warehouse', 'customer');
+        $quotationRelations = ['quotationItems.product', 'warehouse', 'customer'];
+        if (Schema::hasTable('product_batches') && Schema::hasColumn('quotation_items', 'product_batch_id')) {
+            $quotationRelations[] = 'quotationItems.productBatch';
+        }
+        $quotation = $quotation->load($quotationRelations);
         $keyName = [
             'email', 'company_name', 'phone', 'address',
         ];
@@ -109,7 +118,11 @@ class QuotationAPIController extends AppBaseController
 
     public function edit(Quotation $quotation): QuotationResource
     {
-        $quotation = $quotation->load('quotationItems.product.stocks', 'warehouse');
+        $quotationRelations = ['quotationItems.product.stocks', 'warehouse'];
+        if (Schema::hasTable('product_batches') && Schema::hasColumn('quotation_items', 'product_batch_id')) {
+            $quotationRelations[] = 'quotationItems.productBatch';
+        }
+        $quotation = $quotation->load($quotationRelations);
 
         return new QuotationResource($quotation);
     }

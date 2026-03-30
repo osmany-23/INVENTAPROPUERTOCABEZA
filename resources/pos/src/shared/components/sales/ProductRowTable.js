@@ -25,7 +25,8 @@ const ProductRowTable = (props) => {
             </thead>
             <tbody>
             {updateProducts && updateProducts.map((singleProduct, index) => {
-                return <ProductTableBody singleProduct={singleProduct} key={index} index={index} updateProducts={updateProducts}
+                const rowKey = singleProduct?.row_id || singleProduct?.cart_row_id || singleProduct?.quotation_item_id || singleProduct?.sale_item_id || singleProduct?.id || index;
+                return <ProductTableBody singleProduct={singleProduct} key={rowKey} index={index} updateProducts={updateProducts}
                                          setUpdateProducts={setUpdateProducts} frontSetting={frontSetting}
                                          updateQty={updatedQty} updateCost={updateCost}
                                          updateDiscount={updateDiscount} updateTax={updateTax}

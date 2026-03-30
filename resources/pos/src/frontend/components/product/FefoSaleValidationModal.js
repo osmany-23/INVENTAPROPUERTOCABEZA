@@ -24,7 +24,7 @@ const FefoSaleValidationModal = ({
             </Modal.Header>
             <Modal.Body className="pos-fefo-guard__body">
                 <div className="pos-fefo-guard__alert">
-                    Debe vender primero el lote con vencimiento mas proximo.
+                    Este no es el lote recomendado por prioridad FEFO. Desea continuar?
                 </div>
 
                 <div className="pos-fefo-guard__grid">
@@ -82,7 +82,7 @@ const FefoSaleValidationModal = ({
                     Cancelar
                 </Button>
                 <Button className="pos-fefo-guard__confirm-btn" onClick={onConfirm}>
-                    Forzar venta
+                    Continuar
                 </Button>
             </Modal.Footer>
         </Modal>

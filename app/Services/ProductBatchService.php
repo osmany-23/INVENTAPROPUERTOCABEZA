@@ -1295,6 +1295,83 @@ class ProductBatchService
         }
     }
 
+    public function validateQuotationBatchSelection(
+        int $productId,
+        int $warehouseId,
+        ?int $batchId,
+        float $quantity
+    ): ?array {
+        if (! $this->batchTablesExist()) {
+            return null;
+        }
+
+        $product = Product::query()->with('batchSetting')->find($productId);
+        if (! $product) {
+            throw new UnprocessableEntityHttpException('El producto seleccionado no existe.');
+        }
+
+        $settings = $this->getOrMakeSettings($product);
+        if (! $settings->track_batches) {
+            if ($batchId) {
+                throw new UnprocessableEntityHttpException(
+                    'El producto seleccionado no maneja lotes.'
+                );
+            }
+
+            return null;
+        }
+
+        if ($warehouseId <= 0) {
+            throw new UnprocessableEntityHttpException('Seleccione la bodega de la cotizacion.');
+        }
+
+        if ($quantity <= 0) {
+            throw new UnprocessableEntityHttpException('La cantidad debe ser mayor a cero.');
+        }
+
+        if ((int) $batchId <= 0) {
+            throw new UnprocessableEntityHttpException('Debe seleccionar un lote.');
+        }
+
+        $batchRelations = ['setting', 'purchase'];
+        if ($this->purchaseLotTableExists()) {
+            $batchRelations[] = 'purchaseLots';
+        }
+
+        $batch = ProductBatch::query()
+            ->with($batchRelations)
+            ->where('id', $batchId)
+            ->where('product_id', $productId)
+            ->where('warehouse_id', $warehouseId)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $batch) {
+            throw new UnprocessableEntityHttpException(
+                'El lote seleccionado no pertenece al producto o bodega seleccionada.'
+            );
+        }
+
+        $status = $this->determineBatchStatus(
+            round((float) $batch->available_quantity, 2),
+            $batch->expires_at,
+            $this->resolveAlertDays($batch->setting ?: $settings)
+        );
+
+        if ($status === ProductBatch::STATUS_EXPIRED) {
+            throw new UnprocessableEntityHttpException('Este lote esta vencido.');
+        }
+
+        if ((float) $batch->available_quantity < $quantity) {
+            throw new UnprocessableEntityHttpException('Stock insuficiente en este lote.');
+        }
+
+        return $this->transformBatch(
+            $batch,
+            $this->resolveAlertDays($batch->setting ?: $settings)
+        );
+    }
+
     private function consumeSpecificBatch(
         int $batchId,
         int $productId,

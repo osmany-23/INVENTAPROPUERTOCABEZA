@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Models\Quotation;
 use App\Models\QuotationItem;
 use App\Models\Sale;
+use App\Services\ProductBatchService;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -92,6 +93,10 @@ class QuotationRepository extends BaseRepository
     public function storeQuotationItems($quotation, $input)
     {
         foreach ($input['quotation_items'] as $quotationItem) {
+            $quotationItem = $this->prepareQuotationItemForWrite(
+                $quotationItem,
+                (int) ($input['warehouse_id'] ?? 0)
+            );
             $item = $this->calculationQuotationItems($quotationItem);
             $quotationItem = new QuotationItem($item);
             $quotation->quotationItems()->save($quotationItem);
@@ -183,11 +188,16 @@ class QuotationRepository extends BaseRepository
             $quotationItemIds = QuotationItem::whereQuotationId($id)->pluck('id')->toArray();
             $quotationItmOldIds = [];
             foreach ($input['quotation_items'] as $key => $quotationItem) {
+                $quotationItem = $this->prepareQuotationItemForWrite(
+                    $quotationItem,
+                    (int) ($input['warehouse_id'] ?? 0)
+                );
                 //get different ids & update
                 $quotationItmOldIds[$key] = $quotationItem['quotation_item_id'];
                 $quotationItemArray = Arr::only($quotationItem, [
                     'quotation_item_id', 'product_id', 'product_price', 'net_unit_price', 'tax_type', 'tax_value',
                     'tax_amount', 'discount_type', 'discount_value', 'discount_amount', 'sale_unit', 'quantity',
+                    'product_batch_id',
                     'sub_total',
                 ]);
                 $this->updateItem($quotationItemArray, $input['warehouse_id']);
@@ -197,6 +207,7 @@ class QuotationRepository extends BaseRepository
                     $quotationItemArray = Arr::only($quotationItem, [
                         'product_id', 'product_price', 'net_unit_price', 'tax_type', 'tax_value', 'tax_amount',
                         'discount_type', 'discount_value', 'discount_amount', 'sale_unit', 'quantity', 'sub_total',
+                        'product_batch_id',
                     ]);
                     $quotation->quotationItems()->create($quotationItemArray);
                 }
@@ -253,6 +264,10 @@ class QuotationRepository extends BaseRepository
     public function updateItem($quotationItem, $warehouseId): bool
     {
         try {
+            $quotationItem = $this->prepareQuotationItemForWrite(
+                $quotationItem,
+                (int) $warehouseId
+            );
             $quotationItem = $this->calculationQuotationItems($quotationItem);
             $item = QuotationItem::whereId($quotationItem['quotation_item_id']);
             unset($quotationItem['quotation_item_id']);
@@ -262,5 +277,33 @@ class QuotationRepository extends BaseRepository
         } catch (Exception $e) {
             throw new UnprocessableEntityHttpException($e->getMessage());
         }
+    }
+
+    protected function prepareQuotationItemForWrite(array $quotationItem, int $warehouseId): array
+    {
+        $productBatchService = app(ProductBatchService::class);
+        $batchId = (int) (
+            $quotationItem['product_batch_id'] ??
+            $quotationItem['batch_id'] ??
+            $quotationItem['lote_id'] ??
+            0
+        );
+
+        if (! $productBatchService->batchTablesExist()) {
+            $quotationItem['product_batch_id'] = null;
+
+            return $quotationItem;
+        }
+
+        $batch = $productBatchService->validateQuotationBatchSelection(
+            (int) ($quotationItem['product_id'] ?? 0),
+            $warehouseId,
+            $batchId > 0 ? $batchId : null,
+            (float) ($quotationItem['quantity'] ?? 0)
+        );
+
+        $quotationItem['product_batch_id'] = $batch['id'] ?? null;
+
+        return $quotationItem;
     }
 }

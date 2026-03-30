@@ -262,20 +262,46 @@ const QuotationDetails = (props) => {
                                     {quotationDetails.quotation_items &&
                                         quotationDetails.quotation_items.map(
                                             (details, index) => {
+                                                const batch = details.product_batch || null;
+                                                const batchCode =
+                                                    details.lote_codigo ||
+                                                    details.codigo_lote_sistema ||
+                                                    batch?.codigo_lote_sistema ||
+                                                    batch?.lot_code ||
+                                                    batch?.lote_fabricante ||
+                                                    null;
+                                                const batchStock = Number(
+                                                    details.batch_stock_quantity ||
+                                                        details.stock_lote ||
+                                                        batch?.available_quantity ||
+                                                        0
+                                                );
                                                 return (
                                                     <tr
                                                         key={index}
                                                         className="align-middle"
                                                     >
                                                         <td className="ps-3">
-                                                            {details.product &&
-                                                                details.product
-                                                                    .code}{" "}
-                                                            (
-                                                            {details.product &&
-                                                                details.product
-                                                                    .name}
-                                                            )
+                                                            <div>
+                                                                {details.product &&
+                                                                    details.product
+                                                                        .code}{" "}
+                                                                (
+                                                                {details.product &&
+                                                                    details.product
+                                                                        .name}
+                                                                )
+                                                            </div>
+                                                            {batchCode ? (
+                                                                <div className="mt-1 small text-muted">
+                                                                    Lote: {batchCode}
+                                                                    {" | "}
+                                                                    Stock lote:{" "}
+                                                                    {formatQuantityAuto(
+                                                                        batchStock
+                                                                    )}
+                                                                </div>
+                                                            ) : null}
                                                         </td>
                                                         <td>
                                                             {currencySymbolHandling(

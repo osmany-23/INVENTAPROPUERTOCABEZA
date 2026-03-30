@@ -82,7 +82,7 @@ const buildFastSearchCartItem = (product) => {
         sale_return_item_id: "",
         adjustMethod: 1,
         adjustment_item_id: "",
-        quotation_item_id: "",
+        quotation_item_id: null,
         quantity_limit: attributes?.quantity_limit,
         warehouse_id: attributes?.stock?.warehouse_id,
         batch_enabled: Boolean(attributes?.batch_enabled),
@@ -101,6 +101,7 @@ const ProductSearch = (props) => {
     const {
         values,
         products,
+        updateProducts,
         setUpdateProducts,
         customProducts,
         searchPurchaseProduct,
@@ -115,6 +116,7 @@ const ProductSearch = (props) => {
         resultDisplayMode = DEFAULT_RESULT_DISPLAY_MODE,
         enableBatchDrafts = false,
         blockBatchProductsWithoutDrafts = false,
+        onResolveProductAdd = null,
     } = props;
 
     const warehouseId = resolveWarehouseId(values);
@@ -481,6 +483,34 @@ const ProductSearch = (props) => {
                 return;
             }
 
+            if (typeof onResolveProductAdd === "function") {
+                const interceptResult = await onResolveProductAdd({
+                    product,
+                    preparedProduct: newProduct,
+                    decoratedProduct,
+                    currentProducts: Array.isArray(updateProducts)
+                        ? updateProducts
+                        : [],
+                    warehouseId,
+                    clearSearch: () => {
+                        removeSearchClass();
+                        setSearchString("");
+                        resetFastSearchState();
+                        lastAutoAddedCodeRef.current = "";
+                    },
+                });
+
+                if (interceptResult?.handled) {
+                    if (interceptResult.clearSearch !== false) {
+                        removeSearchClass();
+                        setSearchString("");
+                        resetFastSearchState();
+                        lastAutoAddedCodeRef.current = "";
+                    }
+                    return;
+                }
+            }
+
             setUpdateProducts((prev) => {
                 const existingProduct = prev.find(
                     (item) =>
@@ -531,6 +561,7 @@ const ProductSearch = (props) => {
             warehouseId,
             enableBatchDrafts,
             blockBatchProductsWithoutDrafts,
+            onResolveProductAdd,
         ]
     );
 

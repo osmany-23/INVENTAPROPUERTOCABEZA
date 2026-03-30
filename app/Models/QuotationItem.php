@@ -61,6 +61,7 @@ class QuotationItem extends BaseModel implements JsonResourceful
 
     protected $fillable = [
         'product_id',
+        'product_batch_id',
         'product_price',
         'net_unit_price',
         'tax_type',
@@ -76,6 +77,7 @@ class QuotationItem extends BaseModel implements JsonResourceful
 
     public static $rules = [
         'product_id' => 'required|exists:products,id',
+        'product_batch_id' => 'nullable|integer',
         'product_price' => 'nullable|numeric',
         'tax_type' => 'nullable|numeric',
         'tax_value' => 'nullable|numeric',
@@ -89,6 +91,7 @@ class QuotationItem extends BaseModel implements JsonResourceful
     ];
 
     public $casts = [
+        'product_batch_id' => 'integer',
         'product_price' => 'double',
         'tax_amount' => 'double',
         'tax_value' => 'double',
@@ -119,6 +122,7 @@ class QuotationItem extends BaseModel implements JsonResourceful
     {
         $fields = [
             'product_id' => $this->product_id,
+            'product_batch_id' => $this->product_batch_id,
             'net_unit_price' => $this->net_unit_price,
             'product_price' => $this->product_price,
             'tax_type' => $this->tax_type,
@@ -143,5 +147,10 @@ class QuotationItem extends BaseModel implements JsonResourceful
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class, 'product_id', 'id');
+    }
+
+    public function productBatch(): BelongsTo
+    {
+        return $this->belongsTo(ProductBatch::class, 'product_batch_id', 'id');
     }
 }
