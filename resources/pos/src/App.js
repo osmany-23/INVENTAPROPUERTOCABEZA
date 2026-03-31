@@ -12,7 +12,10 @@ import {
 import Toasts from "./shared/toast/Toasts";
 import { fetchFrontSetting } from "./store/action/frontSettingAction";
 import { fetchConfig } from "./store/action/configAction";
-import { addRTLSupport } from "./shared/sharedMethod";
+import {
+    addRTLSupport,
+    syncTranslationMessages,
+} from "./shared/sharedMethod";
 import Login from "./components/auth/Login";
 import ResetPassword from "./components/auth/ResetPassword";
 import ForgotPassword from "./components/auth/ForgotPassword";
@@ -204,6 +207,8 @@ function App() {
     useEffect(() => {
         setupPosPerformanceMonitoring();
     }, []);
+
+    syncTranslationMessages(messages);
 
     return (
         <div className="d-flex flex-column flex-root">

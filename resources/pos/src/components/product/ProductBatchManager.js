@@ -26,6 +26,7 @@ import {
     getCurrencySymbol,
 } from "../../shared/sharedMethod";
 import { getBatchStatusMeta } from "../../shared/batchHelpers";
+import { can } from "../../shared/can";
 
 const EMPTY_DASHBOARD = {
     product: null,
@@ -127,6 +128,13 @@ const ProductBatchManager = () => {
             ),
         [allConfigData, settings]
     );
+    const canViewBatches =
+        can("ver_lotes", { strict: true }) ||
+        can("ver_stock_lote", { strict: true });
+    const canAssignBatchSettings = can("asignar_lotes", { strict: true });
+    const canCreateBatches = can("crear_lotes", { strict: true });
+    const canEditBatches = can("editar_lotes", { strict: true });
+    const canViewBatchStock = can("ver_stock_lote", { strict: true });
 
     const warehouseOptions = useMemo(() => {
         if (!Array.isArray(warehouses)) {
@@ -182,6 +190,12 @@ const ProductBatchManager = () => {
     );
 
     const loadDashboard = useCallback(async () => {
+        if (!canViewBatches) {
+            setLoading(false);
+            setError("No tiene permiso para consultar lotes.");
+            return;
+        }
+
         try {
             setLoading(true);
             setError("");
@@ -195,7 +209,7 @@ const ProductBatchManager = () => {
         } finally {
             setLoading(false);
         }
-    }, [applyDashboard, productId]);
+    }, [applyDashboard, canViewBatches, productId]);
 
     useEffect(() => {
         dispatch(fetchAllWarehouses());
@@ -234,6 +248,11 @@ const ProductBatchManager = () => {
     const saveSettings = async (event) => {
         event.preventDefault();
 
+        if (!canAssignBatchSettings) {
+            toast("No tiene permiso para configurar lotes.", toastType.ERROR);
+            return;
+        }
+
         try {
             setSavingSettings(true);
             setError("");
@@ -260,6 +279,11 @@ const ProductBatchManager = () => {
 
     const createBatch = async (event) => {
         event.preventDefault();
+
+        if (!canCreateBatches) {
+            toast("No tiene permiso para crear lotes.", toastType.ERROR);
+            return;
+        }
 
         try {
             setSavingBatch(true);
@@ -329,6 +353,11 @@ const ProductBatchManager = () => {
         event.preventDefault();
 
         if (!editingBatchId || !batchEditForm) {
+            return;
+        }
+
+        if (!canEditBatches) {
+            toast("No tiene permiso para editar lotes.", toastType.ERROR);
             return;
         }
 
@@ -461,15 +490,17 @@ const ProductBatchManager = () => {
                             </div>
                         </div>
 
-                        <div className="batch-manager__hero-actions">
-                            <Button
-                                className="batch-manager__primary-btn"
-                                onClick={() => navigate("/app/report/report-batch-expiry")}
-                            >
-                                Ver reporte de vencimientos
-                            </Button>
-                        </div>
-                    </section>
+	                        <div className="batch-manager__hero-actions">
+	                            {canViewBatchStock ? (
+	                                <Button
+	                                    className="batch-manager__primary-btn"
+	                                    onClick={() => navigate("/app/report/report-batch-expiry")}
+	                                >
+	                                    Ver reporte de vencimientos
+	                                </Button>
+	                            ) : null}
+	                        </div>
+	                    </section>
 
                     {Number(summary.stock_difference || 0) !== 0 ? (
                         <Alert variant="warning" className="batch-manager__sync-alert">
@@ -491,9 +522,11 @@ const ProductBatchManager = () => {
                         ))}
                     </Row>
 
-                    <Row className="g-4">
-                        <Col xl={4}>
-                            <section className="batch-manager__panel">
+	                    {canAssignBatchSettings || canCreateBatches ? (
+	                    <Row className="g-4">
+	                        {canAssignBatchSettings ? (
+	                        <Col xl={canCreateBatches ? 4 : 12}>
+	                            <section className="batch-manager__panel">
                                 <div className="batch-manager__panel-header">
                                     <h4>Configuracion del producto</h4>
                                     <p>Activa control por lotes, alertas y bloqueo por vencimiento.</p>
@@ -528,12 +561,14 @@ const ProductBatchManager = () => {
                                     >
                                         {savingSettings ? "Guardando..." : "Guardar configuracion"}
                                     </Button>
-                                </Form>
-                            </section>
-                        </Col>
-
-                        <Col xl={8}>
-                            <section className="batch-manager__panel">
+	                                </Form>
+	                            </section>
+	                        </Col>
+	                        ) : null}
+	
+	                        {canCreateBatches ? (
+	                        <Col xl={canAssignBatchSettings ? 8 : 12}>
+	                            <section className="batch-manager__panel">
                                 <div className="batch-manager__panel-header">
                                     <h4>Registrar lote</h4>
                                     <p>Ingresa lote, proveedor, costo, bodega, cantidad y fechas para alimentar el inventario.</p>
@@ -755,10 +790,12 @@ const ProductBatchManager = () => {
                                             </Button>
                                         </Col>
                                     </Row>
-                                </Form>
-                            </section>
-                        </Col>
-                    </Row>
+	                                </Form>
+	                            </section>
+	                        </Col>
+	                        ) : null}
+	                    </Row>
+	                    ) : null}
 
                     <section className="batch-manager__list-panel">
                         <div className="batch-manager__panel-header">
@@ -858,16 +895,20 @@ const ProductBatchManager = () => {
                                                     {batch.descripcion || batch.note}
                                                 </p>
                                             ) : null}
-                                            <div className="d-flex gap-2 mt-3">
-                                                <Button
-                                                    variant="outline-primary"
-                                                    size="sm"
-                                                    onClick={() => startEditingBatch(batch)}
-                                                >
-                                                    Editar lote
-                                                </Button>
-                                            </div>
-                                            {editingBatchId === batch.id && batchEditForm ? (
+                                            {canEditBatches ? (
+                                                <div className="d-flex gap-2 mt-3">
+                                                    <Button
+                                                        variant="outline-primary"
+                                                        size="sm"
+                                                        onClick={() => startEditingBatch(batch)}
+                                                    >
+                                                        Editar lote
+                                                    </Button>
+                                                </div>
+                                            ) : null}
+                                            {canEditBatches &&
+                                            editingBatchId === batch.id &&
+                                            batchEditForm ? (
                                                 <Form className="mt-3" onSubmit={saveBatchChanges}>
                                                     <Row className="g-2">
                                                         <Col md={6}>

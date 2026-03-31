@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             DefaultUnitSeeder::class,
             PermissionSeeder::class,
             RoleSeeder::class,
+            CreditAndBatchPermissionSeeder::class,
             DefaultUserSeeder::class,
             SettingTableSeeder::class,
             DefaultEmailTemplateSeeder::class,

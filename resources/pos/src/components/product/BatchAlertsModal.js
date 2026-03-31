@@ -25,8 +25,8 @@ const BatchAlertsModal = ({ show, onHide, onSummaryChange }) => {
     const [error, setError] = useState("");
     const [summary, setSummary] = useState(EMPTY_SUMMARY);
     const [items, setItems] = useState([]);
-    const canOpenBatchManager = can("manage_products");
-    const canOpenExpiryReport = can("manage_reports") || can("manage_report");
+    const canOpenBatchManager = can("ver_lotes", { strict: true });
+    const canOpenExpiryReport = can("ver_stock_lote", { strict: true });
 
     const splitItems = useMemo(() => {
         return {

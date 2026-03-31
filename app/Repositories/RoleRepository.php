@@ -71,7 +71,9 @@ class RoleRepository extends BaseRepository
             /** @var Role $role */
             $role = Role::find($id);
             $role->update($input);
-            $role->syncPermissions($input['permissions']);
+            if (! empty($input['permissions'])) {
+                $role->permissions()->syncWithoutDetaching($input['permissions']);
+            }
             DB::commit();
 
             return $role;
@@ -126,17 +128,16 @@ class RoleRepository extends BaseRepository
         $selectedIds = $selectedPermissions->pluck('id')->all();
         $selectedNames = $selectedPermissions->pluck('name')->all();
 
-        $legacyNames = collect(expandPermissionsWithLegacyNames($selectedNames))
-            ->filter(fn ($permissionName) => str_starts_with($permissionName, 'manage_'))
+        $expandedNames = collect(expandPermissionsWithLegacyNames($selectedNames))
             ->unique()
             ->values()
             ->all();
 
-        $legacyIds = Permission::query()
-            ->whereIn('name', $legacyNames)
+        $expandedIds = Permission::query()
+            ->whereIn('name', $expandedNames)
             ->pluck('id')
             ->all();
 
-        return array_values(array_unique(array_merge($selectedIds, $legacyIds)));
+        return array_values(array_unique(array_merge($selectedIds, $expandedIds)));
     }
 }

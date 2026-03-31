@@ -50,6 +50,18 @@ if (! function_exists('permissionLegacyMap')) {
             'view_purchase_price' => ['manage_products'],
             'edit_pos_sale_price' => ['manage_pos_screen', 'manage_sale'],
             'view_stock_alerts' => ['manage_dashboard'],
+            'ver_creditos' => ['manage_sale', 'manage_pos_screen'],
+            'crear_creditos' => ['manage_sale', 'manage_pos_screen'],
+            'editar_creditos' => ['manage_sale', 'manage_pos_screen'],
+            'eliminar_creditos' => ['manage_sale', 'manage_pos_screen'],
+            'ver_detalle_credito' => ['manage_sale', 'manage_pos_screen'],
+            'registrar_pagos_credito' => ['manage_sale', 'manage_pos_screen'],
+            'ver_lotes' => ['manage_products', 'manage_pos_screen'],
+            'crear_lotes' => ['manage_products'],
+            'editar_lotes' => ['manage_products'],
+            'eliminar_lotes' => ['manage_products'],
+            'asignar_lotes' => ['manage_products'],
+            'ver_stock_lote' => ['manage_products', 'manage_reports', 'manage_report', 'manage_pos_screen'],
 
             'purchase.view' => ['manage_purchase'],
             'purchase.create' => ['manage_purchase'],
@@ -189,6 +201,29 @@ if (! function_exists('legacyPermissionsForPermissionName')) {
     }
 }
 
+if (! function_exists('permissionsUnlockedByPermissionName')) {
+    function permissionsUnlockedByPermissionName(string $permissionName): array
+    {
+        $permissionName = strtolower(trim($permissionName));
+        if ($permissionName === '') {
+            return [];
+        }
+
+        $unlockedPermissions = [];
+
+        foreach (permissionLegacyMap() as $candidatePermission => $legacyPermissions) {
+            foreach ($legacyPermissions as $legacyPermission) {
+                if (normalizePermissionName($legacyPermission) === $permissionName) {
+                    $unlockedPermissions[] = normalizePermissionName($candidatePermission);
+                    break;
+                }
+            }
+        }
+
+        return array_values(array_unique(array_filter($unlockedPermissions)));
+    }
+}
+
 if (! function_exists('expandPermissionsWithLegacyNames')) {
     function expandPermissionsWithLegacyNames(array $permissions): array
     {
@@ -204,6 +239,10 @@ if (! function_exists('expandPermissionsWithLegacyNames')) {
 
             foreach (legacyPermissionsForPermissionName($permissionName) as $legacyPermission) {
                 $expandedPermissions[] = $legacyPermission;
+            }
+
+            foreach (permissionsUnlockedByPermissionName($permissionName) as $unlockedPermission) {
+                $expandedPermissions[] = $unlockedPermission;
             }
         }
 
@@ -276,6 +315,41 @@ if (! function_exists('userCrudModulePrefixes')) {
             'users.edit',
             'user.delete',
             'users.delete',
+        ];
+    }
+}
+
+if (! function_exists('creditPermissionPrefixes')) {
+    function creditPermissionPrefixes(): array
+    {
+        return [
+            'credit',
+            'credits',
+            'ver_creditos',
+            'crear_creditos',
+            'editar_creditos',
+            'eliminar_creditos',
+            'ver_detalle_credito',
+            'registrar_pagos_credito',
+        ];
+    }
+}
+
+if (! function_exists('batchPermissionPrefixes')) {
+    function batchPermissionPrefixes(): array
+    {
+        return [
+            'batch',
+            'batches',
+            'product_batch',
+            'product_batches',
+            'lotes',
+            'ver_lotes',
+            'crear_lotes',
+            'editar_lotes',
+            'eliminar_lotes',
+            'asignar_lotes',
+            'ver_stock_lote',
         ];
     }
 }
@@ -443,6 +517,63 @@ if (! function_exists('strictPermissionConfigMap')) {
                 'aliases' => ['dashboard.view_stock_alerts'],
                 'module_prefixes' => ['dashboard'],
             ],
+            'ver_creditos' => [
+                'aliases' => ['credit.view', 'credits.view'],
+                'module_prefixes' => creditPermissionPrefixes(),
+            ],
+            'crear_creditos' => [
+                'aliases' => ['credit.create', 'credits.create'],
+                'module_prefixes' => creditPermissionPrefixes(),
+            ],
+            'editar_creditos' => [
+                'aliases' => ['credit.update', 'credit.edit', 'credits.update', 'credits.edit'],
+                'module_prefixes' => creditPermissionPrefixes(),
+            ],
+            'eliminar_creditos' => [
+                'aliases' => ['credit.delete', 'credits.delete'],
+                'module_prefixes' => creditPermissionPrefixes(),
+            ],
+            'ver_detalle_credito' => [
+                'aliases' => ['credit.detail', 'credit.show', 'credits.detail'],
+                'module_prefixes' => creditPermissionPrefixes(),
+            ],
+            'registrar_pagos_credito' => [
+                'aliases' => [
+                    'credit.payment.create',
+                    'credits.payment.create',
+                    'credit.register_payment',
+                ],
+                'module_prefixes' => creditPermissionPrefixes(),
+            ],
+            'ver_lotes' => [
+                'aliases' => ['batch.view', 'batches.view', 'product_batches.view'],
+                'module_prefixes' => batchPermissionPrefixes(),
+            ],
+            'crear_lotes' => [
+                'aliases' => ['batch.create', 'batches.create', 'product_batches.create'],
+                'module_prefixes' => batchPermissionPrefixes(),
+            ],
+            'editar_lotes' => [
+                'aliases' => ['batch.update', 'batch.edit', 'batches.update', 'product_batches.update'],
+                'module_prefixes' => batchPermissionPrefixes(),
+            ],
+            'eliminar_lotes' => [
+                'aliases' => ['batch.delete', 'batches.delete', 'product_batches.delete'],
+                'module_prefixes' => batchPermissionPrefixes(),
+            ],
+            'asignar_lotes' => [
+                'aliases' => ['batch.assign', 'batches.assign', 'product_batches.assign'],
+                'module_prefixes' => batchPermissionPrefixes(),
+            ],
+            'ver_stock_lote' => [
+                'aliases' => [
+                    'batch.stock.view',
+                    'batch.report.view',
+                    'product_batches.stock.view',
+                    'product_batches.report.view',
+                ],
+                'module_prefixes' => batchPermissionPrefixes(),
+            ],
         ];
     }
 }
@@ -521,8 +652,23 @@ if (! function_exists('hasPermissionStrict')) {
             }
         }
 
+        $legacyPermissions = array_map(
+            fn ($legacyPermission) => normalizePermissionName($legacyPermission),
+            $options['legacy_permissions'] ?? []
+        );
+
         $legacyPermission = normalizePermissionName($options['legacy_permission'] ?? '');
-        if ($legacyPermission === '') {
+        if ($legacyPermission !== '') {
+            $legacyPermissions[] = $legacyPermission;
+        }
+
+        if (empty($legacyPermissions)) {
+            $legacyPermissions = legacyPermissionsForPermissionName($normalizedPermission);
+        }
+
+        $legacyPermissions = array_values(array_unique(array_filter($legacyPermissions)));
+
+        if (empty($legacyPermissions)) {
             return false;
         }
 
@@ -548,7 +694,13 @@ if (! function_exists('hasPermissionStrict')) {
             return false;
         }
 
-        return in_array($legacyPermission, $userPermissionNames, true) || $user->can($legacyPermission);
+        foreach ($legacyPermissions as $legacyPermission) {
+            if (in_array($legacyPermission, $userPermissionNames, true) || $user->can($legacyPermission)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 

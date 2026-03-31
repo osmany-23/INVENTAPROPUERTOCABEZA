@@ -41,7 +41,7 @@ const CreditAlertsModal = ({ show, onHide, onSummaryChange }) => {
     const [error, setError] = useState("");
     const [payload, setPayload] = useState(EMPTY_ALERT_PAYLOAD);
     const [alertDaysInput, setAlertDaysInput] = useState("3");
-    const canRegisterPayment = can("pos.create_sale", { strict: true });
+    const canRegisterPayment = can("registrar_pagos_credito", { strict: true });
 
     const toast = (text, type = toastType.SUCCESS) =>
         dispatch(addToast({ text, type }));

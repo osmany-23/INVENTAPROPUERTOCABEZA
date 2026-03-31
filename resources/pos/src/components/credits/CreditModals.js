@@ -1308,6 +1308,9 @@ export const DetailModal = React.memo(({
     onOpenPrint,
     onOpenRestructure,
     onOpenReturn,
+    canEditCredit = true,
+    canRestructureCredit = true,
+    canRegisterReturn = true,
 }) => {
     const shouldRenderBody = useDeferredModalContent(
         show,
@@ -1342,7 +1345,7 @@ export const DetailModal = React.memo(({
                 >
                     Cerrar
                 </CreditActionButton>
-                {creditDetail?.can_edit_directly ? (
+                {creditDetail?.can_edit_directly && canEditCredit ? (
                     <CreditActionButton
                         action="edit-credit"
                         className="credits-detail-modal__btn"
@@ -1351,7 +1354,7 @@ export const DetailModal = React.memo(({
                         Editar credito
                     </CreditActionButton>
                 ) : null}
-                {creditDetail?.can_restructure ? (
+                {creditDetail?.can_restructure && canRestructureCredit ? (
                     <CreditActionButton
                         action="restructure-credit"
                         className="credits-detail-modal__btn"
@@ -1360,7 +1363,8 @@ export const DetailModal = React.memo(({
                         Reestructurar credito
                     </CreditActionButton>
                 ) : null}
-                {creditDetail?.items?.some(
+                {canRegisterReturn &&
+                creditDetail?.items?.some(
                     (item) => Number(item.available_return_quantity) > 0
                 ) ? (
                     <CreditActionButton

@@ -84,8 +84,9 @@ const Header = (props) => {
     const { allConfigData } = useSelector(state => state)
     const canViewStockAlerts = can("view_stock_alerts", { strict: true });
     const canViewBatchAlerts =
-        can("products.view", { strict: true }) || can("pos.view", { strict: true });
-    const canViewCreditAlerts = can("pos.view", { strict: true });
+        can("ver_lotes", { strict: true }) ||
+        can("ver_stock_lote", { strict: true });
+    const canViewCreditAlerts = can("ver_creditos", { strict: true });
     const ignoreTotalRecordSync = useCallback(() => {}, []);
     const syncBatchAlertSummaryState = useCallback((summary = {}) => {
         setBatchAlertSummary((prev) => ({

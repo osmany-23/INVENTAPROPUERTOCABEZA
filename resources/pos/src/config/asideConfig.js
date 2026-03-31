@@ -223,7 +223,7 @@ export default [
         fontIcon: <FontAwesomeIcon icon={faMoneyCheckDollar} />,
         to: "/app/credits",
         class: "d-flex",
-        permission: Permissions.MANAGE_SALE,
+        permission: Permissions.VIEW_CREDITS,
         items: [
             {
                 title: getFormattedMessage("credits.title"),

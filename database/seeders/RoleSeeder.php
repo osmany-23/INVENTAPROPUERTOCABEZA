@@ -27,11 +27,17 @@ class RoleSeeder extends Seeder
                 $role->update(['display_name' => $roleData['display_name']]);
             }
 
-            $permissionNames = $roleData['permissions'] === ['*']
-                ? Permission::query()->pluck('name')->values()->all()
-                : $roleData['permissions'];
+            $permissionIds = $roleData['permissions'] === ['*']
+                ? Permission::query()->pluck('id')->values()->all()
+                : Permission::query()
+                    ->whereIn('name', $roleData['permissions'])
+                    ->pluck('id')
+                    ->values()
+                    ->all();
 
-            $role->syncPermissions($permissionNames);
+            if (! empty($permissionIds)) {
+                $role->permissions()->syncWithoutDetaching($permissionIds);
+            }
         }
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();

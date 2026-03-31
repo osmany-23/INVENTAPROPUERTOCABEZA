@@ -229,7 +229,7 @@ export const route = [
     {
         path: "products/batches/:productId",
         ele: <ProductBatchManager />,
-        permission: Permissions.MANAGE_PRODUCTS,
+        permission: Permissions.VIEW_BATCHES,
     },
     {
         path: "adjustments",
@@ -329,17 +329,17 @@ export const route = [
     {
         path: "credits",
         ele: <Credits />,
-        permission: Permissions.MANAGE_SALE,
+        permission: Permissions.VIEW_CREDITS,
     },
     {
         path: "credits/:creditId",
         ele: <Credits />,
-        permission: Permissions.MANAGE_SALE,
+        permission: Permissions.VIEW_CREDIT_DETAIL,
     },
     {
         path: "creditos/:creditId",
         ele: <Credits />,
-        permission: Permissions.MANAGE_SALE,
+        permission: Permissions.VIEW_CREDIT_DETAIL,
     },
     {
         path: "sales/create",
@@ -464,7 +464,7 @@ export const route = [
     {
         path: "report/report-batch-expiry",
         ele: <BatchExpiryReport />,
-        permission: Permissions.MANAGE_REPORTS,
+        permission: Permissions.VIEW_BATCH_STOCK,
     },
     {
         path: "report/report-purchase",

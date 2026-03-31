@@ -98,6 +98,31 @@ const USER_CRUD_MODULE_PREFIXES = [
     "users.delete",
 ];
 
+const CREDIT_PERMISSION_PREFIXES = [
+    "credit",
+    "credits",
+    "ver_creditos",
+    "crear_creditos",
+    "editar_creditos",
+    "eliminar_creditos",
+    "ver_detalle_credito",
+    "registrar_pagos_credito",
+];
+
+const BATCH_PERMISSION_PREFIXES = [
+    "batch",
+    "batches",
+    "product_batch",
+    "product_batches",
+    "lotes",
+    "ver_lotes",
+    "crear_lotes",
+    "editar_lotes",
+    "eliminar_lotes",
+    "asignar_lotes",
+    "ver_stock_lote",
+];
+
 const strictPermissionConfigs = {
     "products.view": {
         aliases: ["product.view"],
@@ -262,6 +287,63 @@ const strictPermissionConfigs = {
         aliases: ["dashboard.view_stock_alerts"],
         modulePrefixes: ["dashboard"],
     },
+    ver_creditos: {
+        aliases: ["credit.view", "credits.view"],
+        modulePrefixes: CREDIT_PERMISSION_PREFIXES,
+    },
+    crear_creditos: {
+        aliases: ["credit.create", "credits.create"],
+        modulePrefixes: CREDIT_PERMISSION_PREFIXES,
+    },
+    editar_creditos: {
+        aliases: ["credit.update", "credit.edit", "credits.update", "credits.edit"],
+        modulePrefixes: CREDIT_PERMISSION_PREFIXES,
+    },
+    eliminar_creditos: {
+        aliases: ["credit.delete", "credits.delete"],
+        modulePrefixes: CREDIT_PERMISSION_PREFIXES,
+    },
+    ver_detalle_credito: {
+        aliases: ["credit.detail", "credit.show", "credits.detail"],
+        modulePrefixes: CREDIT_PERMISSION_PREFIXES,
+    },
+    registrar_pagos_credito: {
+        aliases: [
+            "credit.payment.create",
+            "credits.payment.create",
+            "credit.register_payment",
+        ],
+        modulePrefixes: CREDIT_PERMISSION_PREFIXES,
+    },
+    ver_lotes: {
+        aliases: ["batch.view", "batches.view", "product_batches.view"],
+        modulePrefixes: BATCH_PERMISSION_PREFIXES,
+    },
+    crear_lotes: {
+        aliases: ["batch.create", "batches.create", "product_batches.create"],
+        modulePrefixes: BATCH_PERMISSION_PREFIXES,
+    },
+    editar_lotes: {
+        aliases: ["batch.update", "batch.edit", "batches.update", "product_batches.update"],
+        modulePrefixes: BATCH_PERMISSION_PREFIXES,
+    },
+    eliminar_lotes: {
+        aliases: ["batch.delete", "batches.delete", "product_batches.delete"],
+        modulePrefixes: BATCH_PERMISSION_PREFIXES,
+    },
+    asignar_lotes: {
+        aliases: ["batch.assign", "batches.assign", "product_batches.assign"],
+        modulePrefixes: BATCH_PERMISSION_PREFIXES,
+    },
+    ver_stock_lote: {
+        aliases: [
+            "batch.stock.view",
+            "batch.report.view",
+            "product_batches.stock.view",
+            "product_batches.report.view",
+        ],
+        modulePrefixes: BATCH_PERMISSION_PREFIXES,
+    },
 };
 
 const hasAnyPermission = (permissions = [], candidates = []) => {
@@ -299,6 +381,23 @@ const hasGranularPermissionInModule = (permissions = [], modulePrefixes = []) =>
     );
 };
 
+const getStrictLegacyPermissions = (permission, strictConfig = {}) => {
+    const configuredLegacyPermissions = [
+        ...(strictConfig.legacyPermissions || []),
+        ...(strictConfig.legacyPermission ? [strictConfig.legacyPermission] : []),
+    ]
+        .map((legacyPermission) => normalizePermissionName(legacyPermission))
+        .filter(Boolean);
+
+    if (configuredLegacyPermissions.length > 0) {
+        return Array.from(new Set(configuredLegacyPermissions));
+    }
+
+    return getLegacyPermissionsForPermission(permission).map((legacyPermission) =>
+        normalizePermissionName(legacyPermission)
+    );
+};
+
 export function can(permission, options = {}) {
     if (!permission) {
         return false;
@@ -323,10 +422,11 @@ export function can(permission, options = {}) {
             return true;
         }
 
-        const legacyPermission = normalizePermissionName(
-            strictConfig.legacyPermission
+        const legacyPermissions = getStrictLegacyPermissions(
+            normalizedPermission,
+            strictConfig
         );
-        if (!legacyPermission) {
+        if (legacyPermissions.length === 0) {
             return false;
         }
 
@@ -335,11 +435,11 @@ export function can(permission, options = {}) {
             strictConfig.modulePrefixes || []
         );
 
-        if (!hasModuleGranularPermissions) {
-            return hasAnyPermission(rawPermissions, [legacyPermission]);
+        if (hasModuleGranularPermissions) {
+            return false;
         }
 
-        return false;
+        return hasAnyPermission(rawPermissions, legacyPermissions);
     }
 
     const permissions = normalizePermissions(parsePermissionsFromStorage());

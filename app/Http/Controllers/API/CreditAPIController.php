@@ -21,7 +21,7 @@ class CreditAPIController extends AppBaseController
 
     public function index(Request $request): JsonResponse
     {
-        abort_unless(hasPermissionStrict('pos.view'), 403);
+        abort_unless(hasPermissionStrict('ver_creditos'), 403);
 
         $data = $request->validate([
             'page' => 'nullable|integer|min:1',
@@ -49,7 +49,7 @@ class CreditAPIController extends AppBaseController
 
     public function dashboard(Request $request): JsonResponse
     {
-        abort_unless(hasPermissionStrict('pos.view'), 403);
+        abort_unless(hasPermissionStrict('ver_creditos'), 403);
 
         $data = $this->creditService->getDashboardData();
 
@@ -58,7 +58,7 @@ class CreditAPIController extends AppBaseController
 
     public function alertSummary(Request $request): JsonResponse
     {
-        abort_unless(hasPermissionStrict('pos.view'), 403);
+        abort_unless(hasPermissionStrict('ver_creditos'), 403);
 
         return $this->sendResponse(
             $this->creditService->getAlertSummary($request->user()),
@@ -68,7 +68,7 @@ class CreditAPIController extends AppBaseController
 
     public function alertFeed(Request $request): JsonResponse
     {
-        abort_unless(hasPermissionStrict('pos.view'), 403);
+        abort_unless(hasPermissionStrict('ver_creditos'), 403);
 
         return $this->sendResponse(
             $this->creditService->getAlertFeed($request->user()),
@@ -78,7 +78,7 @@ class CreditAPIController extends AppBaseController
 
     public function updateAlertSettings(Request $request): JsonResponse
     {
-        abort_unless(hasPermissionStrict('pos.view'), 403);
+        abort_unless(hasPermissionStrict('ver_creditos'), 403);
 
         $data = $request->validate([
             'credit_alert_days' => 'required|integer|min:0|max:30',
@@ -95,7 +95,7 @@ class CreditAPIController extends AppBaseController
 
     public function show(Credit $credit): JsonResponse
     {
-        abort_unless(hasPermissionStrict('pos.view'), 403);
+        abort_unless(hasPermissionStrict('ver_detalle_credito'), 403);
 
         return $this->sendResponse(
             $this->creditService->getCreditDetail($credit),
@@ -105,7 +105,7 @@ class CreditAPIController extends AppBaseController
 
     public function printableState(Credit $credit): JsonResponse
     {
-        abort_unless(hasPermissionStrict('pos.view'), 403);
+        abort_unless(hasPermissionStrict('ver_detalle_credito'), 403);
 
         return $this->sendResponse(
             $this->creditService->getPrintableCreditState($credit),
@@ -115,7 +115,10 @@ class CreditAPIController extends AppBaseController
 
     public function checkLimit(Request $request): JsonResponse
     {
-        abort_unless(hasPermissionStrict('pos.view'), 403);
+        abort_unless(
+            hasPermissionStrict('ver_creditos') || hasPermissionStrict('crear_creditos'),
+            403
+        );
 
         $data = $request->validate([
             'customer_id' => 'required|exists:customers,id',
@@ -135,7 +138,7 @@ class CreditAPIController extends AppBaseController
 
     public function upsertCustomerConfig(Request $request): JsonResponse
     {
-        abort_unless(hasPermissionStrict('pos.create_sale'), 403);
+        abort_unless(hasPermissionStrict('editar_creditos'), 403);
 
         $data = $request->validate([
             'customer_id' => 'required|exists:customers,id',
@@ -165,7 +168,7 @@ class CreditAPIController extends AppBaseController
 
     public function storeManual(Request $request): JsonResponse
     {
-        abort_unless(hasPermissionStrict('pos.create_sale'), 403);
+        abort_unless(hasPermissionStrict('crear_creditos'), 403);
 
         $data = $request->validate([
             'customer_id' => 'required|exists:customers,id',
@@ -191,7 +194,7 @@ class CreditAPIController extends AppBaseController
 
     public function updateTerms(Request $request, Credit $credit): JsonResponse
     {
-        abort_unless(hasPermissionStrict('pos.create_sale'), 403);
+        abort_unless(hasPermissionStrict('editar_creditos'), 403);
 
         $data = $request->validate([
             'installments' => 'nullable|integer|min:1',
@@ -212,7 +215,7 @@ class CreditAPIController extends AppBaseController
 
     public function restructure(Request $request, Credit $credit): JsonResponse
     {
-        abort_unless(hasPermissionStrict('pos.create_sale'), 403);
+        abort_unless(hasPermissionStrict('editar_creditos'), 403);
 
         $data = $request->validate([
             'installments' => 'nullable|integer|min:1',
@@ -234,7 +237,7 @@ class CreditAPIController extends AppBaseController
 
     public function capturePayment(Request $request, Credit $credit): JsonResponse
     {
-        abort_unless(hasPermissionStrict('pos.create_sale'), 403);
+        abort_unless(hasPermissionStrict('registrar_pagos_credito'), 403);
 
         $data = $request->validate([
             'amount' => 'required|numeric|min:0.01',
@@ -253,7 +256,7 @@ class CreditAPIController extends AppBaseController
 
     public function captureReturn(Request $request, Credit $credit): JsonResponse
     {
-        abort_unless(hasPermissionStrict('pos.create_sale'), 403);
+        abort_unless(hasPermissionStrict('editar_creditos'), 403);
 
         $data = $request->validate([
             'items' => 'required|array',
@@ -272,7 +275,10 @@ class CreditAPIController extends AppBaseController
 
     public function productReport(Request $request): JsonResponse
     {
-        abort_unless(hasPermissionStrict('pos.view'), 403);
+        abort_unless(
+            hasPermissionStrict('ver_creditos') || hasPermissionStrict('ver_detalle_credito'),
+            403
+        );
 
         $validated = $request->validate([
             'product_id' => 'required|integer|exists:products,id',

@@ -11,6 +11,7 @@ import { apiBaseURL, toastType } from "../../../constants";
 import { addToast } from "../../../store/action/toastAction";
 import { fetchAllWarehouses } from "../../../store/action/warehouseAction";
 import { getBatchStatusMeta } from "../../../shared/batchHelpers";
+import { can } from "../../../shared/can";
 
 const STATUS_OPTIONS = [
     { value: "alerts", label: "Alertas" },
@@ -23,6 +24,7 @@ const BatchExpiryReport = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const warehouses = useSelector((state) => state.warehouses);
+    const canViewBatches = can("ver_lotes", { strict: true });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [rows, setRows] = useState([]);
@@ -289,15 +291,17 @@ const BatchExpiryReport = () => {
                                                     </span>
                                                 </td>
                                                 <td className="text-end">
-                                                    <Button
-                                                        variant="light"
-                                                        className="batch-expiry-report__action-btn"
-                                                        onClick={() =>
-                                                            navigate(`/app/products/batches/${row.product_id}`)
-                                                        }
-                                                    >
-                                                        Gestionar lotes
-                                                    </Button>
+                                                    {canViewBatches ? (
+                                                        <Button
+                                                            variant="light"
+                                                            className="batch-expiry-report__action-btn"
+                                                            onClick={() =>
+                                                                navigate(`/app/products/batches/${row.product_id}`)
+                                                            }
+                                                        >
+                                                            Gestionar lotes
+                                                        </Button>
+                                                    ) : null}
                                                 </td>
                                             </tr>
                                         );

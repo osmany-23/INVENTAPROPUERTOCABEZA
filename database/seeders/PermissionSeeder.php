@@ -320,6 +320,78 @@ class PermissionSeeder extends Seeder
                 'module' => 'user',
                 'action' => 'special',
             ],
+            [
+                'name' => 'ver_creditos',
+                'display_name' => 'Creditos - Ver listado',
+                'module' => 'creditos',
+                'action' => 'view',
+            ],
+            [
+                'name' => 'crear_creditos',
+                'display_name' => 'Creditos - Crear',
+                'module' => 'creditos',
+                'action' => 'create',
+            ],
+            [
+                'name' => 'editar_creditos',
+                'display_name' => 'Creditos - Actualizar',
+                'module' => 'creditos',
+                'action' => 'update',
+            ],
+            [
+                'name' => 'eliminar_creditos',
+                'display_name' => 'Creditos - Eliminar',
+                'module' => 'creditos',
+                'action' => 'delete',
+            ],
+            [
+                'name' => 'ver_detalle_credito',
+                'display_name' => 'Creditos - Ver detalle',
+                'module' => 'creditos',
+                'action' => 'special',
+            ],
+            [
+                'name' => 'registrar_pagos_credito',
+                'display_name' => 'Creditos - Registrar pagos',
+                'module' => 'creditos',
+                'action' => 'special',
+            ],
+            [
+                'name' => 'ver_lotes',
+                'display_name' => 'Lotes - Ver listado',
+                'module' => 'lotes',
+                'action' => 'view',
+            ],
+            [
+                'name' => 'crear_lotes',
+                'display_name' => 'Lotes - Crear',
+                'module' => 'lotes',
+                'action' => 'create',
+            ],
+            [
+                'name' => 'editar_lotes',
+                'display_name' => 'Lotes - Actualizar',
+                'module' => 'lotes',
+                'action' => 'update',
+            ],
+            [
+                'name' => 'eliminar_lotes',
+                'display_name' => 'Lotes - Eliminar',
+                'module' => 'lotes',
+                'action' => 'delete',
+            ],
+            [
+                'name' => 'asignar_lotes',
+                'display_name' => 'Lotes - Asignar',
+                'module' => 'lotes',
+                'action' => 'special',
+            ],
+            [
+                'name' => 'ver_stock_lote',
+                'display_name' => 'Lotes - Ver stock',
+                'module' => 'lotes',
+                'action' => 'special',
+            ],
         ];
     }
 

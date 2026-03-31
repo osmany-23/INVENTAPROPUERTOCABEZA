@@ -409,7 +409,18 @@ export const StatusBadge = React.memo(({ status }) => {
 });
 
 export const CreditCard = React.memo(
-    ({ row, money, onView, onPay, onEdit, onRestructure, onPrint }) => {
+    ({
+        row,
+        money,
+        onView,
+        onPay,
+        onEdit,
+        onRestructure,
+        onPrint,
+        canViewDetail = true,
+        canEditCredit = true,
+        canRegisterPayment = true,
+    }) => {
     const normalizedStatus = normalizeStatus(row.status);
     const recoveredAmount = Number(row.recovered_amount ?? row.paid_total ?? 0);
     const collectionTarget = Number(
@@ -493,25 +504,29 @@ export const CreditCard = React.memo(
             </div>
 
             <div className="credits-card-actions">
-                <TooltipWrap text="Ver detalle completo del credito">
-                    <CreditActionButton
-                        action="view-credit"
-                        size="sm"
-                        onClick={() => onView(row.id)}
-                    >
-                        Ver detalle
-                    </CreditActionButton>
-                </TooltipWrap>
-                <TooltipWrap text="Generar una vista previa e imprimir el estado actual del credito">
-                    <CreditActionButton
-                        action="print-credit-state"
-                        size="sm"
-                        onClick={() => onPrint(row.id)}
-                    >
-                        Imprimir estado
-                    </CreditActionButton>
-                </TooltipWrap>
-                {row.can_edit_directly ? (
+                {canViewDetail ? (
+                    <TooltipWrap text="Ver detalle completo del credito">
+                        <CreditActionButton
+                            action="view-credit"
+                            size="sm"
+                            onClick={() => onView(row.id)}
+                        >
+                            Ver detalle
+                        </CreditActionButton>
+                    </TooltipWrap>
+                ) : null}
+                {canViewDetail ? (
+                    <TooltipWrap text="Generar una vista previa e imprimir el estado actual del credito">
+                        <CreditActionButton
+                            action="print-credit-state"
+                            size="sm"
+                            onClick={() => onPrint(row.id)}
+                        >
+                            Imprimir estado
+                        </CreditActionButton>
+                    </TooltipWrap>
+                ) : null}
+                {row.can_edit_directly && canEditCredit ? (
                     <TooltipWrap text="Actualizar cuotas, fechas o tipo de credito sin alterar pagos">
                         <CreditActionButton
                             action="edit-credit"
@@ -522,7 +537,7 @@ export const CreditCard = React.memo(
                         </CreditActionButton>
                     </TooltipWrap>
                 ) : null}
-                {!row.can_edit_directly && row.can_restructure ? (
+                {!row.can_edit_directly && row.can_restructure && canEditCredit ? (
                     <TooltipWrap text="Crear un nuevo plan sobre el saldo pendiente y conservar historial">
                         <CreditActionButton
                             action="restructure-credit"
@@ -533,7 +548,7 @@ export const CreditCard = React.memo(
                         </CreditActionButton>
                     </TooltipWrap>
                 ) : null}
-                {Number(row.balance) > 0 ? (
+                {Number(row.balance) > 0 && canRegisterPayment ? (
                     <TooltipWrap text="Registrar un abono o pago sobre este credito">
                         <CreditActionButton
                             action="register-payment"
@@ -550,7 +565,12 @@ export const CreditCard = React.memo(
     }
 );
 
-export const CustomerCreditCard = React.memo(({ row, money, onEdit }) => {
+export const CustomerCreditCard = React.memo(({
+    row,
+    money,
+    onEdit,
+    canEditConfig = true,
+}) => {
     const normalizedStatus = normalizeStatus(row.status);
     const usagePercent = getUsagePercent(row.used, row.credit_limit);
 
@@ -625,15 +645,17 @@ export const CustomerCreditCard = React.memo(({ row, money, onEdit }) => {
             </div>
 
             <div className="credits-card-actions">
-                <TooltipWrap text="Editar limite de credito, interes y condiciones del cliente">
-                    <CreditActionButton
-                        action="edit-config"
-                        size="sm"
-                        onClick={() => onEdit(row)}
-                    >
-                        Editar configuracion
-                    </CreditActionButton>
-                </TooltipWrap>
+                {canEditConfig ? (
+                    <TooltipWrap text="Editar limite de credito, interes y condiciones del cliente">
+                        <CreditActionButton
+                            action="edit-config"
+                            size="sm"
+                            onClick={() => onEdit(row)}
+                        >
+                            Editar configuracion
+                        </CreditActionButton>
+                    </TooltipWrap>
+                ) : null}
             </div>
         </article>
     );

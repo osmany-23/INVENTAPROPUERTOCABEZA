@@ -609,6 +609,18 @@ export const Permissions = {
     MANAGE_SMS_API: "manage_sms_apis",
     MANAGE_SMS_TEMPLATES: "manage_sms_templates",
     MANAGE_LANGUAGES: "manage_language",
+    VIEW_CREDITS: "ver_creditos",
+    CREATE_CREDITS: "crear_creditos",
+    EDIT_CREDITS: "editar_creditos",
+    DELETE_CREDITS: "eliminar_creditos",
+    VIEW_CREDIT_DETAIL: "ver_detalle_credito",
+    REGISTER_CREDIT_PAYMENTS: "registrar_pagos_credito",
+    VIEW_BATCHES: "ver_lotes",
+    CREATE_BATCHES: "crear_lotes",
+    EDIT_BATCHES: "editar_lotes",
+    DELETE_BATCHES: "eliminar_lotes",
+    ASSIGN_BATCHES: "asignar_lotes",
+    VIEW_BATCH_STOCK: "ver_stock_lote",
 };
 
 //POS Screen Constants

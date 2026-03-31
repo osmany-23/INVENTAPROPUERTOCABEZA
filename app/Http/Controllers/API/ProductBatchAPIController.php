@@ -17,7 +17,7 @@ class ProductBatchAPIController extends AppBaseController
 
     public function show(Product $product): JsonResponse
     {
-        abort_unless(hasPermissionStrict('products.view') || hasPermissionStrict('pos.view'), 403);
+        abort_unless(hasPermissionStrict('ver_lotes'), 403);
 
         return $this->sendResponse(
             $this->productBatchService->getProductBatchDashboard($product),
@@ -27,7 +27,7 @@ class ProductBatchAPIController extends AppBaseController
 
     public function updateSettings(Request $request, Product $product): JsonResponse
     {
-        abort_unless(hasPermissionStrict('products.update'), 403);
+        abort_unless(hasPermissionStrict('asignar_lotes'), 403);
 
         return $this->sendResponse(
             $this->productBatchService->updateSettings($product, $request->all()),
@@ -37,7 +37,7 @@ class ProductBatchAPIController extends AppBaseController
 
     public function store(Request $request, Product $product): JsonResponse
     {
-        abort_unless(hasPermissionStrict('products.update'), 403);
+        abort_unless(hasPermissionStrict('crear_lotes'), 403);
 
         return $this->sendResponse(
             $this->productBatchService->createBatch($product, $request->all()),
@@ -47,7 +47,7 @@ class ProductBatchAPIController extends AppBaseController
 
     public function update(Request $request, Product $product, ProductBatch $batch): JsonResponse
     {
-        abort_unless(hasPermissionStrict('products.update'), 403);
+        abort_unless(hasPermissionStrict('editar_lotes'), 403);
 
         return $this->sendResponse(
             $this->productBatchService->updateBatch($product, $batch, $request->all()),
@@ -57,7 +57,7 @@ class ProductBatchAPIController extends AppBaseController
 
     public function scan(Request $request): JsonResponse
     {
-        abort_unless(hasPermissionStrict('pos.view') || hasPermissionStrict('products.view'), 403);
+        abort_unless(hasPermissionStrict('ver_lotes'), 403);
 
         $warehouseId = (int) $request->get('warehouse_id');
         $code = (string) $request->get('code', '');
@@ -70,7 +70,10 @@ class ProductBatchAPIController extends AppBaseController
 
     public function alertSummary(Request $request): JsonResponse
     {
-        abort_unless(hasPermissionStrict('products.view') || hasPermissionStrict('pos.view'), 403);
+        abort_unless(
+            hasPermissionStrict('ver_lotes') || hasPermissionStrict('ver_stock_lote'),
+            403
+        );
 
         return $this->sendResponse(
             $this->productBatchService->getAlertSummary($request->filled('warehouse_id') ? (int) $request->get('warehouse_id') : null),
@@ -80,7 +83,10 @@ class ProductBatchAPIController extends AppBaseController
 
     public function alerts(Request $request): JsonResponse
     {
-        abort_unless(hasPermissionStrict('products.view') || hasPermissionStrict('pos.view'), 403);
+        abort_unless(
+            hasPermissionStrict('ver_lotes') || hasPermissionStrict('ver_stock_lote'),
+            403
+        );
 
         return $this->sendResponse(
             $this->productBatchService->getAlertFeed(
@@ -93,7 +99,7 @@ class ProductBatchAPIController extends AppBaseController
 
     public function report(Request $request): JsonResponse
     {
-        abort_unless(hasPermissionStrict('manage_reports') || hasPermissionStrict('products.view'), 403);
+        abort_unless(hasPermissionStrict('ver_stock_lote'), 403);
 
         return $this->sendResponse(
             $this->productBatchService->getExpiryReport($request->all()),

@@ -22,6 +22,7 @@ import {
     getCurrencySymbol,
     parseNumber,
 } from "../../shared/sharedMethod";
+import { can } from "../../shared/can";
 import {
     clearCreditListCache,
     CREDIT_PAGE_SIZE_OPTIONS,
@@ -190,6 +191,13 @@ const Credits = () => {
         () => new URLSearchParams(location.search).get("action"),
         [location.search]
     );
+    const canViewCredits = can("ver_creditos", { strict: true });
+    const canViewCreditDetail = can("ver_detalle_credito", { strict: true });
+    const canCreateCredits = can("crear_creditos", { strict: true });
+    const canEditCredits = can("editar_creditos", { strict: true });
+    const canRegisterCreditPayments = can("registrar_pagos_credito", {
+        strict: true,
+    });
 
     const toast = useCallback(
         (text, type = toastType.SUCCESS) =>
@@ -450,12 +458,17 @@ const Credits = () => {
     }, []);
 
     const openManualModal = useCallback(() => {
+        if (!canCreateCredits) {
+            toast("No tiene permiso para crear creditos.", toastType.ERROR);
+            return;
+        }
+
         closeAllCreditModals();
         setCurrentAction("create");
         setCreditDetail(null);
         resetManualModalState();
         setShowManualModal(true);
-    }, [closeAllCreditModals]);
+    }, [canCreateCredits, closeAllCreditModals, toast]);
 
     const existingCustomerIds = useMemo(() => [], []);
 
@@ -1010,6 +1023,18 @@ const Credits = () => {
     };
 
     const fetchDashboard = useCallback(async () => {
+        if (!canViewCredits) {
+            setLoading(false);
+            setDashboard({
+                summary: {},
+                customer_configs: [],
+                credits: [],
+                overdue_customers: [],
+                interest_report: [],
+            });
+            return;
+        }
+
         try {
             setLoading(true);
             const response = await apiConfig.get("/credits/dashboard");
@@ -1019,7 +1044,7 @@ const Credits = () => {
         } finally {
             setLoading(false);
         }
-    }, [getErrorMessage, toast]);
+    }, [canViewCredits, getErrorMessage, toast]);
 
     const fetchCreditDetail = useCallback(
         async (creditId, options = {}) => {
@@ -1095,16 +1120,26 @@ const Credits = () => {
 
     const handleOpenDetailModal = useCallback(
         (creditId) => {
+            if (!canViewCreditDetail) {
+                toast("No tiene permiso para ver el detalle del credito.", toastType.ERROR);
+                return;
+            }
+
             openModalWithCreditDetail(creditId, {
                 action: "view",
                 openModal: setShowDetailModal,
             });
         },
-        [openModalWithCreditDetail]
+        [canViewCreditDetail, openModalWithCreditDetail, toast]
     );
 
     const handleOpenPaymentModal = useCallback(
         (creditId) => {
+            if (!canRegisterCreditPayments) {
+                toast("No tiene permiso para registrar pagos de credito.", toastType.ERROR);
+                return;
+            }
+
             setPaymentErrors({});
             setPaymentForm(DEFAULT_PAYMENT_FORM);
             openModalWithCreditDetail(creditId, {
@@ -1121,11 +1156,16 @@ const Credits = () => {
                 },
             });
         },
-        [openModalWithCreditDetail]
+        [canRegisterCreditPayments, openModalWithCreditDetail, toast]
     );
 
     const handleOpenEditCreditModalFromRow = useCallback(
         (creditId) => {
+            if (!canEditCredits) {
+                toast("No tiene permiso para editar creditos.", toastType.ERROR);
+                return;
+            }
+
             setEditErrors({});
             setEditForm(DEFAULT_EDIT_CREDIT_FORM);
             openModalWithCreditDetail(creditId, {
@@ -1136,11 +1176,16 @@ const Credits = () => {
                 },
             });
         },
-        [openModalWithCreditDetail]
+        [canEditCredits, openModalWithCreditDetail, toast]
     );
 
     const handleOpenRestructureModalFromRow = useCallback(
         (creditId) => {
+            if (!canEditCredits) {
+                toast("No tiene permiso para editar creditos.", toastType.ERROR);
+                return;
+            }
+
             setRestructureErrors({});
             setRestructureForm(DEFAULT_RESTRUCTURE_CREDIT_FORM);
             openModalWithCreditDetail(creditId, {
@@ -1151,7 +1196,7 @@ const Credits = () => {
                 },
             });
         },
-        [openModalWithCreditDetail]
+        [canEditCredits, openModalWithCreditDetail, toast]
     );
 
     useEffect(() => {
@@ -1236,8 +1281,12 @@ const Credits = () => {
     }, [showManualModal, manualForm.warehouse_id?.value]);
 
     useEffect(() => {
+        if (!canViewCredits) {
+            return;
+        }
+
         fetchSectionPage().catch(() => {});
-    }, [fetchSectionPage]);
+    }, [canViewCredits, fetchSectionPage]);
 
     useEffect(() => {
         if (!currentPageData?.meta) {
@@ -1279,13 +1328,14 @@ const Credits = () => {
             return;
         }
 
-        if (routeAction === "payment") {
+        if (routeAction === "payment" && canRegisterCreditPayments) {
             handleOpenPaymentModal(routeCreditId);
             return;
         }
 
         handleOpenDetailModal(routeCreditId);
     }, [
+        canRegisterCreditPayments,
         handleOpenDetailModal,
         handleOpenPaymentModal,
         routeAction,
@@ -1469,6 +1519,11 @@ const Credits = () => {
     };
 
     const saveConfig = async () => {
+        if (!canEditCredits) {
+            toast("No tiene permiso para editar configuraciones de credito.", toastType.ERROR);
+            return;
+        }
+
         if (!validateConfigForm()) return;
         try {
             setSaving(true);
@@ -1491,6 +1546,11 @@ const Credits = () => {
     };
 
     const saveManualCredit = async () => {
+        if (!canCreateCredits) {
+            toast("No tiene permiso para crear creditos.", toastType.ERROR);
+            return;
+        }
+
         if (!validateManualForm()) return;
         try {
             setSaving(true);
@@ -1529,6 +1589,11 @@ const Credits = () => {
     };
 
     const saveCreditEdit = async () => {
+        if (!canEditCredits) {
+            toast("No tiene permiso para editar creditos.", toastType.ERROR);
+            return;
+        }
+
         if (!creditDetail || !validateEditForm()) return;
 
         try {
@@ -1560,6 +1625,11 @@ const Credits = () => {
     };
 
     const savePayment = async () => {
+        if (!canRegisterCreditPayments) {
+            toast("No tiene permiso para registrar pagos de credito.", toastType.ERROR);
+            return;
+        }
+
         if (!creditDetail || !validatePaymentForm()) return;
         try {
             setSaving(true);
@@ -1594,6 +1664,11 @@ const Credits = () => {
     };
 
     const saveCreditRestructure = async () => {
+        if (!canEditCredits) {
+            toast("No tiene permiso para editar creditos.", toastType.ERROR);
+            return;
+        }
+
         if (!creditDetail || !validateRestructureForm()) return;
 
         try {
@@ -1628,6 +1703,11 @@ const Credits = () => {
     };
 
     const saveReturn = async () => {
+        if (!canEditCredits) {
+            toast("No tiene permiso para editar creditos.", toastType.ERROR);
+            return;
+        }
+
         if (!creditDetail || !validateReturnForm()) return;
 
         try {
@@ -1659,6 +1739,11 @@ const Credits = () => {
     };
 
     const openConfigModal = useCallback((row = null) => {
+        if (!canEditCredits) {
+            toast("No tiene permiso para editar configuraciones de credito.", toastType.ERROR);
+            return;
+        }
+
         setConfigErrors({});
 
         if (!row) {
@@ -1679,10 +1764,10 @@ const Credits = () => {
         closeAllCreditModals();
         setCurrentAction("config");
         setShowConfigModal(true);
-    }, [closeAllCreditModals]);
+    }, [canEditCredits, closeAllCreditModals, toast]);
 
     const openEditCreditModal = useCallback((detail = creditDetail) => {
-        if (!detail) {
+        if (!detail || !canEditCredits) {
             return;
         }
 
@@ -1690,10 +1775,10 @@ const Credits = () => {
         setEditForm(buildCreditEditForm(detail));
         closeAllCreditModals();
         setShowEditModal(true);
-    }, [closeAllCreditModals, creditDetail]);
+    }, [canEditCredits, closeAllCreditModals, creditDetail]);
 
     const openRestructureModal = useCallback((detail = creditDetail) => {
-        if (!detail) {
+        if (!detail || !canEditCredits) {
             return;
         }
 
@@ -1701,10 +1786,10 @@ const Credits = () => {
         setRestructureForm(buildCreditRestructureForm(detail));
         closeAllCreditModals();
         setShowRestructureModal(true);
-    }, [closeAllCreditModals, creditDetail]);
+    }, [canEditCredits, closeAllCreditModals, creditDetail]);
 
     const openReturnModal = useCallback((detail = creditDetail) => {
-        if (!detail) {
+        if (!detail || !canEditCredits) {
             return;
         }
 
@@ -1720,7 +1805,7 @@ const Credits = () => {
         });
         closeAllCreditModals();
         setShowReturnModal(true);
-    }, [closeAllCreditModals, creditDetail]);
+    }, [canEditCredits, closeAllCreditModals, creditDetail]);
 
     const openPrintPreviewModal = useCallback(
         (nextCreditId) => {
@@ -1841,6 +1926,7 @@ const Credits = () => {
                     row={row}
                     money={money}
                     onEdit={openConfigModal}
+                    canEditConfig={canEditCredits}
                 />
             ));
         }
@@ -1883,11 +1969,17 @@ const Credits = () => {
                 onEdit={handleOpenEditCreditModalFromRow}
                 onPay={handleOpenPaymentModal}
                 onRestructure={handleOpenRestructureModalFromRow}
+                canViewDetail={canViewCreditDetail}
+                canEditCredit={canEditCredits}
+                canRegisterPayment={canRegisterCreditPayments}
             />
         ));
     }, [
         activeRows,
         activeSection,
+        canEditCredits,
+        canRegisterCreditPayments,
+        canViewCreditDetail,
         handleOpenDetailModal,
         handleOpenEditCreditModalFromRow,
         handleOpenPaymentModal,
@@ -1908,6 +2000,8 @@ const Credits = () => {
                 <TabTitle title="Creditos" />
                 <HeaderTitle title="Creditos" />
 
+                {canViewCredits ? (
+                    <>
                 <Row className="g-4 mb-5">
                     <Col xl={3} md={6}>
                         <SummaryCard
@@ -1986,22 +2080,26 @@ const Credits = () => {
                                         ))}
                                     </Form.Select>
                                 </TooltipWrap>
-                                <TooltipWrap text="Definir limite de credito y condiciones del cliente">
-                                    <CreditActionButton
-                                        action="configure-customer"
-                                        onClick={() => openConfigModal()}
-                                    >
-                                        Configurar cliente
-                                    </CreditActionButton>
-                                </TooltipWrap>
-                                <TooltipWrap text="Crear un credito sin necesidad de factura">
-                                    <CreditActionButton
-                                        action="create-manual-credit"
-                                        onClick={openManualModal}
-                                    >
-                                        Credito manual
-                                    </CreditActionButton>
-                                </TooltipWrap>
+                                {canEditCredits ? (
+                                    <TooltipWrap text="Definir limite de credito y condiciones del cliente">
+                                        <CreditActionButton
+                                            action="configure-customer"
+                                            onClick={() => openConfigModal()}
+                                        >
+                                            Configurar cliente
+                                        </CreditActionButton>
+                                    </TooltipWrap>
+                                ) : null}
+                                {canCreateCredits ? (
+                                    <TooltipWrap text="Crear un credito sin necesidad de factura">
+                                        <CreditActionButton
+                                            action="create-manual-credit"
+                                            onClick={openManualModal}
+                                        >
+                                            Credito manual
+                                        </CreditActionButton>
+                                    </TooltipWrap>
+                                ) : null}
                             </div>
                         </div>
 
@@ -2126,6 +2224,8 @@ const Credits = () => {
                         </>
                     </div>
                 </div>
+                    </>
+                ) : null}
             </div>
 
             <Suspense fallback={null}>
@@ -2179,6 +2279,9 @@ const Credits = () => {
                         onOpenPrint={handleOpenPrintFromDetail}
                         onOpenRestructure={handleOpenRestructureFromDetail}
                         onOpenReturn={handleOpenReturnFromDetail}
+                        canEditCredit={canEditCredits}
+                        canRestructureCredit={canEditCredits}
+                        canRegisterReturn={canEditCredits}
                     />
                 ) : null}
                 {showEditModal ? (

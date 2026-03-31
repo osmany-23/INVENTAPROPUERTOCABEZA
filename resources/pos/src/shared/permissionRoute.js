@@ -29,6 +29,18 @@ const permissionMappings = {
     manage_sms_apis: "/app/sms-api",
     manage_sms_templates: "/app/sms-templates",
     manage_language: "/app/languages",
+    ver_creditos: "/app/credits",
+    crear_creditos: "/app/credits",
+    editar_creditos: "/app/credits",
+    eliminar_creditos: "/app/credits",
+    ver_detalle_credito: "/app/credits",
+    registrar_pagos_credito: "/app/credits",
+    ver_lotes: "/app/products",
+    crear_lotes: "/app/products",
+    editar_lotes: "/app/products",
+    eliminar_lotes: "/app/products",
+    asignar_lotes: "/app/products",
+    ver_stock_lote: "/app/report/report-batch-expiry",
 };
 
 const moduleLegacyMap = {
@@ -98,10 +110,43 @@ const explicitLegacyMap = {
     "view_stock_alerts": ["manage_dashboard"],
     "user.update_credentials": ["manage_users"],
     "user.edit_credentials": ["manage_users"],
+    ver_creditos: ["manage_sale", "manage_pos_screen"],
+    crear_creditos: ["manage_sale", "manage_pos_screen"],
+    editar_creditos: ["manage_sale", "manage_pos_screen"],
+    eliminar_creditos: ["manage_sale", "manage_pos_screen"],
+    ver_detalle_credito: ["manage_sale", "manage_pos_screen"],
+    registrar_pagos_credito: ["manage_sale", "manage_pos_screen"],
+    ver_lotes: ["manage_products", "manage_pos_screen"],
+    crear_lotes: ["manage_products"],
+    editar_lotes: ["manage_products"],
+    eliminar_lotes: ["manage_products"],
+    asignar_lotes: ["manage_products"],
+    ver_stock_lote: [
+        "manage_products",
+        "manage_reports",
+        "manage_report",
+        "manage_pos_screen",
+    ],
 };
 
 const normalizePermission = (permission) =>
     String(permission || "").trim().toLowerCase();
+
+const getPermissionsUnlockedByPermission = (permission) => {
+    const normalizedPermission = normalizePermission(permission);
+    if (!normalizedPermission) {
+        return [];
+    }
+
+    return Object.entries(explicitLegacyMap)
+        .filter(([, legacyPermissions]) =>
+            legacyPermissions.some(
+                (legacyPermission) =>
+                    normalizePermission(legacyPermission) === normalizedPermission
+            )
+        )
+        .map(([permissionName]) => normalizePermission(permissionName));
+};
 
 export const getLegacyPermissionsForPermission = (permission) => {
     const normalizedPermission = normalizePermission(permission);
@@ -144,6 +189,10 @@ export const normalizePermissions = (permissions = []) => {
 
         getLegacyPermissionsForPermission(normalizedPermission).forEach(
             (legacyPermission) => normalizedPermissions.add(legacyPermission)
+        );
+
+        getPermissionsUnlockedByPermission(normalizedPermission).forEach(
+            (permissionName) => normalizedPermissions.add(permissionName)
         );
     });
 
@@ -192,6 +241,18 @@ export const getDefaultRedirectRoute = (permissions = [], currentHash) => {
 
     if (normalizedPermissions.includes("manage_sale")) {
         return "/app/sales";
+    }
+
+    if (normalizedPermissions.includes("ver_creditos")) {
+        return "/app/credits";
+    }
+
+    if (normalizedPermissions.includes("ver_stock_lote")) {
+        return "/app/report/report-batch-expiry";
+    }
+
+    if (normalizedPermissions.includes("ver_lotes")) {
+        return "/app/products";
     }
 
     if (

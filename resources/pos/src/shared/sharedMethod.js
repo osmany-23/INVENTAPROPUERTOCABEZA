@@ -1,11 +1,59 @@
 import React from "react";
-import { FormattedMessage, useIntl } from "react-intl";
+import { FormattedMessage } from "react-intl";
 import { Navigate } from "react-router-dom";
 import { Tokens } from "../constants";
+import { getFiles } from "../locales";
 import moment from "moment";
 import { DEFAULT_CURRENCY_SYMBOL, getCurrencySymbol } from "./currency";
 
 const NUMBER_FORMAT_LOCALE = "en-US";
+const LOCALE_FALLBACK = "en";
+const localeFiles = getFiles();
+const isLocaleObject = (value) =>
+    Boolean(value && typeof value === "object" && !Array.isArray(value));
+let currentTranslationMessages = isLocaleObject(localeFiles?.[LOCALE_FALLBACK])
+    ? localeFiles[LOCALE_FALLBACK]
+    : {};
+
+const getFallbackMessages = () => {
+    if (
+        isLocaleObject(currentTranslationMessages) &&
+        Object.keys(currentTranslationMessages).length > 0
+    ) {
+        return currentTranslationMessages;
+    }
+
+    const activeLocale =
+        typeof window !== "undefined"
+            ? localStorage.getItem(Tokens.UPDATED_LANGUAGE)
+            : null;
+
+    if (activeLocale && isLocaleObject(localeFiles?.[activeLocale])) {
+        return localeFiles[activeLocale];
+    }
+
+    if (isLocaleObject(localeFiles?.[LOCALE_FALLBACK])) {
+        return localeFiles[LOCALE_FALLBACK];
+    }
+
+    return {};
+};
+
+export const syncTranslationMessages = (messages) => {
+    currentTranslationMessages = isLocaleObject(messages)
+        ? messages
+        : getFallbackMessages();
+};
+
+export const translateMessage = (id, defaultMessage = id) => {
+    const messageId = String(id || "").trim();
+    if (!messageId) {
+        return String(defaultMessage || "");
+    }
+
+    const translatedValue = getFallbackMessages()?.[messageId];
+    return translatedValue || defaultMessage || messageId;
+};
 
 export const normalizeNumericValue = (value) => {
     if (value === null || value === undefined) {
@@ -100,22 +148,16 @@ export const getFormattedMessage = (id) => {
 };
 
 export const getFormattedOptions = (options) => {
-    const intl = useIntl();
-    const copyOptions = _.cloneDeep(options);
-    copyOptions.map(
-        (option) =>
-            (option.name = intl.formatMessage({
-                id: option.name,
-                defaultMessage: option.name,
-            }))
-    );
+    const copyOptions = _.cloneDeep(Array.isArray(options) ? options : []);
+    copyOptions.forEach((option) => {
+        option.name = translateMessage(option?.name, option?.name);
+    });
+
     return copyOptions;
 };
 
 export const placeholderText = (label) => {
-    const intl = useIntl();
-    const placeholderLabel = intl.formatMessage({ id: label });
-    return placeholderLabel;
+    return translateMessage(label, label);
 };
 
 export const decimalValidate = (event) => {
