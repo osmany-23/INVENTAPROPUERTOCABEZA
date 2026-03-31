@@ -71,13 +71,12 @@ class RoleRepository extends BaseRepository
             /** @var Role $role */
             $role = Role::find($id);
             $role->update($input);
-            if (! empty($input['permissions'])) {
-                $role->permissions()->syncWithoutDetaching($input['permissions']);
-            }
+            $role->permissions()->sync($input['permissions']);
             DB::commit();
 
             return $role;
         } catch (Exception $exception) {
+            DB::rollBack();
             throw new UnprocessableEntityHttpException($exception->getMessage());
         }
     }

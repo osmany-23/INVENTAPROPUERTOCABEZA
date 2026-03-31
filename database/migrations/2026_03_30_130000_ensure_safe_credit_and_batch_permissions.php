@@ -377,8 +377,11 @@ return new class extends Migration
 
         $cashierPermissionIds = collect([
             'ver_creditos',
+            'credit.view',
             'crear_creditos',
+            'credit.create',
             'ver_lotes',
+            'lot.view',
         ])
             ->map(fn ($permissionName) => $permissionIdByName[$permissionName] ?? null)
             ->filter()
@@ -407,9 +410,21 @@ return new class extends Migration
                 'action' => 'view',
             ],
             [
+                'name' => 'credit.view',
+                'display_name' => 'Credito - Ver listado',
+                'module' => 'credit',
+                'action' => 'view',
+            ],
+            [
                 'name' => 'crear_creditos',
                 'display_name' => 'Creditos - Crear',
                 'module' => 'creditos',
+                'action' => 'create',
+            ],
+            [
+                'name' => 'credit.create',
+                'display_name' => 'Credito - Crear',
+                'module' => 'credit',
                 'action' => 'create',
             ],
             [
@@ -419,9 +434,21 @@ return new class extends Migration
                 'action' => 'update',
             ],
             [
+                'name' => 'credit.edit',
+                'display_name' => 'Credito - Editar',
+                'module' => 'credit',
+                'action' => 'update',
+            ],
+            [
                 'name' => 'eliminar_creditos',
                 'display_name' => 'Creditos - Eliminar',
                 'module' => 'creditos',
+                'action' => 'delete',
+            ],
+            [
+                'name' => 'credit.delete',
+                'display_name' => 'Credito - Eliminar',
+                'module' => 'credit',
                 'action' => 'delete',
             ],
             [
@@ -443,9 +470,21 @@ return new class extends Migration
                 'action' => 'view',
             ],
             [
+                'name' => 'lot.view',
+                'display_name' => 'Lotes - Ver listado',
+                'module' => 'lot',
+                'action' => 'view',
+            ],
+            [
                 'name' => 'crear_lotes',
                 'display_name' => 'Lotes - Crear',
                 'module' => 'lotes',
+                'action' => 'create',
+            ],
+            [
+                'name' => 'lot.create',
+                'display_name' => 'Lotes - Crear',
+                'module' => 'lot',
                 'action' => 'create',
             ],
             [
@@ -455,9 +494,21 @@ return new class extends Migration
                 'action' => 'update',
             ],
             [
+                'name' => 'lot.edit',
+                'display_name' => 'Lotes - Editar',
+                'module' => 'lot',
+                'action' => 'update',
+            ],
+            [
                 'name' => 'eliminar_lotes',
                 'display_name' => 'Lotes - Eliminar',
                 'module' => 'lotes',
+                'action' => 'delete',
+            ],
+            [
+                'name' => 'lot.delete',
+                'display_name' => 'Lotes - Eliminar',
+                'module' => 'lot',
                 'action' => 'delete',
             ],
             [
@@ -481,16 +532,24 @@ return new class extends Migration
     private function permissionInheritanceMap(): array
     {
         return [
-            'ver_creditos' => ['manage_sale', 'manage_pos_screen', 'pos.view'],
-            'crear_creditos' => ['manage_sale', 'manage_pos_screen', 'pos.create_sale'],
-            'editar_creditos' => ['manage_sale', 'manage_pos_screen', 'pos.create_sale', 'pos.edit_sale'],
-            'eliminar_creditos' => ['manage_sale', 'pos.delete_sale'],
+            'ver_creditos' => ['manage_sale', 'manage_pos_screen', 'pos.view', 'credit.view'],
+            'credit.view' => ['ver_creditos'],
+            'crear_creditos' => ['manage_sale', 'manage_pos_screen', 'pos.create_sale', 'credit.create'],
+            'credit.create' => ['crear_creditos'],
+            'editar_creditos' => ['manage_sale', 'manage_pos_screen', 'pos.create_sale', 'pos.edit_sale', 'credit.edit'],
+            'credit.edit' => ['editar_creditos'],
+            'eliminar_creditos' => ['manage_sale', 'pos.delete_sale', 'credit.delete'],
+            'credit.delete' => ['eliminar_creditos'],
             'ver_detalle_credito' => ['manage_sale', 'manage_pos_screen', 'pos.view', 'ver_creditos'],
             'registrar_pagos_credito' => ['manage_sale', 'manage_pos_screen', 'pos.create_sale'],
-            'ver_lotes' => ['manage_products', 'manage_pos_screen', 'products.view', 'pos.view'],
-            'crear_lotes' => ['manage_products', 'products.create', 'products.update'],
-            'editar_lotes' => ['manage_products', 'products.update'],
-            'eliminar_lotes' => ['manage_products', 'products.delete'],
+            'ver_lotes' => ['manage_products', 'manage_pos_screen', 'products.view', 'pos.view', 'lot.view'],
+            'lot.view' => ['ver_lotes'],
+            'crear_lotes' => ['manage_products', 'products.create', 'products.update', 'lot.create'],
+            'lot.create' => ['crear_lotes'],
+            'editar_lotes' => ['manage_products', 'products.update', 'lot.edit'],
+            'lot.edit' => ['editar_lotes'],
+            'eliminar_lotes' => ['manage_products', 'products.delete', 'lot.delete'],
+            'lot.delete' => ['eliminar_lotes'],
             'asignar_lotes' => ['manage_products', 'products.update'],
             'ver_stock_lote' => ['manage_products', 'manage_reports', 'manage_report', 'products.view', 'pos.view'],
         ];

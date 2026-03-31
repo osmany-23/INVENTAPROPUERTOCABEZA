@@ -101,6 +101,11 @@ const USER_CRUD_MODULE_PREFIXES = [
 const CREDIT_PERMISSION_PREFIXES = [
     "credit",
     "credits",
+    "credit.view",
+    "credit.create",
+    "credit.edit",
+    "credit.update",
+    "credit.delete",
     "ver_creditos",
     "crear_creditos",
     "editar_creditos",
@@ -110,10 +115,17 @@ const CREDIT_PERMISSION_PREFIXES = [
 ];
 
 const BATCH_PERMISSION_PREFIXES = [
+    "lot",
+    "lots",
     "batch",
     "batches",
     "product_batch",
     "product_batches",
+    "lot.view",
+    "lot.create",
+    "lot.edit",
+    "lot.update",
+    "lot.delete",
     "lotes",
     "ver_lotes",
     "crear_lotes",
@@ -287,6 +299,26 @@ const strictPermissionConfigs = {
         aliases: ["dashboard.view_stock_alerts"],
         modulePrefixes: ["dashboard"],
     },
+    "credit.view": {
+        aliases: ["credits.view", "ver_creditos"],
+        legacyPermissions: ["ver_creditos"],
+        modulePrefixes: CREDIT_PERMISSION_PREFIXES,
+    },
+    "credit.create": {
+        aliases: ["credits.create", "crear_creditos"],
+        legacyPermissions: ["crear_creditos"],
+        modulePrefixes: CREDIT_PERMISSION_PREFIXES,
+    },
+    "credit.edit": {
+        aliases: ["credit.update", "credits.edit", "credits.update", "editar_creditos"],
+        legacyPermissions: ["editar_creditos"],
+        modulePrefixes: CREDIT_PERMISSION_PREFIXES,
+    },
+    "credit.delete": {
+        aliases: ["credits.delete", "eliminar_creditos"],
+        legacyPermissions: ["eliminar_creditos"],
+        modulePrefixes: CREDIT_PERMISSION_PREFIXES,
+    },
     ver_creditos: {
         aliases: ["credit.view", "credits.view"],
         modulePrefixes: CREDIT_PERMISSION_PREFIXES,
@@ -315,20 +347,40 @@ const strictPermissionConfigs = {
         ],
         modulePrefixes: CREDIT_PERMISSION_PREFIXES,
     },
+    "lot.view": {
+        aliases: ["lots.view", "ver_lotes"],
+        legacyPermissions: ["ver_lotes"],
+        modulePrefixes: BATCH_PERMISSION_PREFIXES,
+    },
+    "lot.create": {
+        aliases: ["lots.create", "crear_lotes"],
+        legacyPermissions: ["crear_lotes"],
+        modulePrefixes: BATCH_PERMISSION_PREFIXES,
+    },
+    "lot.edit": {
+        aliases: ["lot.update", "lots.edit", "lots.update", "editar_lotes"],
+        legacyPermissions: ["editar_lotes"],
+        modulePrefixes: BATCH_PERMISSION_PREFIXES,
+    },
+    "lot.delete": {
+        aliases: ["lots.delete", "eliminar_lotes"],
+        legacyPermissions: ["eliminar_lotes"],
+        modulePrefixes: BATCH_PERMISSION_PREFIXES,
+    },
     ver_lotes: {
-        aliases: ["batch.view", "batches.view", "product_batches.view"],
+        aliases: ["lot.view", "lots.view", "batch.view", "batches.view", "product_batches.view"],
         modulePrefixes: BATCH_PERMISSION_PREFIXES,
     },
     crear_lotes: {
-        aliases: ["batch.create", "batches.create", "product_batches.create"],
+        aliases: ["lot.create", "lots.create", "batch.create", "batches.create", "product_batches.create"],
         modulePrefixes: BATCH_PERMISSION_PREFIXES,
     },
     editar_lotes: {
-        aliases: ["batch.update", "batch.edit", "batches.update", "product_batches.update"],
+        aliases: ["lot.edit", "lot.update", "lots.edit", "lots.update", "batch.update", "batch.edit", "batches.update", "product_batches.update"],
         modulePrefixes: BATCH_PERMISSION_PREFIXES,
     },
     eliminar_lotes: {
-        aliases: ["batch.delete", "batches.delete", "product_batches.delete"],
+        aliases: ["lot.delete", "lots.delete", "batch.delete", "batches.delete", "product_batches.delete"],
         modulePrefixes: BATCH_PERMISSION_PREFIXES,
     },
     asignar_lotes: {

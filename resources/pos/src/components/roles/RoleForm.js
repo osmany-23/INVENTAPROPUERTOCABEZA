@@ -6,10 +6,31 @@ import { editRole } from "../../store/action/roleAction";
 import { getFormattedMessage, placeholderText } from "../../shared/sharedMethod";
 
 const ACTIONS = ["view", "create", "update", "delete"];
+const ACTION_LABELS = {
+    view: "VER",
+    create: "CREAR",
+    update: "EDITAR",
+    delete: "ELIMINAR",
+};
 const MODULE_ALIASES = {
     customers: "customer",
     users: "user",
     suppliers: "supplier",
+    credits: "credit",
+    creditos: "credit",
+    batch: "lot",
+    batches: "lot",
+    product_batch: "lot",
+    product_batches: "lot",
+    lotes: "lot",
+    lots: "lot",
+};
+const MODULE_LABELS = {
+    credit: "Credito",
+    lot: "Lotes",
+    customer: "Clientes",
+    supplier: "Proveedores",
+    user: "Usuarios",
 };
 
 const normalizeAction = (action = "") => {
@@ -49,6 +70,7 @@ const inferModuleAction = (permission) => {
 };
 
 const formatModuleLabel = (module) =>
+    MODULE_LABELS[module] ||
     String(module)
         .replace(/_/g, " ")
         .replace(/\b\w/g, (char) => char.toUpperCase());
@@ -62,6 +84,16 @@ const arraysHaveSameValues = (arr1 = [], arr2 = []) => {
     const sorted2 = [...arr2].sort((a, b) => Number(a) - Number(b));
     return JSON.stringify(sorted1) === JSON.stringify(sorted2);
 };
+
+const flattenPermissionIds = (permissionGroups = []) =>
+    permissionGroups.flatMap((permission) =>
+        Array.isArray(permission?.permissions)
+            ? permission.permissions.map((item) => item.id)
+            : []
+    );
+
+const hasAnySelection = (permissionGroup = []) =>
+    permissionGroup.some((permission) => Boolean(permission?.selected));
 
 const RoleForm = (props) => {
     const { addRolesData, singleRole, editRole, permissionsArray, id } = props;
@@ -127,24 +159,43 @@ const RoleForm = (props) => {
             if (action === "special") {
                 grouped[module].specials.push(permission);
             } else {
-                const currentPermission = grouped[module].actions[action];
-                if (!currentPermission || (!currentPermission.selected && permission.selected)) {
-                    grouped[module].actions[action] = permission;
+                if (!grouped[module].actions[action]) {
+                    grouped[module].actions[action] = {
+                        action,
+                        permissions: [],
+                    };
                 }
+
+                grouped[module].actions[action].permissions.push(permission);
             }
         });
 
-        return Object.values(grouped).sort((a, b) => a.label.localeCompare(b.label));
+        return Object.values(grouped)
+            .map((group) => ({
+                ...group,
+                specials: [...group.specials].sort((a, b) =>
+                    a.name.localeCompare(b.name)
+                ),
+            }))
+            .sort((a, b) => a.label.localeCompare(b.label));
     }, [permissions]);
 
     const tablePermissionGroups = useMemo(() => {
         return permissionGroups.filter(
-            (group) => Object.values(group.actions).length > 0
+            (group) =>
+                Object.values(group.actions).some(
+                    (actionGroup) => actionGroup.permissions.length > 0
+                )
         );
     }, [permissionGroups]);
 
     const additionalSpecialPermissions = useMemo(() => {
-        return permissionGroups.flatMap((group) => group.specials);
+        return permissionGroups.flatMap((group) =>
+            group.specials.map((permission) => ({
+                ...permission,
+                moduleLabel: group.label,
+            }))
+        );
     }, [permissionGroups]);
 
     const handleValidation = () => {
@@ -172,15 +223,18 @@ const RoleForm = (props) => {
     };
 
     const setPermissionCheckedByIds = (ids, checked) => {
+        const permissionIds = Array.isArray(ids) ? ids : [ids];
         setPermissions((prevPermissions) =>
             prevPermissions.map((permission) =>
-                ids.includes(permission.id) ? { ...permission, selected: checked } : permission
+                permissionIds.includes(permission.id)
+                    ? { ...permission, selected: checked }
+                    : permission
             )
         );
     };
 
-    const handleChanged = (permissionId, checked) => {
-        setPermissionCheckedByIds([permissionId], checked);
+    const handleChanged = (permissionIds, checked) => {
+        setPermissionCheckedByIds(permissionIds, checked);
     };
 
     const handleAllChanged = (checked) => {
@@ -192,7 +246,9 @@ const RoleForm = (props) => {
     const toggleModuleAll = (moduleName, checked) => {
         const ids = tablePermissionGroups
             .filter((group) => group.module === moduleName)
-            .flatMap((group) => Object.values(group.actions).map((item) => item.id));
+            .flatMap((group) =>
+                flattenPermissionIds(Object.values(group.actions))
+            );
 
         setPermissionCheckedByIds(ids, checked);
     };
@@ -251,70 +307,105 @@ const RoleForm = (props) => {
 
                         <div className="col-md-12">
                             <Form.Group className="mb-5 form-group">
-                                <div className="d-flex col-md-12 flex-wrap align-items-center mb-4">
+                                <div className="d-flex col-md-12 flex-wrap align-items-center justify-content-between mb-4 gap-3">
                                     <Form.Label className="form-label fs-6 fw-bolder text-gray-700 mb-0">
                                         {getFormattedMessage("role.input.permission.label")}:
                                     </Form.Label>
                                     <span className="required" />
-                                    <div className="d-flex col-md-6 flex-wrap ps-5">
-                                        <label className="form-check form-check-custom form-check-solid form-check-inline d-flex align-items-center my-0 cursor-pointer custom-label">
-                                            <input
-                                                type="checkbox"
-                                                checked={allChecked}
-                                                onChange={(event) => handleAllChanged(event.target.checked)}
-                                                className="me-3 form-check-input cursor-pointer"
-                                            />
-                                            <div className="control__indicator" />
-                                            {getFormattedMessage("role.select.all-permission.label")}
-                                        </label>
-                                    </div>
                                 </div>
 
                                 <div className="table-responsive">
                                     <table className="table align-middle table-row-bordered">
                                         <thead>
                                             <tr>
-                                                <th>PERMISOS</th>
-                                                <th className="text-center">SELECCIONAR TODO</th>
-                                                <th className="text-center">VER</th>
-                                                <th className="text-center">CREAR</th>
-                                                <th className="text-center">ACTUALIZAR</th>
-                                                <th className="text-center">ELIMINAR</th>
+                                                <th>
+                                                    <label className="form-check form-check-custom form-check-solid form-check-inline d-flex align-items-center my-0 cursor-pointer custom-label">
+                                                        <input
+                                                            id="selectAllGlobal"
+                                                            type="checkbox"
+                                                            checked={allChecked}
+                                                            onChange={(event) =>
+                                                                handleAllChanged(event.target.checked)
+                                                            }
+                                                            className="me-3 form-check-input cursor-pointer"
+                                                        />
+                                                        <div className="control__indicator" />
+                                                        {getFormattedMessage(
+                                                            "role.select.all-permission.label"
+                                                        )}
+                                                    </label>
+                                                </th>
+                                                {ACTIONS.map((action) => (
+                                                    <th
+                                                        className="text-center"
+                                                        key={`permission-head-${action}`}
+                                                    >
+                                                        {ACTION_LABELS[action]}
+                                                    </th>
+                                                ))}
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {tablePermissionGroups.map((group) => {
-                                                const actionPermissions = Object.values(group.actions);
-                                                const modulePermissions = actionPermissions;
+                                                const modulePermissions = flattenPermissionIds(
+                                                    Object.values(group.actions)
+                                                );
                                                 const isModuleChecked =
                                                     modulePermissions.length > 0 &&
-                                                    modulePermissions.every((permission) => permission.selected);
+                                                    modulePermissions.every((permissionId) =>
+                                                        permissions.some(
+                                                            (permission) =>
+                                                                permission.id === permissionId &&
+                                                                permission.selected
+                                                        )
+                                                    );
 
                                                 return (
                                                     <tr key={group.module}>
-                                                        <td>{group.label}</td>
-                                                        <td className="text-center">
-                                                            <input
-                                                                type="checkbox"
-                                                                className="form-check-input cursor-pointer"
-                                                                checked={isModuleChecked}
-                                                                onChange={(event) =>
-                                                                    toggleModuleAll(group.module, event.target.checked)
-                                                                }
-                                                            />
+                                                        <td>
+                                                            <label className="form-check form-check-custom form-check-solid form-check-inline d-flex align-items-center my-0 cursor-pointer custom-label">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    className="me-3 form-check-input cursor-pointer"
+                                                                    checked={isModuleChecked}
+                                                                    onChange={(event) =>
+                                                                        toggleModuleAll(
+                                                                            group.module,
+                                                                            event.target.checked
+                                                                        )
+                                                                    }
+                                                                />
+                                                                <div className="control__indicator" />
+                                                                {group.label}
+                                                            </label>
                                                         </td>
                                                         {ACTIONS.map((action) => {
-                                                            const permission = group.actions[action];
+                                                            const actionGroup =
+                                                                group.actions[action];
+                                                            const actionPermissions =
+                                                                actionGroup?.permissions || [];
+                                                            const actionPermissionIds =
+                                                                actionPermissions.map(
+                                                                    (permission) => permission.id
+                                                                );
+                                                            const isActionChecked =
+                                                                hasAnySelection(
+                                                                    actionPermissions
+                                                                );
+
                                                             return (
-                                                                <td className="text-center" key={`${group.module}-${action}`}>
-                                                                    {permission ? (
+                                                                <td
+                                                                    className="text-center"
+                                                                    key={`${group.module}-${action}`}
+                                                                >
+                                                                    {actionPermissions.length > 0 ? (
                                                                         <input
                                                                             type="checkbox"
                                                                             className="form-check-input cursor-pointer"
-                                                                            checked={Boolean(permission.selected)}
+                                                                            checked={isActionChecked}
                                                                             onChange={(event) =>
                                                                                 handleChanged(
-                                                                                    permission.id,
+                                                                                    actionPermissionIds,
                                                                                     event.target.checked
                                                                                 )
                                                                             }
@@ -343,12 +434,15 @@ const RoleForm = (props) => {
                                                             type="checkbox"
                                                             checked={Boolean(permission.selected)}
                                                             onChange={(event) =>
-                                                                handleChanged(permission.id, event.target.checked)
+                                                                handleChanged(
+                                                                    permission.id,
+                                                                    event.target.checked
+                                                                )
                                                             }
                                                             className="me-3 form-check-input cursor-pointer"
                                                         />
                                                         <div className="control__indicator" />
-                                                        {permission.name}
+                                                        {`${permission.moduleLabel}: ${permission.name}`}
                                                     </label>
                                                 </div>
                                             ))}

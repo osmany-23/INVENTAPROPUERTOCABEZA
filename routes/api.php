@@ -123,24 +123,24 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('products/pos-feed', [ProductAPIController::class, 'posFeed']);
     Route::get('products/adjustment-fast-search', [ProductAPIController::class, 'adjustmentFastSearch']);
-    Route::middleware('permission:ver_lotes|manage_products|manage_pos_screen')->group(function () {
+    Route::middleware('permission:lot.view|ver_lotes|manage_products|manage_pos_screen')->group(function () {
         Route::get('product-batches/scan', [ProductBatchAPIController::class, 'scan']);
         Route::get('products/{product}/batches', [ProductBatchAPIController::class, 'show']);
     });
-    Route::middleware('permission:ver_lotes|ver_stock_lote|manage_products|manage_reports|manage_report|manage_pos_screen')->group(function () {
+    Route::middleware('permission:lot.view|ver_lotes|ver_stock_lote|manage_products|manage_reports|manage_report|manage_pos_screen')->group(function () {
         Route::get('product-batches/alerts/summary', [ProductBatchAPIController::class, 'alertSummary']);
         Route::get('product-batches/alerts', [ProductBatchAPIController::class, 'alerts']);
     });
     Route::middleware('permission:ver_stock_lote|manage_products|manage_reports|manage_report|manage_pos_screen')->group(function () {
         Route::get('product-batches/report', [ProductBatchAPIController::class, 'report']);
     });
-    Route::middleware('permission:asignar_lotes|manage_products')->group(function () {
+    Route::middleware('permission:lot.edit|asignar_lotes|manage_products')->group(function () {
         Route::put('products/{product}/batch-settings', [ProductBatchAPIController::class, 'updateSettings']);
     });
-    Route::middleware('permission:crear_lotes|manage_products')->group(function () {
+    Route::middleware('permission:lot.create|crear_lotes|manage_products')->group(function () {
         Route::post('products/{product}/batches', [ProductBatchAPIController::class, 'store']);
     });
-    Route::middleware('permission:editar_lotes|manage_products')->group(function () {
+    Route::middleware('permission:lot.edit|editar_lotes|manage_products')->group(function () {
         Route::put('products/{product}/batches/{batch}', [ProductBatchAPIController::class, 'update']);
     });
     Route::get('main-products-fast', [MainProductAPIController::class, 'fastList']);
@@ -215,7 +215,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('sales/{id}/payment', [SalesPaymentAPIController::class, 'deletePayment']);
     });
 
-    Route::middleware('permission:ver_creditos|crear_creditos|manage_sale|manage_pos_screen')->group(function () {
+    Route::middleware('permission:credit.view|credit.create|ver_creditos|crear_creditos|manage_sale|manage_pos_screen')->group(function () {
         Route::get('credits', [CreditAPIController::class, 'index']);
         Route::get('creditos', [CreditAPIController::class, 'index']);
         Route::get('credits/dashboard', [CreditAPIController::class, 'dashboard']);
@@ -225,21 +225,21 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('credits/check-limit', [CreditAPIController::class, 'checkLimit']);
     });
 
-    Route::middleware('permission:editar_creditos|manage_sale|manage_pos_screen')->group(function () {
+    Route::middleware('permission:credit.edit|editar_creditos|manage_sale|manage_pos_screen')->group(function () {
         Route::post('credits/customer-config', [CreditAPIController::class, 'upsertCustomerConfig']);
     });
 
-    Route::middleware('permission:crear_creditos|manage_sale|manage_pos_screen')->group(function () {
+    Route::middleware('permission:credit.create|crear_creditos|manage_sale|manage_pos_screen')->group(function () {
         Route::post('credits/manual', [CreditAPIController::class, 'storeManual']);
     });
 
-    Route::middleware('permission:ver_detalle_credito|ver_creditos|manage_sale|manage_pos_screen')->group(function () {
+    Route::middleware('permission:credit.view|ver_detalle_credito|ver_creditos|manage_sale|manage_pos_screen')->group(function () {
         Route::get('creditos/{credit}/estado-imprimible', [CreditAPIController::class, 'printableState']);
         Route::get('credits/{credit}/printable-state', [CreditAPIController::class, 'printableState']);
         Route::get('credits/{credit}', [CreditAPIController::class, 'show']);
     });
 
-    Route::middleware('permission:editar_creditos|manage_sale|manage_pos_screen')->group(function () {
+    Route::middleware('permission:credit.edit|editar_creditos|manage_sale|manage_pos_screen')->group(function () {
         Route::put('credits/{credit}', [CreditAPIController::class, 'updateTerms']);
         Route::post('credits/{credit}/restructure', [CreditAPIController::class, 'restructure']);
         Route::post('credits/{credit}/returns', [CreditAPIController::class, 'captureReturn']);
