@@ -9,7 +9,7 @@ import React, {
 import { Col } from "react-bootstrap-v5";
 import apiConfig from "../../../config/apiConfig";
 import { apiBaseURL } from "../../../constants";
-import { getFormattedMessage, placeholderText } from "../../../shared/sharedMethod";
+import { placeholderText } from "../../../shared/sharedMethod";
 
 const SEARCH_DEBOUNCE_MS = 250;
 const MAX_SUGGESTIONS = 15;
@@ -359,36 +359,6 @@ const ProductSearchbar = ({
                     placeholder={placeholderText("pos-globally.search.field.label")}
                     autoFocus
                 />
-                {isOpen && suggestionItems.length > 0 && (
-                    <div>
-                        <ul>
-                            {suggestionItems.map((item, index) => (
-                                <li
-                                    key={item.id}
-                                    className={index === activeIndex ? "selected" : ""}
-                                    onMouseDown={() => handleSelectSuggestion(item)}
-                                >
-                                    <span className="ellipsis search-result-row">
-                                        <span className="search-result-code">{item.code}</span>
-                                        <span className="search-result-separator"> - </span>
-                                        <span className="search-result-name">{item.name}</span>
-                                    </span>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-                {isOpen && searchString && suggestionItems.length === 0 && (
-                    <div>
-                        <ul>
-                            <li data-test="no-results-message">
-                                <span className="ellipsis">
-                                    {getFormattedMessage("sale.product.table.no-data.label")}
-                                </span>
-                            </li>
-                        </ul>
-                    </div>
-                )}
             </div>
             <i className="bi bi-search fs-2 react-search-icon position-absolute" />
         </Col>

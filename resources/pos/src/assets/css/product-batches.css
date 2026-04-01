@@ -1016,10 +1016,13 @@
     transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
     background: #ffffff;
     box-shadow: 0 16px 32px rgba(15, 23, 42, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 0.95rem;
 }
 
 .batch-manager__batch-card:hover {
-    transform: scale(1.02);
+    transform: translateY(-4px);
     border-color: rgba(101, 113, 255, 0.35);
     box-shadow: 0 22px 46px rgba(15, 23, 42, 0.1);
 }
@@ -1055,8 +1058,10 @@
 
 .batch-manager__lot-code {
     color: #6571ff;
-    font-size: 0.92rem;
+    font-size: 0.76rem;
     font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .batch-manager__batch-top h5,
@@ -1066,12 +1071,26 @@
     font-weight: 800;
 }
 
+.batch-manager__batch-heading {
+    min-width: 0;
+}
+
+.batch-manager__batch-subtitle {
+    margin: 0.35rem 0 0;
+    color: #475569;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
 .batch-manager__batch-stats,
 .batch-alerts-modal__item-grid {
-    margin-top: 1rem;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.85rem;
+}
+
+.batch-manager__batch-stats {
+    margin-top: 0;
 }
 
 .batch-manager__batch-stats span,
@@ -1081,18 +1100,58 @@
     color: #6b7280;
 }
 
+.batch-manager__batch-stats > div,
+.batch-manager__batch-meta-item {
+    padding: 0.8rem 0.85rem;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    background: rgba(248, 250, 252, 0.92);
+}
+
 .batch-manager__batch-stats strong,
 .batch-alerts-modal__item-grid strong {
+    display: block;
+    margin-top: 0.25rem;
     color: #111827;
+    font-size: 0.95rem;
+    line-height: 1.45;
 }
 
 .batch-manager__batch-line {
-    margin-top: 0.95rem;
     padding: 0.72rem 0.85rem;
     border-radius: 14px;
     font-size: 0.86rem;
     font-weight: 800;
     border: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.85rem;
+}
+
+.batch-manager__batch-line-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.22rem;
+}
+
+.batch-manager__batch-line-label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.85;
+}
+
+.batch-manager__batch-line-copy strong {
+    font-size: 0.98rem;
+    line-height: 1.35;
+}
+
+.batch-manager__batch-line-meta {
+    font-size: 0.82rem;
+    font-weight: 700;
+    white-space: nowrap;
 }
 
 .batch-manager__batch-line--success {
@@ -1119,10 +1178,80 @@
     color: #3041b8;
 }
 
+.batch-manager__batch-section {
+    display: grid;
+    gap: 0.7rem;
+}
+
+.batch-manager__batch-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.batch-manager__batch-section-head span {
+    color: #0f172a;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.batch-manager__batch-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+}
+
+.batch-manager__batch-meta-grid--pricing {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.batch-manager__batch-meta-item span {
+    display: block;
+    color: #64748b;
+    font-size: 0.78rem;
+}
+
+.batch-manager__batch-meta-item strong {
+    display: block;
+    margin-top: 0.25rem;
+    color: #111827;
+    font-size: 0.92rem;
+    line-height: 1.45;
+    word-break: break-word;
+}
+
 .batch-manager__batch-barcode,
 .batch-manager__batch-note {
     margin-top: 0.9rem;
     color: #475569;
+}
+
+.batch-manager__batch-description {
+    padding: 0.95rem 1rem;
+    border-radius: 18px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: linear-gradient(180deg, rgba(248, 250, 252, 0.95) 0%, #ffffff 100%);
+}
+
+.batch-manager__batch-section-head--description {
+    margin-bottom: 0.55rem;
+}
+
+.batch-manager__batch-description-text {
+    margin: 0;
+    color: #334155;
+    font-size: 0.92rem;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.batch-manager__batch-description-text--placeholder {
+    color: #94a3b8;
+    font-style: italic;
 }
 
 .batch-manager__status-pill {
@@ -1615,10 +1744,21 @@
     }
 
     .batch-manager__batch-stats,
+    .batch-manager__batch-meta-grid,
     .batch-alerts-modal__item-grid,
     .purchase-batch-editor__grid,
     .purchase-lot-card__grid {
         grid-template-columns: 1fr;
+    }
+
+    .batch-manager__batch-top,
+    .batch-manager__batch-line {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .batch-manager__batch-line-meta {
+        white-space: normal;
     }
 
     .purchase-batch-editor,

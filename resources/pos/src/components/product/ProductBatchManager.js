@@ -439,6 +439,42 @@ const ProductBatchManager = () => {
         },
     ];
 
+    const formatBatchDate = useCallback((value) => {
+        if (!value) {
+            return "Sin fecha";
+        }
+
+        const parsedDate = moment(value, ["YYYY-MM-DD", moment.ISO_8601], true);
+
+        return parsedDate.isValid() ? parsedDate.format("DD/MM/YYYY") : value;
+    }, []);
+
+    const formatBatchDays = useCallback((value) => {
+        if (value === null || value === undefined || value === "") {
+            return "Sin calculo";
+        }
+
+        const numericValue = Number(value);
+
+        if (Number.isNaN(numericValue)) {
+            return "Sin calculo";
+        }
+
+        if (numericValue < 0) {
+            return `${Math.abs(numericValue)} dias vencido`;
+        }
+
+        if (numericValue === 0) {
+            return "Vence hoy";
+        }
+
+        if (numericValue === 1) {
+            return "1 dia";
+        }
+
+        return `${numericValue} dias`;
+    }, []);
+
     return (
         <MasterLayout>
             <TopProgressBar />
@@ -800,7 +836,10 @@ const ProductBatchManager = () => {
                     <section className="batch-manager__list-panel">
                         <div className="batch-manager__panel-header">
                             <h4>Lotes registrados</h4>
-                            <p>Vista rapida tipo farmacia para disponibilidad, alerta y vencimiento.</p>
+                            <p>
+                                Consulta stock, fechas, precios y descripcion de cada lote
+                                en una sola vista ordenada.
+                            </p>
                         </div>
 
                         {batches.length === 0 ? (
@@ -811,6 +850,92 @@ const ProductBatchManager = () => {
                             <div className="batch-manager__batch-grid">
                                 {batches.map((batch) => {
                                     const meta = getBatchStatusMeta(batch.status);
+                                    const systemLotCode =
+                                        batch.codigo_lote_sistema ||
+                                        batch.lot_code ||
+                                        "Sin codigo";
+                                    const manufacturerLotCode =
+                                        batch.lote_fabricante ||
+                                        batch.lot_code ||
+                                        "Sin dato";
+                                    const batchDescription = String(
+                                        batch.descripcion || batch.note || ""
+                                    ).trim();
+                                    const stockItems = [
+                                        {
+                                            label: "Disponible",
+                                            value: `${Number(
+                                                batch.available_quantity || 0
+                                            ).toFixed(2)} u`,
+                                        },
+                                        {
+                                            label: "Recibido",
+                                            value: `${Number(
+                                                batch.received_quantity || 0
+                                            ).toFixed(2)} u`,
+                                        },
+                                        {
+                                            label: "Vence",
+                                            value: formatBatchDate(
+                                                batch.fecha_vencimiento ||
+                                                    batch.expires_at
+                                            ),
+                                        },
+                                        {
+                                            label: "Tiempo",
+                                            value: formatBatchDays(batch.days_remaining),
+                                        },
+                                    ];
+                                    const traceabilityItems = [
+                                        {
+                                            label: "Lote fabricante",
+                                            value: manufacturerLotCode,
+                                        },
+                                        {
+                                            label: "Codigo de barras",
+                                            value: batch.lot_barcode || "Sin dato",
+                                        },
+                                        {
+                                            label: "Ubicacion",
+                                            value: batch.ubicacion || "Sin dato",
+                                        },
+                                        {
+                                            label: "Ingreso",
+                                            value: formatBatchDate(batch.received_at),
+                                        },
+                                        {
+                                            label: "Fabricacion",
+                                            value: formatBatchDate(
+                                                batch.fecha_fabricacion
+                                            ),
+                                        },
+                                        {
+                                            label: "Compra",
+                                            value:
+                                                batch.purchase_reference_code ||
+                                                "Sin referencia",
+                                        },
+                                    ];
+                                    const pricingItems = [
+                                        {
+                                            label: "Precio compra",
+                                            value: money(batch.product_cost || 0),
+                                        },
+                                        {
+                                            label: "Precio venta",
+                                            value:
+                                                batch.product_price !== null &&
+                                                batch.product_price !== undefined
+                                                    ? money(batch.product_price)
+                                                    : "N/A",
+                                        },
+                                        {
+                                            label: "Impuesto",
+                                            value: `${batch.impuesto_tipo || "EXCLUSIVO"} ${Number(
+                                                batch.impuesto_valor || 0
+                                            ).toFixed(2)}%`,
+                                        },
+                                    ];
 
                                     return (
                                         <article
@@ -818,85 +943,110 @@ const ProductBatchManager = () => {
                                             className={`batch-manager__batch-card batch-manager__batch-card--${meta.tone}`}
                                         >
                                             <div className="batch-manager__batch-top">
-                                                <div>
+                                                <div className="batch-manager__batch-heading">
                                                     <span className="batch-manager__lot-code">
-                                                        [{batch.codigo_lote_sistema || batch.lot_code}]
+                                                        Lote sistema
                                                     </span>
-                                                    <h5>{batch.warehouse_name || "Sin bodega"}</h5>
+                                                    <h5>{systemLotCode}</h5>
+                                                    <p className="batch-manager__batch-subtitle">
+                                                        {batch.warehouse_name || "Sin bodega"}
+                                                    </p>
                                                 </div>
                                                 <span
                                                     className={`batch-manager__status-pill batch-manager__status-pill--${meta.tone}`}
                                                 >
-                                                    {batch.status_label}
+                                                    {batch.status_label || "Sin estado"}
                                                 </span>
                                             </div>
 
                                             <div
                                                 className={`batch-manager__batch-line batch-manager__batch-line--${meta.tone}`}
                                             >
-                                                [{batch.codigo_lote_sistema || batch.lot_code}]{" "}
-                                                {Number(batch.available_quantity || 0).toFixed(2)} unidades{" "}
-                                                {batch.fecha_vencimiento || batch.expires_at
-                                                    ? `Vence: ${batch.fecha_vencimiento || batch.expires_at}`
-                                                    : "Sin fecha de vencimiento"}
-                                            </div>
-
-                                            <div className="batch-manager__batch-stats">
-                                                <div>
-                                                    <span>Disponible</span>
-                                                    <strong>{Number(batch.available_quantity || 0).toFixed(2)} u</strong>
-                                                </div>
-                                                <div>
-                                                    <span>Recibido</span>
-                                                    <strong>{Number(batch.received_quantity || 0).toFixed(2)} u</strong>
-                                                </div>
-                                                <div>
-                                                    <span>Vence</span>
-                                                    <strong>{batch.fecha_vencimiento || batch.expires_at || "Sin fecha"}</strong>
-                                                </div>
-                                                <div>
-                                                    <span>Dias</span>
+                                                <div className="batch-manager__batch-line-copy">
+                                                    <span className="batch-manager__batch-line-label">
+                                                        Resumen
+                                                    </span>
                                                     <strong>
-                                                        {batch.days_remaining === null
-                                                            ? "N/A"
-                                                            : batch.days_remaining}
+                                                        {Number(
+                                                            batch.available_quantity || 0
+                                                        ).toFixed(2)}{" "}
+                                                        unidades disponibles
                                                     </strong>
                                                 </div>
+                                                <span className="batch-manager__batch-line-meta">
+                                                    {formatBatchDate(
+                                                        batch.fecha_vencimiento ||
+                                                            batch.expires_at
+                                                    )}
+                                                </span>
                                             </div>
 
-                                            {batch.lot_barcode ? (
-                                                <div className="batch-manager__batch-barcode">
-                                                    Barcode: {batch.lot_barcode}
+                                            <section className="batch-manager__batch-section">
+                                                <div className="batch-manager__batch-section-head">
+                                                    <span>Stock y vigencia</span>
                                                 </div>
-                                            ) : null}
-                                            {batch.lote_fabricante ? (
-                                                <div className="batch-manager__batch-barcode">
-                                                    Fabricante: {batch.lote_fabricante}
+                                                <div className="batch-manager__batch-stats">
+                                                    {stockItems.map((item) => (
+                                                        <div key={`${batch.id}-${item.label}`}>
+                                                            <span>{item.label}</span>
+                                                            <strong>{item.value}</strong>
+                                                        </div>
+                                                    ))}
                                                 </div>
-                                            ) : null}
-                                            {batch.ubicacion ? (
-                                                <div className="batch-manager__batch-barcode">
-                                                    Ubicacion: {batch.ubicacion}
+                                            </section>
+
+                                            <section className="batch-manager__batch-section">
+                                                <div className="batch-manager__batch-section-head">
+                                                    <span>Trazabilidad</span>
                                                 </div>
-                                            ) : null}
-                                            <div className="batch-manager__batch-barcode">
-                                                Impuesto: {batch.impuesto_tipo || "EXCLUSIVO"}{" "}
-                                                {Number(batch.impuesto_valor || 0).toFixed(2)}%
-                                            </div>
-                                            <div className="batch-manager__batch-barcode">
-                                                Compra: {money(batch.product_cost || 0)} | Venta:{" "}
-                                                {batch.product_price !== null &&
-                                                batch.product_price !== undefined
-                                                    ? money(batch.product_price)
-                                                    : "N/A"}
-                                            </div>
-                                            {batch.descripcion || batch.note ? (
-                                                <p className="batch-manager__batch-note">
-                                                    {batch.descripcion || batch.note}
+                                                <div className="batch-manager__batch-meta-grid">
+                                                    {traceabilityItems.map((item) => (
+                                                        <div
+                                                            key={`${batch.id}-${item.label}`}
+                                                            className="batch-manager__batch-meta-item"
+                                                        >
+                                                            <span>{item.label}</span>
+                                                            <strong>{item.value}</strong>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </section>
+
+                                            <section className="batch-manager__batch-section">
+                                                <div className="batch-manager__batch-section-head">
+                                                    <span>Precios e impuesto</span>
+                                                </div>
+                                                <div className="batch-manager__batch-meta-grid batch-manager__batch-meta-grid--pricing">
+                                                    {pricingItems.map((item) => (
+                                                        <div
+                                                            key={`${batch.id}-${item.label}`}
+                                                            className="batch-manager__batch-meta-item"
+                                                        >
+                                                            <span>{item.label}</span>
+                                                            <strong>{item.value}</strong>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </section>
+
+                                            <section className="batch-manager__batch-description">
+                                                <div className="batch-manager__batch-section-head batch-manager__batch-section-head--description">
+                                                    <span>Descripcion</span>
+                                                </div>
+                                                <p
+                                                    className={`batch-manager__batch-description-text ${
+                                                        batchDescription
+                                                            ? ""
+                                                            : "batch-manager__batch-description-text--placeholder"
+                                                    }`}
+                                                >
+                                                    {batchDescription ||
+                                                        "Sin descripcion registrada para este lote."}
                                                 </p>
-                                            ) : null}
+                                            </section>
+
                                             {canEditBatches ? (
-                                                <div className="d-flex gap-2 mt-3">
+                                                <div className="d-flex gap-2 mt-1">
                                                     <Button
                                                         variant="outline-primary"
                                                         size="sm"
