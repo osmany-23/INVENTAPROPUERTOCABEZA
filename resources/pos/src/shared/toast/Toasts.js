@@ -1,29 +1,26 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import {connect} from 'react-redux';
-import {removeToast} from '../../store/action/toastAction';
-import Toast from './Toast';
+import {ToastContainer} from 'react-toastify';
 
 const Toasts = props => {
-    const {toasts, removeToast, language} = props;
+    const {language} = props;
+
     return (
-        <div>
-            {toasts.map(toast => {
-                return (
-                    <Toast {...toast} language={language} key={toast.id} onCancel={() => removeToast(toast.id)}/>
-                );
-            })}
-        </div>
+        <ToastContainer
+            autoClose={5000}
+            hideProgressBar={true}
+            newestOnTop={true}
+            closeOnClick
+            rtl={language === 'ar'}
+            draggable
+            pauseOnHover
+            pauseOnFocusLoss
+        />
     );
 };
 
 Toasts.propTypes = {
-    toasts: PropTypes.array,
-    removeToast: PropTypes.func,
+    language: PropTypes.string,
 };
 
-const mapStateToProps = state => {
-    return {toasts: state.toasts}
-};
-
-export default connect(mapStateToProps, {removeToast})(Toasts);
+export default Toasts;

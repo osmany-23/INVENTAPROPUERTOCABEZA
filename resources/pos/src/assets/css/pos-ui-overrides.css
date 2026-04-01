@@ -247,6 +247,71 @@
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
 }
 
+.product-detail-desktop-card,
+.product-detail-desktop-table-card {
+  border: 0 !important;
+  border-radius: 1.25rem !important;
+  box-shadow: var(--product-detail-shadow) !important;
+}
+
+.product-detail-desktop-header > .d-md-flex {
+  margin-bottom: 0 !important;
+}
+
+.product-detail-desktop-header h1 {
+  color: #111827;
+  font-weight: 800;
+}
+
+.product-detail-desktop-main-table th,
+.product-detail-desktop-main-table td {
+  vertical-align: middle;
+}
+
+.product-detail-desktop-main-table th {
+  width: 34%;
+  color: #111827;
+  font-weight: 800;
+}
+
+.product-detail-desktop-main-table td {
+  color: #374151;
+  font-weight: 500;
+}
+
+.product-detail-desktop-media {
+  width: 100%;
+  max-width: 34rem;
+  margin-inline: auto;
+}
+
+.product-detail-desktop-gallery-shell {
+  position: relative;
+}
+
+.product-detail-desktop-gallery-stage {
+  display: grid;
+  place-items: center;
+  min-height: 24rem;
+  padding: 0.5rem 3rem;
+}
+
+.product-detail-desktop-gallery-image {
+  width: 100% !important;
+  max-width: 100%;
+  max-height: 23rem;
+  object-fit: contain;
+}
+
+@media (min-width: 768px) {
+  .product-detail-desktop-card,
+  .product-detail-desktop-table-card,
+  .product-detail-desktop-gallery-image {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 .product-detail-overview-grid {
   display: grid;
   gap: var(--product-detail-gap);
@@ -704,6 +769,15 @@
   vertical-align: middle;
 }
 
+.product-detail-desktop-table tbody td {
+  color: #000000;
+}
+
+.product-detail-desktop-table tbody td strong,
+.product-detail-desktop-table tbody td span:not(.badge) {
+  color: #000000;
+}
+
 .product-detail-table tbody td:first-child {
   border-left: 1px solid #e5e7eb;
   border-top-left-radius: 1rem;
@@ -849,42 +923,8 @@
     gap: 1.25rem;
   }
 
-  .product-detail-topbar {
-    top: 1rem;
-    padding: 1.15rem 1.25rem;
-  }
-
-  .product-detail-topbar__title,
-  .product-detail-section-head__title {
-    font-size: 1.4rem;
-  }
-
-  .product-detail-back-button {
-    min-width: auto;
-  }
-
-  .product-detail-overview-grid {
-    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
-    align-items: start;
-  }
-
-  .product-detail-gallery-stage {
-    min-height: 22rem;
-  }
-
-  .product-detail-gallery-image {
-    max-height: 21rem;
-  }
-
-  .product-detail-grid-card__topbar {
-    flex-direction: row;
-    align-items: flex-start;
-    justify-content: space-between;
-  }
-
-  .product-detail-create-button {
-    width: auto;
-    min-width: 10rem;
+  .product-detail-page {
+    padding-bottom: 0;
   }
 }
 

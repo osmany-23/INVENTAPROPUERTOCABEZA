@@ -143,9 +143,14 @@ const Header = (props) => {
             return undefined;
         }
 
+        let isActive = true;
+
         const syncAlerts = async () => {
             try {
                 const response = await apiConfig.get(apiBaseURL.PRODUCT_BATCH_ALERTS_SUMMARY);
+                if (!isActive) {
+                    return;
+                }
                 syncBatchAlertSummaryState(response?.data?.data || {});
             } catch (error) {
                 // Preserve the previous summary on transient failures.
@@ -156,6 +161,7 @@ const Header = (props) => {
         const intervalId = setInterval(syncAlerts, 30000);
 
         return () => {
+            isActive = false;
             clearInterval(intervalId);
         };
     }, [canViewBatchAlerts, syncBatchAlertSummaryState]);
@@ -165,9 +171,14 @@ const Header = (props) => {
             return undefined;
         }
 
+        let isActive = true;
+
         const syncAlerts = async () => {
             try {
                 const response = await apiConfig.get(apiBaseURL.CREDIT_ALERTS_SUMMARY);
+                if (!isActive) {
+                    return;
+                }
                 syncCreditAlertSummaryState(response?.data?.data || {});
             } catch (error) {
                 // Keep the previous value to avoid noisy header changes on transient failures.
@@ -178,6 +189,7 @@ const Header = (props) => {
         const intervalId = setInterval(syncAlerts, 30000);
 
         return () => {
+            isActive = false;
             clearInterval(intervalId);
         };
     }, [canViewCreditAlerts, syncCreditAlertSummaryState]);

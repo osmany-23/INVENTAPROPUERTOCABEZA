@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router-dom";
 import { useIntl } from "react-intl";
 import MasterLayout from "../MasterLayout";
 import TabTitle from "../../shared/tab-title/TabTitle";
+import HeaderTitle from "../header/HeaderTitle";
 import { fetchMainProduct } from "../../store/action/productAction";
 import user from "../../assets/images/brand_logo.png";
 import {
@@ -96,15 +97,6 @@ const ProductDetail = (props) => {
     const activeVariantLabel = intl.formatMessage({
         id: "product.active-variant.label",
         defaultMessage: "Version activa",
-    });
-    const inventoryTableTitle = intl.formatMessage({
-        id: "product.inventory-prices.title",
-        defaultMessage: "Inventario y precios",
-    });
-    const inventoryTableDescription = intl.formatMessage({
-        id: "product.inventory-prices.description",
-        defaultMessage:
-            "Consulta costos, precios, impuestos y acciones desde una sola vista.",
     });
     const backButtonLabel = intl.formatMessage({
         id: "globally.back-btn",
@@ -260,6 +252,11 @@ const ProductDetail = (props) => {
     );
     const productNote =
         selectedProduct?.notes || primaryProduct?.notes || emptyNoteLabel;
+    const desktopProductCode = product?.attributes?.code || "--";
+    const desktopCategoryName = primaryProduct?.product_category_name || "--";
+    const desktopBrandName = primaryProduct?.brand_name || "--";
+    const desktopUnitName = primaryProduct?.product_unit_name?.name || "--";
+    const desktopNote = primaryProduct?.notes || emptyNoteLabel;
 
     const priceStockFields = useMemo(
         () => [
@@ -509,12 +506,49 @@ const ProductDetail = (props) => {
         </section>
     );
 
-    const renderDesktopActions = (data) => (
-        <div className="product-detail-table-actions">
+    const renderDesktopGallery = () => (
+        <div className="product-detail-desktop-media">
+            <div className="product-detail-desktop-gallery-shell">
+                {galleryImages.length > 1 && (
+                    <button
+                        type="button"
+                        className="product-detail-gallery-nav product-detail-gallery-nav--prev"
+                        onClick={goToPreviousImage}
+                        aria-label="Imagen anterior"
+                    >
+                        <FontAwesomeIcon icon={faChevronLeft} />
+                    </button>
+                )}
+                <div className="product-detail-desktop-gallery-stage">
+                    <Image
+                        key={`desktop-gallery-image-${activeImageIndex}`}
+                        src={galleryImages[activeImageIndex]}
+                        alt={productName || productTitleLabel}
+                        className="product-detail-desktop-gallery-image"
+                        loading="eager"
+                        decoding="sync"
+                    />
+                </div>
+                {galleryImages.length > 1 && (
+                    <button
+                        type="button"
+                        className="product-detail-gallery-nav product-detail-gallery-nav--next"
+                        onClick={goToNextImage}
+                        aria-label="Imagen siguiente"
+                    >
+                        <FontAwesomeIcon icon={faChevronRight} />
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+
+    const renderLegacyDesktopActions = (data) => (
+        <div className="text-center">
             <button
                 type="button"
                 title={viewTooltipLabel}
-                className="product-detail-table-action product-detail-table-action--success"
+                className="btn text-success px-2 fs-3 ps-0 border-0 shadow-none"
                 onClick={(e) => {
                     e.stopPropagation();
                     openWareHouseDetailModal(data);
@@ -526,7 +560,7 @@ const ProductDetail = (props) => {
                 <button
                     type="button"
                     title={editTooltipLabel}
-                    className="product-detail-table-action product-detail-table-action--primary"
+                    className="btn text-primary px-2 fs-3 ps-0 border-0 shadow-none"
                     onClick={(e) => {
                         e.stopPropagation();
                         openEditSubProductModal(data);
@@ -539,7 +573,8 @@ const ProductDetail = (props) => {
                 <button
                     type="button"
                     title={mobileManageBatchesLabel}
-                    className="product-detail-table-action product-detail-table-action--indigo"
+                    className="btn px-2 fs-3 ps-0 border-0 shadow-none"
+                    style={{ color: "#6571FF" }}
                     onClick={(e) => {
                         e.stopPropagation();
                         goToBatchManager(data.id);
@@ -552,7 +587,7 @@ const ProductDetail = (props) => {
                 <button
                     type="button"
                     title={deleteTooltipLabel}
-                    className="product-detail-table-action product-detail-table-action--danger"
+                    className="btn text-danger px-2 fs-3 ps-0 border-0 shadow-none"
                     onClick={(e) => {
                         e.stopPropagation();
                         onClickDeleteModel(data);
@@ -699,8 +734,14 @@ const ProductDetail = (props) => {
         <MasterLayout>
             <div className="product-detail-page">
                 <TopProgressBar />
+                <div className="d-none d-md-block product-detail-desktop-header">
+                    <HeaderTitle
+                        title={getFormattedMessage("product.product-details.title")}
+                        to="/app/products"
+                    />
+                </div>
                 <TabTitle title={productDetailsTitle} />
-                <div className="product-detail-topbar">
+                <div className="product-detail-topbar d-md-none">
                     <div className="product-detail-topbar__copy">
                         <p className="product-detail-topbar__eyebrow">
                             {productTitleLabel}
@@ -728,9 +769,10 @@ const ProductDetail = (props) => {
                     renderLoadingSkeleton()
                 ) : (
                     <>
-                        <div className="product-detail-overview-grid">
-                            <div>{renderGallery()}</div>
-                            <div className="product-detail-overview-stack">
+                        <div className="d-md-none">
+                            <div className="product-detail-overview-grid">
+                                <div>{renderGallery()}</div>
+                                <div className="product-detail-overview-stack">
                                 <section className="product-detail-summary-card">
                                     <div className="product-detail-section-head product-detail-section-head--compact">
                                         <div>
@@ -850,105 +892,181 @@ const ProductDetail = (props) => {
                                     </div>
                                 </section>
 
-                                <div className="d-md-none">
                                     {selectedProduct &&
                                         renderQuickActions(selectedProduct)}
                                 </div>
                             </div>
                         </div>
 
-                        {hasProductRows && (
-                            <section className="product-detail-grid-card d-none d-md-block">
-                                <div className="product-detail-grid-card__topbar">
-                                    <div className="product-detail-section-head product-detail-section-head--compact">
-                                        <div>
-                                            <p className="product-detail-section-head__eyebrow">
-                                                {variantsTitle}
-                                            </p>
-                                            <h3 className="product-detail-section-head__title">
-                                                {inventoryTableTitle}
-                                            </h3>
-                                            <p className="product-detail-section-head__description">
-                                                {inventoryTableDescription}
-                                            </p>
-                                        </div>
+                        <div className="d-none d-md-block">
+                            <div className="card card-body product-detail-desktop-card">
+                                <div className="row">
+                                    <div className="col-xxl-7">
+                                        <table className="table gy-7 main-product-details product-detail-desktop-main-table mb-0">
+                                            <tbody>
+                                                <tr>
+                                                    <th className="py-4" scope="row">
+                                                        {codeLabel}
+                                                    </th>
+                                                    <td className="py-4">
+                                                        {desktopProductCode}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th className="py-4" scope="row">
+                                                        {productTitleLabel}
+                                                    </th>
+                                                    <td className="py-4">{productName}</td>
+                                                </tr>
+                                                <tr>
+                                                    <th className="py-4" scope="row">
+                                                        {getFormattedMessage(
+                                                            "product.type.label"
+                                                        )}
+                                                    </th>
+                                                    <td className="py-4">
+                                                        {productTypeLabel || "--"}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th className="py-4" scope="row">
+                                                        {categoryLabel}
+                                                    </th>
+                                                    <td className="py-4">
+                                                        {desktopCategoryName}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th className="py-4" scope="row">
+                                                        {brandLabel}
+                                                    </th>
+                                                    <td className="py-4">
+                                                        {desktopBrandName}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th className="py-4" scope="row">
+                                                        {unitLabel}
+                                                    </th>
+                                                    <td className="py-4">
+                                                        {desktopUnitName !== "--" ? (
+                                                            <span className="badge bg-light-success">
+                                                                <span>{desktopUnitName}</span>
+                                                            </span>
+                                                        ) : (
+                                                            desktopUnitName
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th className="py-4" scope="row">
+                                                        {notePanelTitle}
+                                                    </th>
+                                                    <td className="py-4">
+                                                        {desktopNote}
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
                                     </div>
+                                    <div className="col-xxl-5 d-flex justify-content-center m-auto">
+                                        {renderDesktopGallery()}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {hasProductRows && (
+                                <div className="card card-body mt-2 product-detail-desktop-table-card">
                                     {canCreateVariation && (
-                                        <div className="product-detail-create-wrap">
+                                        <div className="text-end mb-2">
                                             <Button
                                                 type="button"
                                                 variant="primary"
                                                 onClick={openCreateSubProductModal}
-                                                className="product-detail-create-button"
+                                                className="btn-light-primary"
                                             >
                                                 {createVariationLabel}
                                             </Button>
                                         </div>
                                     )}
-                                </div>
-                                <Table
-                                    responsive="md"
-                                    className="align-middle product-detail-table"
-                                >
-                                    <thead>
-                                        <tr>
-                                            {isVariationProduct && <th>{variantsTitle}</th>}
-                                            <th>{costPriceLabel}</th>
-                                            <th>{salePriceLabel}</th>
-                                            <th>{taxLabel}</th>
-                                            <th>{stockAlertLabel}</th>
-                                            <th className="text-center">
-                                                {getFormattedMessage(
-                                                    "react-data-table.action.column.label"
+                                    <Table
+                                        responsive="md"
+                                        className="product-detail-desktop-table"
+                                    >
+                                        <thead>
+                                            <tr>
+                                                {isVariationProduct && (
+                                                    <th>{variantsTitle}</th>
                                                 )}
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {allProducts.map((data, index) => {
-                                            const variantLabel =
-                                                getVariationLabel(data) || productName;
-
-                                            return (
-                                                <tr key={data?.id || index}>
-                                                    {isVariationProduct && (
-                                                        <td>{variantLabel}</td>
+                                                <th>{costPriceLabel}</th>
+                                                <th>{salePriceLabel}</th>
+                                                <th>{taxLabel}</th>
+                                                <th>{stockAlertLabel}</th>
+                                                <th className="text-center">
+                                                    {getFormattedMessage(
+                                                        "react-data-table.action.column.label"
                                                     )}
-                                                    <td>
-                                                        {currencySymbolHandling(
-                                                            allConfigData,
-                                                            frontSetting.value &&
-                                                                frontSetting.value
-                                                                    .currency_symbol,
-                                                            data?.product_cost || 0
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {allProducts.map((data, index) => {
+                                                const variantLabel =
+                                                    getVariationLabel(data) ||
+                                                    productName;
+
+                                                return (
+                                                    <tr key={data?.id || index}>
+                                                        {isVariationProduct && (
+                                                            <td className="py-4">
+                                                                {variantLabel}
+                                                            </td>
                                                         )}
-                                                    </td>
-                                                    <td className="product-detail-table__price">
-                                                        {currencySymbolHandling(
-                                                            allConfigData,
-                                                            frontSetting.value &&
-                                                                frontSetting.value
-                                                                    .currency_symbol,
-                                                            data?.product_price || 0
-                                                        )}
-                                                    </td>
-                                                    <td>{data?.order_tax || 0}%</td>
-                                                    <td>
-                                                        {data?.stock_alert &&
-                                                        data?.stock_alert !== "null"
-                                                            ? data.stock_alert
-                                                            : 0}
-                                                    </td>
-                                                    <td>
-                                                        {renderDesktopActions(data)}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </Table>
-                            </section>
-                        )}
+                                                        <td className="py-4">
+                                                            {currencySymbolHandling(
+                                                                allConfigData,
+                                                                frontSetting.value &&
+                                                                    frontSetting
+                                                                        .value
+                                                                        .currency_symbol,
+                                                                data?.product_cost ||
+                                                                    0
+                                                            )}
+                                                        </td>
+                                                        <td className="py-4">
+                                                            {currencySymbolHandling(
+                                                                allConfigData,
+                                                                frontSetting.value &&
+                                                                    frontSetting
+                                                                        .value
+                                                                        .currency_symbol,
+                                                                data?.product_price ||
+                                                                    0
+                                                            )}
+                                                        </td>
+                                                        <td className="py-4">
+                                                            {data?.order_tax || 0}%
+                                                        </td>
+                                                        <td className="py-4">
+                                                            {data?.stock_alert &&
+                                                            data?.stock_alert !==
+                                                                "null"
+                                                                ? data.stock_alert
+                                                                : 0}
+                                                        </td>
+                                                        <td className="py-4">
+                                                            {renderLegacyDesktopActions(
+                                                                data
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </Table>
+                                </div>
+                            )}
+                        </div>
 
                         <DeleteProduct
                             onClickDeleteModel={onClickDeleteModel}
