@@ -10,6 +10,7 @@ import storage from 'redux-persist/lib/storage'
 import { persistReducer, persistStore } from 'redux-persist';
 import { PersistGate } from 'redux-persist/integration/react'
 import reportWebVitals from './reportWebVitals';
+import AppBootstrapLoader from './shared/components/loaders/AppBootstrapLoader';
 
 const persistConfig = {
     key: 'root',
@@ -30,7 +31,10 @@ let persistor = persistStore(store)
 
 ReactDOM.render(
     <Provider store={store}>
-        <PersistGate persistor={persistor}>
+        <PersistGate
+            persistor={persistor}
+            loading={<AppBootstrapLoader variant="fullscreen" />}
+        >
             <HashRouter>
                 <App />
             </HashRouter>

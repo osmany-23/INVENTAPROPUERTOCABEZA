@@ -3,7 +3,7 @@ import apiConfig from '../../config/apiConfig';
 import { addToast } from './toastAction';
 
 export const fetchConfig = (navigate) => async (dispatch) => {
-    apiConfig.get(apiBaseURL.CONFIG)
+    return apiConfig.get(apiBaseURL.CONFIG)
         .then((response) => {
             const permissions = response?.data?.data?.permissions || [];
             localStorage.setItem(Tokens.GET_PERMISSIONS, permissions);

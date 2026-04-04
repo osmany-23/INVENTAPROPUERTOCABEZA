@@ -12,11 +12,10 @@ import Footer from "./footer/Footer";
 import AsideTopSubMenuItem from "./sidebar/asideTopSubMenuItem";
 import { Tokens } from "../constants";
 import asideConfig from "../config/asideConfig";
-import { environment } from "../config/environment";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBars } from "@fortawesome/free-solid-svg-icons";
 import { normalizePermissions } from "../shared/permissionRoute";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
     createRenderProfiler,
     markNavigationReady,
@@ -44,6 +43,7 @@ const MasterLayout = (props) => {
     );
     const token = localStorage.getItem(Tokens.ADMIN);
     const location = useLocation();
+    const navigate = useNavigate();
     const isReportRoute = location.pathname.includes("/report");
     const sidebarRenderProfiler = useMemo(
         () => createRenderProfiler("sidebar/AsideMenu", 20),
@@ -52,9 +52,9 @@ const MasterLayout = (props) => {
 
     useEffect(() => {
         if (!token) {
-            window.location.href = environment.URL + "#" + "/login";
+            navigate("/login", { replace: true });
         }
-    }, [token]);
+    }, [navigate, token]);
 
     useEffect(() => {
         try {

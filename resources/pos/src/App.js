@@ -29,11 +29,13 @@ import apiConfig from "./config/apiConfig";
 import { addToast } from "./store/action/toastAction";
 import { logoutAction } from "./store/action/authAction";
 import {
+    consumeAuthBootstrapReady,
     consumeSessionExpiredReason,
     getAuthToken,
     getSessionExpiry,
     getSessionTimeoutMinutes,
     hasLocalSessionExpired,
+    isAuthBootstrapPending,
     setSessionExpiry,
     SESSION_ACTIVITY_EVENTS,
     SESSION_TIMEOUT_REASON_INACTIVITY,
@@ -69,6 +71,10 @@ function App() {
     const lastFetchedTokenRef = useRef(null);
     const syncedLanguageRef = useRef(null);
     const inactivityLogoutTriggeredRef = useRef(false);
+    const bootstrapRequestIdRef = useRef(0);
+    const [isAdminBootstrapping, setIsAdminBootstrapping] = useState(() =>
+        Boolean(token && !isPublicAuthPath(location.pathname))
+    );
 
     useEffect(() => {
         const getData = getFiles();
@@ -132,6 +138,8 @@ function App() {
         const isPublicRoute = isPublicAuthPath(currentPath);
 
         if (isSessionExpired) {
+            bootstrapRequestIdRef.current += 1;
+            setIsAdminBootstrapping(false);
             lastFetchedTokenRef.current = null;
 
             if (storedToken && !inactivityLogoutTriggeredRef.current) {
@@ -154,20 +162,44 @@ function App() {
 
         if (token) {
             if (isPublicRoute) {
+                if (isAuthBootstrapPending(token)) {
+                    setIsAdminBootstrapping(false);
+                    return;
+                }
+
+                bootstrapRequestIdRef.current += 1;
+                setIsAdminBootstrapping(false);
                 navigate(redirectTo || "/app/dashboard");
+                return;
+            }
+
+            if (consumeAuthBootstrapReady(token)) {
+                lastFetchedTokenRef.current = token;
+                setIsAdminBootstrapping(false);
                 return;
             }
 
             if (!isPublicRoute && lastFetchedTokenRef.current !== token) {
                 lastFetchedTokenRef.current = token;
-                dispatch(fetchConfig());
-                dispatch(fetchFrontSetting());
+                const requestId = bootstrapRequestIdRef.current + 1;
+                bootstrapRequestIdRef.current = requestId;
+                setIsAdminBootstrapping(true);
+                Promise.allSettled([
+                    dispatch(fetchConfig()),
+                    dispatch(fetchFrontSetting()),
+                ]).finally(() => {
+                    if (bootstrapRequestIdRef.current === requestId) {
+                        setIsAdminBootstrapping(false);
+                    }
+                });
             }
 
             return;
         }
 
         lastFetchedTokenRef.current = null;
+        bootstrapRequestIdRef.current += 1;
+        setIsAdminBootstrapping(false);
 
         if (!isPublicRoute) {
             navigate("/login");
@@ -327,7 +359,12 @@ function App() {
                     />
                     <Route
                         path="app/*"
-                        element={<AdminApp config={config} />}
+                        element={
+                            <AdminApp
+                                config={config}
+                                isBootstrapping={isAdminBootstrapping}
+                            />
+                        }
                     />
                     <Route
                         path="/"

@@ -1,5 +1,11 @@
 import apiConfig from "../../config/apiConfig";
-import { authActionType, Tokens, toastType, apiBaseURL } from "../../constants";
+import {
+    authActionType,
+    Tokens,
+    toastType,
+    apiBaseURL,
+    configActionType,
+} from "../../constants";
 import { fetchPermissions } from "./permissionAction";
 import { addToast } from "./toastAction";
 import { fetchFrontSetting } from "./frontSettingAction";
@@ -7,10 +13,14 @@ import { setLanguage } from "./changeLanguageAction";
 import { getFormattedMessage } from "../../shared/sharedMethod";
 import { fetchConfig } from "./configAction";
 import { getDefaultRedirectRoute } from "../../shared/permissionRoute";
+import { preloadRouteModule } from "../../shared/navigation/routePreload";
 import {
+    clearAuthBootstrapState,
     clearSessionExpiredReason,
     clearStoredAuthSession,
     getAuthToken,
+    markAuthBootstrapPending,
+    markAuthBootstrapReady,
     markSessionExpiredReason,
     setSessionExpiry,
     syncAuthTokenCookie,
@@ -21,78 +31,73 @@ const clearLocalAuthSession = (preserveExpiredReason = false) => {
 };
 
 export const loginAction = (user, navigate, setLoading) => async (dispatch) => {
-    await apiConfig
-        .post("login", user)
-        .then((response) => {
-            const authToken = response?.data?.data?.token || "";
+    try {
+        const response = await apiConfig.post("login", user);
+        const authData = response?.data?.data || {};
+        const authToken = authData?.token || "";
+        const authUser = authData?.user || {};
+        const userPermissions = authData?.permissions || [];
+        const redirectRoute = getDefaultRedirectRoute(userPermissions, "");
 
-            localStorage.setItem(Tokens.ADMIN, authToken);
-            localStorage.setItem(
-                Tokens.GET_PERMISSIONS,
-                response.data.data.permissions
-            );
-            localStorage.setItem(Tokens.USER, response.data.data.user.email);
-            localStorage.setItem(
-                Tokens.IMAGE,
-                response.data.data.user.image_url
-            );
-            localStorage.setItem(
-                Tokens.FIRST_NAME,
-                response.data.data.user.first_name
-            );
-            localStorage.setItem(
-                Tokens.LANGUAGE,
-                response.data.data.user.language
-            );
-            localStorage.setItem(
-                Tokens.LAST_NAME,
-                response.data.data.user.last_name
-            );
-            localStorage.setItem(
-                "loginUserArray",
-                JSON.stringify(response.data.data.user)
-            );
-            const expiresAt = Number(response.data?.data?.expires_at);
-            const hasExpiration = Number.isFinite(expiresAt) && expiresAt > 0;
-            clearSessionExpiredReason();
+        localStorage.setItem(Tokens.ADMIN, authToken);
+        localStorage.setItem(Tokens.GET_PERMISSIONS, userPermissions);
+        localStorage.setItem(Tokens.USER, authUser.email || "");
+        localStorage.setItem(Tokens.IMAGE, authUser.image_url || "");
+        localStorage.setItem(Tokens.FIRST_NAME, authUser.first_name || "");
+        localStorage.setItem(Tokens.LANGUAGE, authUser.language || "");
+        localStorage.setItem(Tokens.LAST_NAME, authUser.last_name || "");
+        localStorage.setItem("loginUserArray", JSON.stringify(authUser));
 
-            if (hasExpiration) {
-                localStorage.setItem(Tokens.TOKEN_TTL, String(expiresAt));
-                const sessionExpiresAt = setSessionExpiry(expiresAt);
-                syncAuthTokenCookie(authToken, sessionExpiresAt);
-            } else {
-                localStorage.removeItem(Tokens.TOKEN_TTL);
-                syncAuthTokenCookie(authToken);
-            }
-            dispatch({
-                type: authActionType.LOGIN_USER,
-                payload: response.data.data,
-            });
-            dispatch(setLanguage(response.data.data.user.language));
-            localStorage.setItem(
-                Tokens.UPDATED_LANGUAGE,
-                response.data.data.user.language
-            );
+        const expiresAt = Number(authData?.expires_at);
+        const hasExpiration = Number.isFinite(expiresAt) && expiresAt > 0;
+        clearSessionExpiredReason();
+        markAuthBootstrapPending(authToken);
 
-            const userPermissions = response.data.data.permissions || [];
-            navigate(getDefaultRedirectRoute(userPermissions, ""));
+        if (hasExpiration) {
+            localStorage.setItem(Tokens.TOKEN_TTL, String(expiresAt));
+            const sessionExpiresAt = setSessionExpiry(expiresAt);
+            syncAuthTokenCookie(authToken, sessionExpiresAt);
+        } else {
+            localStorage.removeItem(Tokens.TOKEN_TTL);
+            syncAuthTokenCookie(authToken);
+        }
 
-            dispatch(fetchPermissions());
-            dispatch(fetchFrontSetting());
-            dispatch(fetchConfig());
-            dispatch(
-                addToast({ text: getFormattedMessage("login.success.message") })
-            );
-            if (response.data.data.user.language) {
-                window.location.reload();
-            }
-        })
-        .catch(({ response }) => {
-            dispatch(
-                addToast({ text: response.data.message, type: toastType.ERROR })
-            );
-            setLoading(false);
+        dispatch({
+            type: authActionType.LOGIN_USER,
+            payload: authData,
         });
+        dispatch({
+            type: configActionType.FETCH_CONFIG,
+            payload: userPermissions,
+        });
+        dispatch(setLanguage(authUser.language));
+        localStorage.setItem(Tokens.UPDATED_LANGUAGE, authUser.language || "");
+
+        const bootstrapTasks = [
+            dispatch(fetchFrontSetting()),
+            dispatch(fetchConfig()),
+            preloadRouteModule(redirectRoute),
+        ];
+
+        if (redirectRoute === "/app/dashboard") {
+            bootstrapTasks.push(preloadRouteModule("/app/dashboard"));
+        }
+
+        dispatch(fetchPermissions());
+        await Promise.allSettled(bootstrapTasks);
+        markAuthBootstrapReady(authToken);
+
+        dispatch(
+            addToast({ text: getFormattedMessage("login.success.message") })
+        );
+        navigate(redirectRoute, { replace: true });
+    } catch ({ response }) {
+        clearAuthBootstrapState();
+        dispatch(
+            addToast({ text: response.data.message, type: toastType.ERROR })
+        );
+        setLoading(false);
+    }
 };
 
 export const logoutAction = (token, navigate, options = {}) => async (dispatch) => {

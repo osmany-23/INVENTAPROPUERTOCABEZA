@@ -11,6 +11,7 @@ export const SESSION_ACTIVITY_EVENTS = [
     "scroll",
     "touchstart",
 ];
+const AUTH_BOOTSTRAP_STATE_KEY = "pos_auth_bootstrap_state";
 
 const AUTH_STORAGE_KEYS = [
     Tokens.ADMIN,
@@ -29,6 +30,38 @@ const AUTH_STORAGE_KEYS = [
 
 const normalizeToken = (token) =>
     typeof token === "string" ? token.trim() : "";
+
+const canUseSessionStorage = () =>
+    typeof window !== "undefined" && Boolean(window.sessionStorage);
+
+const readAuthBootstrapState = () => {
+    if (!canUseSessionStorage()) {
+        return null;
+    }
+
+    try {
+        const rawValue = window.sessionStorage.getItem(AUTH_BOOTSTRAP_STATE_KEY);
+        return rawValue ? JSON.parse(rawValue) : null;
+    } catch (error) {
+        return null;
+    }
+};
+
+const writeAuthBootstrapState = (state) => {
+    if (!canUseSessionStorage()) {
+        return;
+    }
+
+    if (!state) {
+        window.sessionStorage.removeItem(AUTH_BOOTSTRAP_STATE_KEY);
+        return;
+    }
+
+    window.sessionStorage.setItem(
+        AUTH_BOOTSTRAP_STATE_KEY,
+        JSON.stringify(state)
+    );
+};
 
 const isValidToken = (token) => {
     if (!token) {
@@ -131,6 +164,63 @@ export const clearSessionExpiredReason = () => {
     localStorage.removeItem(Tokens.SESSION_EXPIRED_REASON);
 };
 
+export const markAuthBootstrapPending = (token) => {
+    const normalizedToken = normalizeToken(token);
+
+    if (!normalizedToken) {
+        return;
+    }
+
+    writeAuthBootstrapState({
+        status: "pending",
+        token: normalizedToken,
+    });
+};
+
+export const markAuthBootstrapReady = (token) => {
+    const normalizedToken = normalizeToken(token);
+
+    if (!normalizedToken) {
+        return;
+    }
+
+    writeAuthBootstrapState({
+        status: "ready",
+        token: normalizedToken,
+    });
+};
+
+export const isAuthBootstrapPending = (token) => {
+    const normalizedToken = normalizeToken(token);
+    const bootstrapState = readAuthBootstrapState();
+
+    return Boolean(
+        normalizedToken &&
+            bootstrapState?.status === "pending" &&
+            bootstrapState?.token === normalizedToken
+    );
+};
+
+export const consumeAuthBootstrapReady = (token) => {
+    const normalizedToken = normalizeToken(token);
+    const bootstrapState = readAuthBootstrapState();
+    const isReady = Boolean(
+        normalizedToken &&
+            bootstrapState?.status === "ready" &&
+            bootstrapState?.token === normalizedToken
+    );
+
+    if (isReady) {
+        writeAuthBootstrapState(null);
+    }
+
+    return isReady;
+};
+
+export const clearAuthBootstrapState = () => {
+    writeAuthBootstrapState(null);
+};
+
 export const consumeSessionExpiredReason = () => {
     const reason = localStorage.getItem(Tokens.SESSION_EXPIRED_REASON);
 
@@ -150,6 +240,7 @@ export const clearStoredAuthSession = (preserveExpiredReason = false) => {
     });
 
     clearSessionExpiry();
+    clearAuthBootstrapState();
 
     if (!preserveExpiredReason) {
         clearSessionExpiredReason();

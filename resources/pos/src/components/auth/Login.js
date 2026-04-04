@@ -11,6 +11,7 @@ import {
     getFormattedMessage,
     placeholderText,
 } from "../../shared/sharedMethod";
+import AppBootstrapLoader from "../../shared/components/loaders/AppBootstrapLoader";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
 
@@ -29,10 +30,13 @@ const Login = () => {
 
     useEffect(() => {
         dispatch(fetchFrontSetting());
-        if (token) {
+    }, [dispatch]);
+
+    useEffect(() => {
+        if (token && !loading) {
             navigate("/app/dashboard");
         }
-    }, [dispatch, navigate, token]);
+    }, [loading, navigate, token]);
 
     const [errors, setErrors] = useState({
         email: "",
@@ -109,6 +113,10 @@ const Login = () => {
     const handleHideShowPassword = () => {
         setShowPassword(!showPassword);
     };
+
+    if (loading) {
+        return <AppBootstrapLoader variant="fullscreen" />;
+    }
 
     return (
         <div className="content d-flex flex-column flex-column-fluid">
