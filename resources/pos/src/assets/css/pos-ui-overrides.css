@@ -6,6 +6,65 @@
   --pos-sidebar-transition: 0.2s ease;
 }
 
+html.pos-shell-active,
+body.pos-shell-active {
+  height: 100%;
+  overflow: hidden;
+}
+
+body.pos-shell-active #root {
+  height: 100%;
+}
+
+.app-shell {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+.app-shell__main {
+  min-width: 0;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+.app-shell__header {
+  flex: 0 0 auto;
+}
+
+.app-shell__viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.app-shell__content {
+  flex: 1 0 auto;
+  min-height: 0;
+}
+
+.app-shell__content-inner {
+  min-height: 0;
+}
+
+.app-shell__content-container {
+  min-width: 0;
+  padding-bottom: 1rem;
+}
+
+.app-shell__footer {
+  flex: 0 0 auto;
+  padding-bottom: 1rem;
+}
+
 .btn:focus-visible,
 .btn-check:focus + .btn,
 .btn:focus {
@@ -29,6 +88,29 @@
 .app-shell .aside-menu-container {
   backface-visibility: hidden;
   will-change: width, transform;
+  overflow: hidden;
+}
+
+.app-shell .aside-menu-container .pro-sidebar,
+.app-shell .aside-menu-container .pro-sidebar-inner,
+.app-shell .aside-menu-container .pro-sidebar-layout {
+  height: 100%;
+}
+
+.app-shell .aside-menu-container .pro-sidebar > .pro-sidebar-inner > .pro-sidebar-layout {
+  overflow: hidden;
+}
+
+.app-shell .aside-menu-container .pro-sidebar-content.sidebar-scrolling {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  height: auto !important;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .app-shell .aside-menu-container .pro-menu .pro-menu-item > .pro-inner-item:hover .pro-icon-wrapper .pro-icon {

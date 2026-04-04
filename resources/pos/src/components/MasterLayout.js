@@ -22,6 +22,7 @@ import {
 } from "../shared/performance/posPerformance";
 
 const SIDEBAR_COLLAPSE_STORAGE_KEY = "pos_sidebar_collapsed";
+const POS_SHELL_ACTIVE_CLASS = "pos-shell-active";
 
 const MasterLayout = (props) => {
     const { children, frontSetting, config, allConfigData } = props;
@@ -55,6 +56,16 @@ const MasterLayout = (props) => {
             navigate("/login", { replace: true });
         }
     }, [navigate, token]);
+
+    useEffect(() => {
+        document.body.classList.add(POS_SHELL_ACTIVE_CLASS);
+        document.documentElement.classList.add(POS_SHELL_ACTIVE_CLASS);
+
+        return () => {
+            document.body.classList.remove(POS_SHELL_ACTIVE_CLASS);
+            document.documentElement.classList.remove(POS_SHELL_ACTIVE_CLASS);
+        };
+    }, []);
 
     useEffect(() => {
         try {
@@ -108,10 +119,10 @@ const MasterLayout = (props) => {
             <div
                 className={`${
                     isMenuCollapse === true ? "wrapper-res" : "wrapper"
-                } d-flex flex-column flex-row-fluid`}
+                } d-flex flex-column flex-row-fluid app-shell__main`}
             >
                 <div
-                    className={`d-flex align-items-stretch justify-content-between header${
+                    className={`d-flex align-items-stretch justify-content-between header app-shell__header${
                         isReportRoute ? " header--report" : ""
                     }`}
                 >
@@ -131,16 +142,20 @@ const MasterLayout = (props) => {
                         <Header newRoutes={newRoutes} />
                     </div>
                 </div>
-                <div className="content d-flex flex-column flex-column-fluid pt-7">
-                    <div className="d-flex flex-column-fluid">
-                        <div className="container-fluid">{children}</div>
+                <div className="app-shell__viewport">
+                    <div className="content d-flex flex-column flex-column-fluid pt-7 app-shell__content">
+                        <div className="d-flex flex-column-fluid app-shell__content-inner">
+                            <div className="container-fluid app-shell__content-container">
+                                {children}
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div className="container-fluid">
-                    <Footer
-                        allConfigData={allConfigData}
-                        frontSetting={frontSetting}
-                    />
+                    <div className="container-fluid app-shell__footer">
+                        <Footer
+                            allConfigData={allConfigData}
+                            frontSetting={frontSetting}
+                        />
+                    </div>
                 </div>
             </div>
         </div>
