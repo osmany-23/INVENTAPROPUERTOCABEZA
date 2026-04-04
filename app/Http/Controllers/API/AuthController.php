@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\AppBaseController;
 use App\Http\Requests\RegisterRequest;
 use App\Models\User;
+use App\Services\SessionActivityService;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Contracts\Auth\Factory as AuthFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -40,15 +41,23 @@ class AuthController extends AppBaseController
      */
     protected $provider;
 
+    protected SessionActivityService $sessionActivity;
+
     /**
      * Create a new guard instance.
      *
      * @return void
      */
-    public function __construct(AuthFactory $auth, int $expiration = null, string $provider = null)
+    public function __construct(
+        AuthFactory $auth,
+        SessionActivityService $sessionActivity,
+        int $expiration = null,
+        string $provider = null
+    )
     {
         $this->auth = $auth;
-        $this->expiration = config('sanctum.expiration');
+        $this->sessionActivity = $sessionActivity;
+        $this->expiration = $this->sessionActivity->timeoutMinutes();
         $this->provider = $provider;
     }
 
@@ -76,6 +85,7 @@ class AuthController extends AppBaseController
         $userPermissions = expandPermissionsWithLegacyNames(
             $user->getAllPermissions()->pluck('name')->toArray()
         );
+        $this->sessionActivity->touch($user, true);
         unset($user->roles);
         unset($user->permissions);
         $token = $user->createToken('token')->plainTextToken;
@@ -85,7 +95,7 @@ class AuthController extends AppBaseController
             'data' => [
                 'token' => $token,
                 'user' => $user,
-                'expires_at' => config('sanctum.expiration'),
+                'expires_at' => $this->sessionActivity->timeoutMinutes(),
                 'permissions' => $userPermissions,
             ],
             'message' => 'Logged in successfully.',
@@ -106,7 +116,7 @@ class AuthController extends AppBaseController
 
     public function logout(): JsonResponse
     {
-        auth()->user()->tokens()->where('id', Auth::user()->currentAccessToken()->id)->delete();
+        $this->sessionActivity->invalidateRequestSession(request(), Auth::user());
 
         return $this->sendSuccess('Logout Successfully');
     }
@@ -170,6 +180,10 @@ class AuthController extends AppBaseController
             $accessToken = $model::findToken($token);
             $valid = $this->isValidAccessToken($accessToken);
 
+            if (! $valid) {
+                $this->sessionActivity->invalidateCurrentAccessToken($accessToken);
+            }
+
             return response()->json(['success' => __($valid)], 200);
         }
     }
@@ -185,7 +199,7 @@ class AuthController extends AppBaseController
             return false;
         }
 
-        $lastActivity = $accessToken->last_used_at ?? $accessToken->created_at;
+        $lastActivity = $this->sessionActivity->resolveLastActivityForAccessToken($accessToken);
         $isValid =
             (! $this->expiration ||
                 ($lastActivity && $lastActivity->gt(now()->subMinutes($this->expiration))))

@@ -6,25 +6,18 @@ import { fetchFrontSetting } from "./frontSettingAction";
 import { setLanguage } from "./changeLanguageAction";
 import { getFormattedMessage } from "../../shared/sharedMethod";
 import { fetchConfig } from "./configAction";
-import Cookies from 'js-cookie';
 import { getDefaultRedirectRoute } from "../../shared/permissionRoute";
+import {
+    clearSessionExpiredReason,
+    clearStoredAuthSession,
+    getAuthToken,
+    markSessionExpiredReason,
+    setSessionExpiry,
+    syncAuthTokenCookie,
+} from "../../shared/authSession";
 
-const clearLocalAuthSession = () => {
-    Cookies.remove("authToken");
-    Cookies.remove("authToken", { path: "/" });
-    localStorage.removeItem(Tokens.ADMIN);
-    localStorage.removeItem(Tokens.TOKEN_TTL);
-    localStorage.removeItem(Tokens.USER);
-    localStorage.removeItem(Tokens.IMAGE);
-    localStorage.removeItem(Tokens.FIRST_NAME);
-    localStorage.removeItem(Tokens.LAST_NAME);
-    localStorage.removeItem("loginUserArray");
-    localStorage.removeItem(Tokens.UPDATED_EMAIL);
-    localStorage.removeItem(Tokens.UPDATED_FIRST_NAME);
-    localStorage.removeItem(Tokens.UPDATED_LAST_NAME);
-    localStorage.removeItem(Tokens.USER_IMAGE_URL);
-    localStorage.removeItem(Tokens.GET_PERMISSIONS);
-    localStorage.removeItem("user_time");
+const clearLocalAuthSession = (preserveExpiredReason = false) => {
+    clearStoredAuthSession(preserveExpiredReason);
 };
 
 export const loginAction = (user, navigate, setLoading) => async (dispatch) => {
@@ -59,34 +52,17 @@ export const loginAction = (user, navigate, setLoading) => async (dispatch) => {
                 "loginUserArray",
                 JSON.stringify(response.data.data.user)
             );
-            const now = Date.now();
             const expiresAt = Number(response.data?.data?.expires_at);
-            const hasExpiration =
-                Number.isFinite(expiresAt) && expiresAt > 0;
+            const hasExpiration = Number.isFinite(expiresAt) && expiresAt > 0;
+            clearSessionExpiredReason();
 
             if (hasExpiration) {
                 localStorage.setItem(Tokens.TOKEN_TTL, String(expiresAt));
-                localStorage.setItem(
-                    "user_time",
-                    String(now + expiresAt * 60 * 1000)
-                );
+                const sessionExpiresAt = setSessionExpiry(expiresAt);
+                syncAuthTokenCookie(authToken, sessionExpiresAt);
             } else {
                 localStorage.removeItem(Tokens.TOKEN_TTL);
-                localStorage.removeItem("user_time");
-            }
-            Cookies.remove("authToken");
-            Cookies.remove("authToken", { path: "/" });
-            const cookieOptions = {
-                path: "/",
-                sameSite: "Lax",
-            };
-            if (hasExpiration) {
-                Cookies.set("authToken", authToken, {
-                    ...cookieOptions,
-                    expires: new Date(now + expiresAt * 60 * 1000),
-                });
-            } else {
-                Cookies.set("authToken", authToken, cookieOptions);
+                syncAuthTokenCookie(authToken);
             }
             dispatch({
                 type: authActionType.LOGIN_USER,
@@ -119,25 +95,31 @@ export const loginAction = (user, navigate, setLoading) => async (dispatch) => {
         });
 };
 
-export const logoutAction = (token, navigate) => async (dispatch) => {
-    const authToken =
-        token ||
-        localStorage.getItem(Tokens.ADMIN) ||
-        Cookies.get("authToken");
+export const logoutAction = (token, navigate, options = {}) => async (dispatch) => {
+    const {
+        skipApiLogout = false,
+        skipSuccessToast = false,
+        sessionExpiredReason = null,
+    } = options;
+    const authToken = token || getAuthToken();
 
     try {
-        await apiConfig.post("logout", {}, {
-            headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
-        });
+        if (!skipApiLogout) {
+            await apiConfig.post("logout", {}, {
+                headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+            });
+        }
 
-        dispatch(
-            addToast({
-                text: getFormattedMessage("logout.success.message"),
-            })
-        );
+        if (!skipSuccessToast && !sessionExpiredReason) {
+            dispatch(
+                addToast({
+                    text: getFormattedMessage("logout.success.message"),
+                })
+            );
+        }
     } catch ({ response }) {
         const message = response?.data?.message;
-        if (message && message !== "Unauthenticated.") {
+        if (message && message !== "Unauthenticated." && !sessionExpiredReason) {
             dispatch(
                 addToast({
                     text: message,
@@ -146,7 +128,12 @@ export const logoutAction = (token, navigate) => async (dispatch) => {
             );
         }
     } finally {
-        clearLocalAuthSession();
+        if (sessionExpiredReason) {
+            markSessionExpiredReason(sessionExpiredReason);
+        } else {
+            clearSessionExpiredReason();
+        }
+        clearLocalAuthSession(Boolean(sessionExpiredReason));
         dispatch({ type: authActionType.LOGOUT_USER });
         navigate("/login");
     }

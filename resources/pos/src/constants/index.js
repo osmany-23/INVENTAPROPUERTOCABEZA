@@ -556,6 +556,8 @@ export const toastType = {
 export const Tokens = {
     ADMIN: "auth_token",
     TOKEN_TTL: "auth_token_ttl",
+    SESSION_EXPIRES_AT: "user_time",
+    SESSION_EXPIRED_REASON: "session_expired_reason",
     USER: "user",
     FIRST_NAME: "first_name",
     LAST_NAME: "last_name",

@@ -8,6 +8,7 @@ import {
     languageActionType,
     settingsKey,
     Tokens,
+    toastType,
 } from "./constants";
 import Toasts from "./shared/toast/Toasts";
 import { fetchFrontSetting } from "./store/action/frontSettingAction";
@@ -15,45 +16,44 @@ import { fetchConfig } from "./store/action/configAction";
 import {
     addRTLSupport,
     syncTranslationMessages,
+    translateMessage,
 } from "./shared/sharedMethod";
 import Login from "./components/auth/Login";
 import ResetPassword from "./components/auth/ResetPassword";
 import ForgotPassword from "./components/auth/ForgotPassword";
 import AdminApp from "./AdminApp";
 import { getFiles } from "./locales/index";
-import Cookies from "js-cookie";
 import { getDefaultRedirectRoute } from "./shared/permissionRoute";
 import { setupPosPerformanceMonitoring } from "./shared/performance/posPerformance";
 import apiConfig from "./config/apiConfig";
+import { addToast } from "./store/action/toastAction";
+import { logoutAction } from "./store/action/authAction";
+import {
+    consumeSessionExpiredReason,
+    getAuthToken,
+    getSessionExpiry,
+    getSessionTimeoutMinutes,
+    hasLocalSessionExpired,
+    setSessionExpiry,
+    SESSION_ACTIVITY_EVENTS,
+    SESSION_TIMEOUT_REASON_INACTIVITY,
+} from "./shared/authSession";
 
 const isLocaleObject = (value) =>
     Boolean(value && typeof value === "object" && !Array.isArray(value));
+
 const isPublicAuthPath = (path = "") =>
     path.includes("/login") ||
     path.includes("/forgot-password") ||
     path.includes("/reset-password");
-
-const clearAuthSession = () => {
-    Cookies.remove("authToken");
-    Cookies.remove("authToken", { path: "/" });
-    localStorage.removeItem(Tokens.ADMIN);
-    localStorage.removeItem(Tokens.TOKEN_TTL);
-    localStorage.removeItem(Tokens.GET_PERMISSIONS);
-    localStorage.removeItem("user_time");
-};
 
 function App() {
     //do not remove updateLanguag
     const dispatch = useDispatch();
     const { updateLanguage } = useSelector((state) => state);
     const location = useLocation();
-    const storedToken =
-        Cookies.get("authToken") || localStorage.getItem(Tokens.ADMIN);
-    const tokenExpiry = Number(localStorage.getItem("user_time"));
-    const isSessionExpired =
-        Number.isFinite(tokenExpiry) &&
-        tokenExpiry > 0 &&
-        Date.now() > tokenExpiry;
+    const storedToken = getAuthToken();
+    const isSessionExpired = hasLocalSessionExpired();
     const token = isSessionExpired ? null : storedToken;
     const navigate = useNavigate();
     const updatedLanguage = localStorage.getItem(Tokens.UPDATED_LANGUAGE);
@@ -68,6 +68,7 @@ function App() {
     const redirectTo = getDefaultRedirectRoute(config);
     const lastFetchedTokenRef = useRef(null);
     const syncedLanguageRef = useRef(null);
+    const inactivityLogoutTriggeredRef = useRef(false);
 
     useEffect(() => {
         const getData = getFiles();
@@ -103,15 +104,51 @@ function App() {
     }, [updatedLanguage]);
 
     useEffect(() => {
+        const expiredReason = consumeSessionExpiredReason();
+
+        if (expiredReason !== SESSION_TIMEOUT_REASON_INACTIVITY) {
+            return;
+        }
+
+        dispatch(
+            addToast({
+                text: translateMessage(
+                    "session.expired.inactivity.message",
+                    "Session closed due to inactivity (60 minutes)"
+                ),
+                type: toastType.ERROR,
+            })
+        );
+    }, [dispatch, location.pathname]);
+
+    useEffect(() => {
+        if (token) {
+            inactivityLogoutTriggeredRef.current = false;
+        }
+    }, [token]);
+
+    useEffect(() => {
         const currentPath = location.pathname;
         const isPublicRoute = isPublicAuthPath(currentPath);
 
         if (isSessionExpired) {
-            clearAuthSession();
             lastFetchedTokenRef.current = null;
+
+            if (storedToken && !inactivityLogoutTriggeredRef.current) {
+                inactivityLogoutTriggeredRef.current = true;
+                dispatch(
+                    logoutAction(storedToken, navigate, {
+                        skipSuccessToast: true,
+                        sessionExpiredReason: SESSION_TIMEOUT_REASON_INACTIVITY,
+                    })
+                );
+                return;
+            }
+
             if (!isPublicRoute) {
                 navigate("/login");
             }
+
             return;
         }
 
@@ -121,13 +158,12 @@ function App() {
                 return;
             }
 
-            if (!isPublicRoute) {
-                if (lastFetchedTokenRef.current !== token) {
-                    lastFetchedTokenRef.current = token;
-                    dispatch(fetchConfig());
-                    dispatch(fetchFrontSetting());
-                }
+            if (!isPublicRoute && lastFetchedTokenRef.current !== token) {
+                lastFetchedTokenRef.current = token;
+                dispatch(fetchConfig());
+                dispatch(fetchFrontSetting());
             }
+
             return;
         }
 
@@ -136,7 +172,70 @@ function App() {
         if (!isPublicRoute) {
             navigate("/login");
         }
-    }, [dispatch, isSessionExpired, location.pathname, navigate, redirectTo, token]);
+    }, [dispatch, isSessionExpired, location.pathname, navigate, redirectTo, storedToken, token]);
+
+    useEffect(() => {
+        const currentPath = location.pathname;
+
+        if (!token || isPublicAuthPath(currentPath)) {
+            return undefined;
+        }
+
+        let logoutTimerId = null;
+
+        const triggerInactivityLogout = () => {
+            if (inactivityLogoutTriggeredRef.current) {
+                return;
+            }
+
+            inactivityLogoutTriggeredRef.current = true;
+            dispatch(
+                logoutAction(token, navigate, {
+                    skipSuccessToast: true,
+                    sessionExpiredReason: SESSION_TIMEOUT_REASON_INACTIVITY,
+                })
+            );
+        };
+
+        const scheduleLogout = (expiresAt = null) => {
+            const nextExpiry = expiresAt ?? getSessionExpiry() ?? setSessionExpiry();
+
+            if (!nextExpiry) {
+                return;
+            }
+
+            window.clearTimeout(logoutTimerId);
+            logoutTimerId = window.setTimeout(
+                triggerInactivityLogout,
+                Math.max(nextExpiry - Date.now(), 0)
+            );
+        };
+
+        let lastPersistedActivityAt = 0;
+        const handleActivity = () => {
+            const now = Date.now();
+            let expiresAt = now + getSessionTimeoutMinutes() * 60 * 1000;
+
+            if (now - lastPersistedActivityAt >= 1000) {
+                lastPersistedActivityAt = now;
+                expiresAt = setSessionExpiry() ?? expiresAt;
+            }
+
+            scheduleLogout(expiresAt);
+        };
+
+        scheduleLogout();
+        SESSION_ACTIVITY_EVENTS.forEach((eventName) => {
+            window.addEventListener(eventName, handleActivity);
+        });
+
+        return () => {
+            window.clearTimeout(logoutTimerId);
+            SESSION_ACTIVITY_EVENTS.forEach((eventName) => {
+                window.removeEventListener(eventName, handleActivity);
+            });
+        };
+    }, [dispatch, location.pathname, navigate, token]);
 
     useEffect(() => {
         const activeLocale = updatedLanguage || selectedLanguage;

@@ -24,10 +24,11 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string $email
  * @property string|null $phone
  * @property \Illuminate\Support\Carbon|null $email_verified_at
- * @property string $password
- * @property string|null $remember_token
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
+     * @property string $password
+     * @property string|null $remember_token
+     * @property \Illuminate\Support\Carbon|null $last_activity
+     * @property \Illuminate\Support\Carbon|null $created_at
+     * @property \Illuminate\Support\Carbon|null $updated_at
  * @property int $status
  * @property-read \Illuminate\Notifications\DatabaseNotificationCollection|\Illuminate\Notifications\DatabaseNotification[] $notifications
  * @property-read int|null $notifications_count
@@ -50,11 +51,12 @@ use Spatie\Permission\Traits\HasRoles;
  * @method static \Illuminate\Database\Eloquent\Builder|User whereFirstName($value)
  * @method static \Illuminate\Database\Eloquent\Builder|User whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder|User whereLastName($value)
- * @method static \Illuminate\Database\Eloquent\Builder|User wherePassword($value)
- * @method static \Illuminate\Database\Eloquent\Builder|User wherePhone($value)
- * @method static \Illuminate\Database\Eloquent\Builder|User whereRememberToken($value)
- * @method static \Illuminate\Database\Eloquent\Builder|User whereStatus($value)
- * @method static \Illuminate\Database\Eloquent\Builder|User whereUpdatedAt($value)
+     * @method static \Illuminate\Database\Eloquent\Builder|User wherePassword($value)
+     * @method static \Illuminate\Database\Eloquent\Builder|User wherePhone($value)
+     * @method static \Illuminate\Database\Eloquent\Builder|User whereRememberToken($value)
+     * @method static \Illuminate\Database\Eloquent\Builder|User whereLastActivity($value)
+     * @method static \Illuminate\Database\Eloquent\Builder|User whereStatus($value)
+     * @method static \Illuminate\Database\Eloquent\Builder|User whereUpdatedAt($value)
  *
  * @property-read string $image_url
  * @property-read \Spatie\MediaLibrary\MediaCollections\Models\Collections\MediaCollection|Media[] $media
@@ -129,6 +131,7 @@ class User extends Authenticatable implements HasMedia, JsonResourceful, CanRese
     protected $casts = [
         'email_verified_at' => 'datetime',
         'credit_alert_days' => 'integer',
+        'last_activity' => 'datetime',
     ];
 
     public function prepareLinks(): array

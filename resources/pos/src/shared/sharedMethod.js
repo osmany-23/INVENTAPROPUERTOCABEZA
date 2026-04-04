@@ -5,6 +5,7 @@ import { Tokens } from "../constants";
 import { getFiles } from "../locales";
 import moment from "moment";
 import { DEFAULT_CURRENCY_SYMBOL, getCurrencySymbol } from "./currency";
+import { getAuthToken, hasLocalSessionExpired } from "./authSession";
 
 const NUMBER_FORMAT_LOCALE = "en-US";
 const LOCALE_FALLBACK = "en";
@@ -189,7 +190,7 @@ export const onFocusInput = (el) => {
 
 export const ProtectedRoute = (props) => {
     const { children, allConfigData, route } = props;
-    const token = localStorage.getItem(Tokens.ADMIN);
+    const token = hasLocalSessionExpired() ? null : getAuthToken();
     if (!token || token === null) {
         return <Navigate to="/login" replace={true} />;
     } else {

@@ -20,7 +20,7 @@ Route::prefix('m1')->as('m1.')->group(function () {
         [AuthController::class, 'sendPasswordResetLinkEmail'])->middleware('throttle:5,1');
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', 'session.activity'])->group(function () {
         // dashboard
         Route::get('dashboard', [DashboardAPIController::class, 'index']);
         // profile

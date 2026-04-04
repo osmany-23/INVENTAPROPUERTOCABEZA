@@ -1,16 +1,16 @@
 import React, { Suspense } from "react";
 import { Route, Navigate, Routes } from "react-router-dom";
 import "../../pos/src/assets/sass/style.react.scss";
-import { Tokens } from "./constants";
 import { ProtectedRoute } from "./shared/sharedMethod";
 import { route } from "./routes";
 import TopProgressBar from "./shared/components/loaders/TopProgressBar";
 import { useSelector } from "react-redux";
 import { normalizePermissions } from "./shared/permissionRoute";
+import { getAuthToken, hasLocalSessionExpired } from "./shared/authSession";
 
 function AdminApp(props) {
     const { config } = props;
-    const token = localStorage.getItem(Tokens.ADMIN);
+    const token = hasLocalSessionExpired() ? null : getAuthToken();
     const { allConfigData } = useSelector((state) => state);
     const normalizedConfig = normalizePermissions(config || []);
 

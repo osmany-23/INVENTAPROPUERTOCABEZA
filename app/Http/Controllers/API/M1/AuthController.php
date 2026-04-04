@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API\M1;
 
 use App\Http\Controllers\AppBaseController;
 use App\Models\User;
+use App\Services\SessionActivityService;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,6 +16,10 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends AppBaseController
 {
+    public function __construct(private readonly SessionActivityService $sessionActivity)
+    {
+    }
+
     public function login(Request $request): JsonResponse
     {
         $email = $request->get('email');
@@ -33,6 +38,7 @@ class AuthController extends AppBaseController
             return $this->sendError('Invalid username or password', 422);
         }
 
+        $this->sessionActivity->touch($user, true);
         $token = $user->createToken('token')->plainTextToken;
         $user->last_name = $user->last_name ?? '';
 
@@ -41,6 +47,7 @@ class AuthController extends AppBaseController
             'data' => [
                 'token' => $token,
                 'user' => $user,
+                'expires_at' => $this->sessionActivity->timeoutMinutes(),
             ],
             'message' => 'Logged in successfully.',
         ]);
@@ -48,7 +55,7 @@ class AuthController extends AppBaseController
 
     public function logout(): JsonResponse
     {
-        auth()->user()->tokens()->where('id', Auth::user()->currentAccessToken()->id)->delete();
+        $this->sessionActivity->invalidateRequestSession(request(), Auth::user());
 
         return $this->sendSuccess('Logout Successfully');
     }

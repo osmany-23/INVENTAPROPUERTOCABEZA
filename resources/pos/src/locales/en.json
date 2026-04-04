@@ -832,6 +832,7 @@
     "receipt-settings.show-product-code.label":"Show Product Code",
     "globally.footer.label":"All Rights Reserved",
     "logout.confirmation.label":"Are you sure you want to Logout?",
+    "session.expired.inactivity.message":"Session closed due to inactivity (60 minutes)",
     "addition.title":"Addition",
     "subtraction.title":"Subtraction",
     "credit.collections.title":"Credit Collections",

@@ -55,7 +55,7 @@ use Illuminate\Support\Facades\Route;
 //    return $request->user();
 //});
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'session.activity'])->group(function () {
     Route::middleware('permission:manage_brands')->group(function () {
         Route::post('/brands', [BrandAPIController::class, 'store']);
         Route::get('/brands/{id}', [BrandAPIController::class, 'show'])->name('brands.show');

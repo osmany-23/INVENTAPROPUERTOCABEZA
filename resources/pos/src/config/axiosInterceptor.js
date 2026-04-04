@@ -1,5 +1,13 @@
-import {Tokens, errorMessage} from '../constants';
-import Cookies from 'js-cookie';
+import { errorMessage } from "../constants";
+import {
+    clearStoredAuthSession,
+    getAuthToken,
+    markSessionExpiredReason,
+    SESSION_EXPIRED_STATUS_CODE,
+    SESSION_TIMEOUT_REASON_INACTIVITY,
+    setSessionExpiry,
+    syncAuthTokenCookie,
+} from "../shared/authSession";
 
 const PUBLIC_API_ENDPOINTS = [
     'login',
@@ -64,71 +72,14 @@ const isPublicAuthPath = () => {
     );
 };
 
-const normalizeToken = (token) =>
-    typeof token === 'string' ? token.trim() : '';
-
-const isValidToken = (token) => {
-    if (!token) {
-        return false;
-    }
-
-    const normalized = token.toLowerCase();
-    return normalized !== 'null' && normalized !== 'undefined';
-};
-
-const getAuthToken = () => {
-    // Prefer localStorage token to avoid stale cookie overriding valid sessions.
-    const storageToken = normalizeToken(localStorage.getItem(Tokens.ADMIN));
-    if (isValidToken(storageToken)) {
-        return storageToken;
-    }
-
-    const cookieToken = normalizeToken(Cookies.get('authToken'));
-    if (isValidToken(cookieToken)) {
-        return cookieToken;
-    }
-
-    return null;
-};
-
-const getTokenTtlMinutes = () => {
-    const ttlMinutes = Number(localStorage.getItem(Tokens.TOKEN_TTL));
-    if (!Number.isFinite(ttlMinutes) || ttlMinutes <= 0) {
-        return null;
-    }
-    return ttlMinutes;
-};
-
 const refreshAuthSessionExpiry = () => {
-    const ttlMinutes = getTokenTtlMinutes();
-    if (!ttlMinutes) {
-        return;
-    }
-
     const authToken = getAuthToken();
     if (!authToken) {
         return;
     }
 
-    const now = Date.now();
-    const expiresAt = now + ttlMinutes * 60 * 1000;
-
-    localStorage.setItem("user_time", String(expiresAt));
-    Cookies.set("authToken", authToken, {
-        expires: new Date(expiresAt),
-        path: "/",
-        sameSite: "Lax",
-    });
-};
-
-const clearAuthSession = () => {
-    Cookies.remove('authToken');
-    Cookies.remove('authToken', { path: '/' });
-    localStorage.removeItem(Tokens.ADMIN);
-    localStorage.removeItem(Tokens.TOKEN_TTL);
-    localStorage.removeItem(Tokens.USER);
-    localStorage.removeItem(Tokens.GET_PERMISSIONS);
-    localStorage.removeItem('user_time');
+    const expiresAt = setSessionExpiry();
+    syncAuthTokenCookie(authToken, expiresAt);
 };
 
 const redirectToLogin = () => {
@@ -179,11 +130,15 @@ export default {
         const errorHandler = (error) => {
             const status = error?.response?.status;
             const message = error?.response?.data?.message;
+            const statusCode = error?.response?.data?.code;
             const requestUrl = error?.config?.url || '';
             const requestPath = getRequestPath(requestUrl);
             const authToken = getAuthToken();
             const requestIsAuthHandled = isAuthHandledEndpoint(requestUrl);
             const isConfigRequest = hasEndpointSuffix(requestPath, 'config');
+            const sessionExpired =
+                Boolean(error?.response?.data?.session_expired) ||
+                statusCode === SESSION_EXPIRED_STATUS_CODE;
 
             if (status === 401 && isConfigRequest && error?.config && !error.config._retryOn401) {
                 error.config._retryOn401 = true;
@@ -193,7 +148,10 @@ export default {
             if ((status === 401 || isTokenErrorMessage(message))
                 && authToken
                 && !requestIsAuthHandled) {
-                clearAuthSession();
+                if (sessionExpired) {
+                    markSessionExpiredReason(SESSION_TIMEOUT_REASON_INACTIVITY);
+                }
+                clearStoredAuthSession(sessionExpired);
                 redirectToLogin();
             }
 

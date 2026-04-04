@@ -824,6 +824,7 @@
     "receipt-settings.show-product-code.label": "Mostrar c\u00f3digo de producto",
     "globally.footer.label": "Reservados todos los derechos",
     "logout.confirmation.label": "\u00bfEst\u00e1 seguro de que desea cerrar sesi\u00f3n?",
+    "session.expired.inactivity.message": "Sesi\u00f3n cerrada por inactividad (60 minutos)",
     "addition.title": "ENTRADA",
     "subtraction.title": "SALIDA",
     "credit.collections.title": "Cobros de cr\u00e9dito",
