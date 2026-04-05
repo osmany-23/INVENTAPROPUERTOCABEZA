@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('base_units', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();
+            $table->boolean('is_default')->default(0);
             $table->timestamps();
         });
     }

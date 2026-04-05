@@ -17,6 +17,7 @@ return new class extends Migration
             $table->longText('content');
             $table->string('type');
             $table->timestamps();
+
         });
     }
 

@@ -112,7 +112,7 @@ class PrintData extends React.PureComponent {
                         Ruc:
                     </span>
                     <span>
-                        4891009760002Y
+                        00000000000000Y
                     </span>
                 </div>
 
