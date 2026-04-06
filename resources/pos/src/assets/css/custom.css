@@ -2462,11 +2462,16 @@ div .rdt_Pagination div:first-of-type svg {
 }
 
 .login-company-logo {
-  width: 68px !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: 280px !important;
+  max-height: 120px !important;
+  object-fit: contain !important;
 }
 @media (max-width: 575px) {
   .login-company-logo {
-    max-width: 68px !important;
+    max-width: 200px !important;
+    max-height: 88px !important;
   }
 }
 
@@ -2567,7 +2572,11 @@ div .rdt_Pagination div:first-of-type svg {
 }
 
 .logo-height {
-  height: 45px;
+  width: auto !important;
+  height: auto !important;
+  max-width: 280px;
+  max-height: 120px;
+  object-fit: contain;
 }
 
 .email-template-padding {

@@ -5,9 +5,14 @@ namespace App\Repositories;
 use App\DotenvEditor;
 use App\Models\Setting;
 use Exception;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
+use Intervention\Image\ImageManager;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
+use Throwable;
 
 /**
  * Class SettingRepository
@@ -56,8 +61,22 @@ class SettingRepository extends BaseRepository
             if (isset($input['logo']) && !empty($input['logo'])) {
                 /** @var Setting $setting */
                 $setting = Setting::where('key', '=', 'logo')->first();
-                //                $setting->clearMediaCollection(Setting::PATH);
-                $media = $setting->addMedia($input['logo'])->toMediaCollection(Setting::PATH, config('app.media_disc'));
+                $preparedLogo = $this->prepareSystemLogoUpload($input['logo']);
+                try {
+                    $setting->clearMediaCollection(Setting::PATH);
+                    $mediaAdder = $setting->addMedia($preparedLogo);
+
+                    if ($preparedLogo !== $input['logo']) {
+                        $mediaAdder->usingFileName($this->getLogoFileName($input['logo']));
+                    }
+
+                    $media = $mediaAdder->toMediaCollection(Setting::PATH, config('app.media_disc'));
+                } finally {
+                    if (is_string($preparedLogo) && File::exists($preparedLogo)) {
+                        File::delete($preparedLogo);
+                    }
+                }
+
                 $setting = $setting->refresh();
                 $setting->update(['value' => $media->getFullUrl()]);
                 $input['logo'] = $setting->getLogoAttribute();
@@ -189,5 +208,93 @@ class SettingRepository extends BaseRepository
             'mail_from_address' => $data['MAIL_FROM_ADDRESS'],
             'mail_encryption' => $data['MAIL_ENCRYPTION'],
         ];
+    }
+
+    private function prepareSystemLogoUpload(UploadedFile $logo)
+    {
+        $extension = strtolower($logo->getClientOriginalExtension() ?: $logo->extension() ?: 'png');
+
+        if (!in_array($extension, ['png', 'jpg', 'jpeg', 'webp', 'gif'], true)) {
+            return $logo;
+        }
+
+        $tempDirectory = storage_path('app/temp/system-logos');
+        File::ensureDirectoryExists($tempDirectory);
+
+        $temporaryLogoPath = $tempDirectory.DIRECTORY_SEPARATOR.uniqid('system-logo-', true).'.'.$extension;
+
+        try {
+            $manager = new ImageManager([
+                'driver' => config('media-library.image_driver', 'gd'),
+            ]);
+
+            $bestCandidate = $this->getBestLogoTrimCandidate(
+                $manager,
+                $logo->getRealPath(),
+                $extension
+            );
+
+            if ($bestCandidate === null) {
+                return $logo;
+            }
+
+            $bestCandidate->save($temporaryLogoPath, 90);
+
+            return $temporaryLogoPath;
+        } catch (Throwable $exception) {
+            if (File::exists($temporaryLogoPath)) {
+                File::delete($temporaryLogoPath);
+            }
+
+            return $logo;
+        }
+    }
+
+    private function getBestLogoTrimCandidate(
+        ImageManager $manager,
+        string $sourcePath,
+        string $extension
+    ) {
+        $sourceImage = $manager->make($sourcePath)->orientate();
+        $originalArea = max(1, $sourceImage->width() * $sourceImage->height());
+        $bestCandidate = null;
+        $bestArea = $originalArea;
+
+        $trimStrategies = [];
+
+        if (in_array($extension, ['png', 'webp', 'gif'], true)) {
+            $trimStrategies[] = 'transparent';
+        }
+
+        $trimStrategies[] = 'top-left';
+        $trimStrategies[] = 'bottom-right';
+
+        foreach ($trimStrategies as $trimStrategy) {
+            $candidate = $manager->make($sourcePath)->orientate();
+            $candidate->trim($trimStrategy, null, 20, 0);
+
+            $candidateArea = max(1, $candidate->width() * $candidate->height());
+
+            if ($candidateArea < $bestArea) {
+                $bestArea = $candidateArea;
+                $bestCandidate = $candidate;
+            }
+        }
+
+        if ($bestCandidate === null) {
+            return null;
+        }
+
+        $trimmedEnough = $bestArea <= (int) ($originalArea * 0.92);
+
+        return $trimmedEnough ? $bestCandidate : null;
+    }
+
+    private function getLogoFileName(UploadedFile $logo): string
+    {
+        $name = pathinfo($logo->getClientOriginalName(), PATHINFO_FILENAME);
+        $extension = strtolower($logo->getClientOriginalExtension() ?: $logo->extension() ?: 'png');
+
+        return (Str::slug($name) ?: 'system-logo').'.'.$extension;
     }
 }

@@ -4,7 +4,14 @@ import {faPencil} from '@fortawesome/free-solid-svg-icons';
 import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
 
 const ImagePicker = (props) => {
-    const {imagePreviewUrl, handleImageChange, imageTitle, avtarName, user} = props;
+    const {
+        imagePreviewUrl,
+        handleImageChange,
+        imageTitle,
+        avtarName,
+        user,
+        pickerClassName = '',
+    } = props;
     let fileInput = React.createRef();
 
     return (
@@ -14,7 +21,7 @@ const ImagePicker = (props) => {
             </label>
             <div className='d-block'>
                 <div
-                    className='image-picker'>
+                    className={`image-picker ${pickerClassName}`.trim()}>
                     <div
                         className={`image previewImage imagePreviewUrl ${imagePreviewUrl ? null : "d-flex justify-content-center align-items-center"}`}>
                         {imagePreviewUrl ?

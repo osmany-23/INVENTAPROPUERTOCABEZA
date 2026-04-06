@@ -116,6 +116,8 @@ const AsideMenu = (props) => {
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
     const [openSubMenus, setOpenSubMenus] = useState({});
     const updatedLanguage = localStorage.getItem(Tokens.UPDATED_LANGUAGE);
+    const shouldShowCompanyName =
+        frontSetting?.value?.show_app_name_in_sidebar === "1";
 
     useEffect(() => {
         const timerId = window.setTimeout(() => {
@@ -252,7 +254,11 @@ const AsideMenu = (props) => {
                 <SidebarHeader className="aside-menu-container__aside-logo flex-column-auto pb-2 pt-3">
                     <a
                         href="/"
-                        className="text-decoration-none sidebar-logo text-gray-900 fs-4"
+                        className={`text-decoration-none sidebar-logo ${
+                            shouldShowCompanyName
+                                ? "sidebar-logo--with-name"
+                                : "sidebar-logo--logo-only"
+                        } text-gray-900 fs-4`}
                     >
                         <div
                             className={`${
@@ -262,15 +268,15 @@ const AsideMenu = (props) => {
                             <img
                                 src={frontSetting.value && frontSetting.value.logo}
                                 className="img-fluid object-fit-contain"
-                                alt="profile image"
+                                alt="Company logo"
                             />
                         </div>
 
-                        {isMenuCollapse
-                            ? null
-                            : frontSetting.value &&
-                              frontSetting.value.show_app_name_in_sidebar === "1"
-                            ? frontSetting.value.company_name
+                        {isMenuCollapse ? null : shouldShowCompanyName ? (
+                                <span className="sidebar-brand-name">
+                                    {frontSetting.value.company_name}
+                                </span>
+                            )
                             : ""}
                     </a>
                     <button

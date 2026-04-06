@@ -149,18 +149,16 @@ var useDeferredModalContent = function useDeferredModalContent(show) {
     }
 
     var frameId = 0;
-    var nestedFrameId = 0;
     frameId = window.requestAnimationFrame(function () {
-      nestedFrameId = window.requestAnimationFrame(function () {
-        setShouldRenderContent(true);
-      });
+      setShouldRenderContent(true);
     });
     return function () {
       window.cancelAnimationFrame(frameId);
-      window.cancelAnimationFrame(nestedFrameId);
     };
-  }, [ready, show]);
-  return shouldRenderContent;
+  }, [ready, show]); // Avoid rendering stale modal bodies during the close frame after detail data
+  // has already been cleared from parent state.
+
+  return show && ready && shouldRenderContent;
 };
 
 var toFiniteNumber = function toFiniteNumber(value) {
@@ -1315,7 +1313,13 @@ var DetailModal = /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0__.memo(function 
       onOpenEdit = _ref8.onOpenEdit,
       onOpenPrint = _ref8.onOpenPrint,
       onOpenRestructure = _ref8.onOpenRestructure,
-      onOpenReturn = _ref8.onOpenReturn;
+      onOpenReturn = _ref8.onOpenReturn,
+      _ref8$canEditCredit = _ref8.canEditCredit,
+      canEditCredit = _ref8$canEditCredit === void 0 ? true : _ref8$canEditCredit,
+      _ref8$canRestructureC = _ref8.canRestructureCredit,
+      canRestructureCredit = _ref8$canRestructureC === void 0 ? true : _ref8$canRestructureC,
+      _ref8$canRegisterRetu = _ref8.canRegisterReturn,
+      canRegisterReturn = _ref8$canRegisterRetu === void 0 ? true : _ref8$canRegisterRetu;
   var shouldRenderBody = useDeferredModalContent(show, !detailLoading && !!creditDetail);
   return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsxs)(react_bootstrap_v5__WEBPACK_IMPORTED_MODULE_12__["default"], _objectSpread(_objectSpread({
     show: show,
@@ -1345,17 +1349,17 @@ var DetailModal = /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0__.memo(function 
         className: "credits-detail-modal__btn credits-detail-modal__btn--secondary",
         onClick: onHide,
         children: "Cerrar"
-      }), creditDetail !== null && creditDetail !== void 0 && creditDetail.can_edit_directly ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsx)(_creditHelpers__WEBPACK_IMPORTED_MODULE_5__.CreditActionButton, {
+      }), creditDetail !== null && creditDetail !== void 0 && creditDetail.can_edit_directly && canEditCredit ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsx)(_creditHelpers__WEBPACK_IMPORTED_MODULE_5__.CreditActionButton, {
         action: "edit-credit",
         className: "credits-detail-modal__btn",
         onClick: onOpenEdit,
         children: "Editar credito"
-      }) : null, creditDetail !== null && creditDetail !== void 0 && creditDetail.can_restructure ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsx)(_creditHelpers__WEBPACK_IMPORTED_MODULE_5__.CreditActionButton, {
+      }) : null, creditDetail !== null && creditDetail !== void 0 && creditDetail.can_restructure && canRestructureCredit ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsx)(_creditHelpers__WEBPACK_IMPORTED_MODULE_5__.CreditActionButton, {
         action: "restructure-credit",
         className: "credits-detail-modal__btn",
         onClick: onOpenRestructure,
         children: "Reestructurar credito"
-      }) : null, creditDetail !== null && creditDetail !== void 0 && (_creditDetail$items = creditDetail.items) !== null && _creditDetail$items !== void 0 && _creditDetail$items.some(function (item) {
+      }) : null, canRegisterReturn && creditDetail !== null && creditDetail !== void 0 && (_creditDetail$items = creditDetail.items) !== null && _creditDetail$items !== void 0 && _creditDetail$items.some(function (item) {
         return Number(item.available_return_quantity) > 0;
       }) ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsx)(_creditHelpers__WEBPACK_IMPORTED_MODULE_5__.CreditActionButton, {
         action: "register-return",

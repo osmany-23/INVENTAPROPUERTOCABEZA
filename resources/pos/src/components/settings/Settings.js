@@ -854,6 +854,7 @@ const Settings = (props) => {
                                         imageTitle={placeholderText(
                                             "globally.input.change-logo.tooltip"
                                         )}
+                                        pickerClassName="settings-logo-picker"
                                         imagePreviewUrl={
                                             imagePreviewUrl
                                                 ? imagePreviewUrl
