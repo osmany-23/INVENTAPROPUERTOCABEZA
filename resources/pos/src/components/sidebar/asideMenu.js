@@ -262,13 +262,18 @@ const AsideMenu = (props) => {
                     >
                         <div
                             className={`${
-                                isMenuCollapse ? "d-none" : "image image-mini me-3"
+                                isMenuCollapse
+                                    ? "d-none"
+                                    : "sidebar-logo__media me-3"
                             }`}
                         >
                             <img
-                                src={frontSetting.value && frontSetting.value.logo}
-                                className="img-fluid object-fit-contain"
-                                alt="Company logo"
+                                src={frontSetting?.value?.logo}
+                                className="sidebar-logo__img"
+                                alt={
+                                    frontSetting?.value?.company_name ||
+                                    "Company logo"
+                                }
                             />
                         </div>
 
