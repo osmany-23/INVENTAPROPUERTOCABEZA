@@ -1,12 +1,20 @@
+let cachedFiles = null;
+
 export const getFiles = () => {
+    if (cachedFiles) {
+        return cachedFiles;
+    }
+
     const context = require.context('./', true, /.json$/);
     const modules = {};
+
     context.keys().forEach((key) => {
         const fileName = key.replace('./', '');
-        const resource = require(`./${fileName}`);
+        const resource = context(key);
         const namespace = fileName.replace('.json', '');
-        modules[namespace] = JSON.parse(JSON.stringify(resource));
+        modules[namespace] = resource?.default || resource;
     });
 
-    return modules
-}
+    cachedFiles = modules;
+    return cachedFiles;
+};

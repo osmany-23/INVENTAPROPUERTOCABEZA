@@ -1,98 +1,97 @@
-import Currencies from "./components/currency/Currencies";
-import Warehouses from "./components/warehouse/Warehouses";
-import CreateWarehouse from "./components/warehouse/CreateWarehouse";
-import EditWarehouse from "./components/warehouse/EditWarehouse";
-import Suppliers from "./components/supplier/Suppliers";
-import CreateSupplier from "./components/supplier/CreateSupplier";
-import EditSupplier from "./components/supplier/EditSupplier";
-import Customers from "./components/customer/Customers";
-import CreateCustomer from "./components/customer/CreateCustomer";
-import EditCustomer from "./components/customer/EditCustomer";
-import User from "./components/users/User";
-import CreateUser from "./components/users/CreateUser";
-import EditUser from "./components/users/EditUser";
-import UserDetail from "./components/users/UserDetail";
-import UpdateProfile from "./components/user-profile/UpdateProfile";
-import Settings from "./components/settings/Settings";
-import ExpenseCategory from "./components/expense-category/ExpenseCategory";
-import Expenses from "./components/expense/Expenses";
-import CreateExpense from "./components/expense/CreateExpense";
-import EditExpense from "./components/expense/EditExpense";
-import Purchases from "./components/purchase/Purchases";
-import CreatePurchase from "./components/purchase/CreatePurchase";
-import EditPurchase from "./components/purchase/EditPurchase";
-import PurchaseDetails from "./components/purchase/PurchaseDetails";
-import PosMainPage from "./frontend/components/PosMainPage";
-import PrintData from "./frontend/components/printModal/PrintData";
-import Sales from "./components/sales/Sales";
-import CreateSale from "./components/sales/CreateSale";
-import EditSale from "./components/sales/EditSale";
-import SaleReturn from "./components/saleReturn/SaleReturn";
-import CreateSaleReturn from "./components/saleReturn/CreateSaleReturn";
-import EditSaleReturn from "./components/saleReturn/EditSaleReturn";
-import SaleReturnDetails from "./components/saleReturn/SaleReturnDetails";
-import SaleDetails from "./components/sales/SaleDetails";
-import PurchaseReturn from "./components/purchaseReturn/PurchaseReturn";
-import CreatePurchaseReturn from "./components/purchaseReturn/CreatePurchaseReturn";
-import EditPurchaseReturn from "./components/purchaseReturn/EditPurchaseReturn";
-import PurchaseReturnDetails from "./components/purchaseReturn/PurchaseReturnDetails";
-import WarehouseReport from "./components/report/warehouseReport/WarehouseReport";
-import SaleReport from "./components/report/saleReport/SaleReport";
-import StockReport from "./components/report/stockReport/StockReport";
-import StockDetails from "./components/report/stockReport/StockDetails";
-import TopSellingProductsReport from "./components/report/topSellingReport/TopSellingProductsReport";
-import PurchaseReport from "./components/report/purchaseReport/PurchaseReport";
-import PrintBarcode from "./components/printBarcode/PrintBarcode";
 import { Permissions } from "./constants";
-import Role from "./components/roles/Role";
-import CreateRole from "./components/roles/CreateRole";
-import EditRole from "./components/roles/EditRole";
-import Adjustments from "./components/adjustments/Adjustments";
-import CreateAdjustment from "./components/adjustments/CreateAdjustment";
-import EditAdjustMent from "./components/adjustments/EditAdjustMent";
-import WarehouseDetail from "./components/warehouse/WarehouseDetail";
-import ProductQuantityReport from "./components/report/productQuantityReport/ProductQuantityReport";
-import BatchExpiryReport from "./components/report/batchExpiryReport/BatchExpiryReport";
-import Transfers from "./components/transfers/Transfers";
-import EditTransfer from "./components/transfers/EditTransfer";
-import CreateTransfer from "./components/transfers/CreateTransfer";
-import Prefixes from "./components/settings/Prefixes";
-import SuppliersReport from "./components/report/supplier-report/SuppliersReport";
-import SupplierReportDetails from "./components/report/supplier-report/SupplierReportDetails";
-import EmailTemplates from "./components/Email-templates/EmailTemplates";
-import EditEmailTemplate from "./components/Email-templates/EditEmailTemplate";
-import Quotations from "./components/quotations/Quotations";
-import CreateQuotation from "./components/quotations/CreateQuotation";
-import EditQuotation from "./components/quotations/EditQuotation";
-import CreateQuotationSale from "./components/quotations/CreateQuotationSale";
-import QuotationDetails from "./components/quotations/QuotationDetails";
-import MailSettings from "./components/settings/MailSettings";
-import SmsTemplates from "./components/sms-templates/SmsTemplates";
-import EditSmsTemplate from "./components/sms-templates/EditSmsTemplate";
-import BestCustomerReport from "./components/report/best-customerReport/BestCustomerReport";
-import ProfitLossReport from "./components/report/ProfitLossReport/ProfitLossReport";
-import CustomerReportDetails from "./components/report/customer-report/CustomerReportDetails";
-import CustomersReport from "./components/report/customer-report/CustomersReport";
-import SmsApi from "./components/sms-api/SmsApi";
-import EditSaleReturnFromSale from "./components/saleReturn/EditSaleReturnFromSale";
-import Language from "./components/languages/Language";
-import EditLanguageData from "./components/languages/EditLanguageData";
-import RegisterReport from "./components/report/registerReport/RegisterReport";
-import ReceiptSettings from "./components/settings/ReceiptSettings";
 import {
-    LazyBaseUnits as BaseUnits,
-    LazyBrands as Brands,
-    LazyCreateProduct as CreateProduct,
-    LazyCredits as Credits,
-    LazyDashboard as Dashboard,
-    LazyEditProduct as EditProduct,
-    LazyProduct as Product,
-    LazyProductBatchManager as ProductBatchManager,
-    LazyProductCategory as ProductCategory,
-    LazyProductDetail as ProductDetail,
-    LazyUnits as Units,
-    LazyVariation as Variation,
-} from "./shared/navigation/routePreload";
+    Adjustments,
+    BaseUnits,
+    BatchExpiryReport,
+    BestCustomerReport,
+    Brands,
+    CreateAdjustment,
+    CreateCustomer,
+    CreateExpense,
+    CreateProduct,
+    CreatePurchase,
+    CreatePurchaseReturn,
+    CreateQuotation,
+    CreateQuotationSale,
+    CreateRole,
+    CreateSale,
+    CreateSaleReturn,
+    CreateSupplier,
+    CreateTransfer,
+    CreateUser,
+    CreateWarehouse,
+    Credits,
+    Currencies,
+    CustomerReportDetails,
+    Customers,
+    CustomersReport,
+    Dashboard,
+    EditAdjustMent,
+    EditCustomer,
+    EditEmailTemplate,
+    EditExpense,
+    EditProduct,
+    EditPurchase,
+    EditPurchaseReturn,
+    EditQuotation,
+    EditRole,
+    EditSale,
+    EditSaleReturn,
+    EditSaleReturnFromSale,
+    EditSmsTemplate,
+    EditSupplier,
+    EditTransfer,
+    EditUser,
+    EditWarehouse,
+    EmailTemplates,
+    ExpenseCategory,
+    Expenses,
+    Language,
+    MailSettings,
+    PosMainPage,
+    Prefixes,
+    PrintBarcode,
+    PrintData,
+    Product,
+    ProductBatchManager,
+    ProductCategory,
+    ProductDetail,
+    ProductQuantityReport,
+    ProfitLossReport,
+    PurchaseDetails,
+    PurchaseReport,
+    PurchaseReturn,
+    PurchaseReturnDetails,
+    Purchases,
+    QuotationDetails,
+    Quotations,
+    ReceiptSettings,
+    RegisterReport,
+    Role,
+    SaleDetails,
+    SaleReport,
+    SaleReturn,
+    SaleReturnDetails,
+    Sales,
+    Settings,
+    SmsApi,
+    SmsTemplates,
+    StockDetails,
+    StockReport,
+    SupplierReportDetails,
+    Suppliers,
+    SuppliersReport,
+    TopSellingProductsReport,
+    Transfers,
+    Units,
+    UpdateProfile,
+    User,
+    UserDetail,
+    Variation,
+    WarehouseDetail,
+    WarehouseReport,
+    Warehouses,
+} from "./shared/navigation/lazyRouteElements";
 
 export const route = [
     {

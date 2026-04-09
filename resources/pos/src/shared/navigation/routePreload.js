@@ -1,5 +1,7 @@
 import { lazy } from "react";
 
+const preloadCache = new Map();
+
 const loadDashboardModule = () => import("../../components/dashboard/Dashboard");
 const loadBrandsModule = () => import("../../components/brands/Brands");
 const loadProductCategoryModule = () =>
@@ -59,5 +61,17 @@ export const preloadRouteModule = (path = "") => {
         return Promise.resolve(null);
     }
 
-    return matchedRoute.loader().catch(() => null);
+    if (preloadCache.has(matchedRoute.prefix)) {
+        return preloadCache.get(matchedRoute.prefix);
+    }
+
+    const preloadPromise = matchedRoute
+        .loader()
+        .catch(() => {
+            preloadCache.delete(matchedRoute.prefix);
+            return null;
+        });
+
+    preloadCache.set(matchedRoute.prefix, preloadPromise);
+    return preloadPromise;
 };

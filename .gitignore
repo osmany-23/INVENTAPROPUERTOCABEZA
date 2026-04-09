@@ -13,6 +13,13 @@ npm-debug.log
 yarn-error.log
 /.idea
 /.vscode
-/public
+
+# Ignorar TODO public
+/public/*
+
+# PERMITIR SOLO LO NECESARIO
 !/public/barcode-images
 !/public/import_demo_files
+!/public/js/
+!/public/js/*
+!/public/mix-manifest.json

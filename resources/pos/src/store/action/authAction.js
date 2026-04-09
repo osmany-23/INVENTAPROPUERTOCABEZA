@@ -79,10 +79,6 @@ export const loginAction = (user, navigate, setLoading) => async (dispatch) => {
             preloadRouteModule(redirectRoute),
         ];
 
-        if (redirectRoute === "/app/dashboard") {
-            bootstrapTasks.push(preloadRouteModule("/app/dashboard"));
-        }
-
         dispatch(fetchPermissions());
         await Promise.allSettled(bootstrapTasks);
         markAuthBootstrapReady(authToken);

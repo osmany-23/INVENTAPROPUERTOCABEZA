@@ -1,4 +1,12 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, {
+    lazy,
+    Suspense,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import { Route, useLocation, Navigate, Routes, useNavigate } from "react-router-dom";
 import "../../pos/src/assets/sass/style.react.scss";
 import { useDispatch, useSelector } from "react-redux";
@@ -21,7 +29,6 @@ import {
 import Login from "./components/auth/Login";
 import ResetPassword from "./components/auth/ResetPassword";
 import ForgotPassword from "./components/auth/ForgotPassword";
-import AdminApp from "./AdminApp";
 import { getFiles } from "./locales/index";
 import { getDefaultRedirectRoute } from "./shared/permissionRoute";
 import { setupPosPerformanceMonitoring } from "./shared/performance/posPerformance";
@@ -41,6 +48,8 @@ import {
     SESSION_TIMEOUT_REASON_INACTIVITY,
 } from "./shared/authSession";
 
+const AdminApp = lazy(() => import("./AdminApp"));
+
 const isLocaleObject = (value) =>
     Boolean(value && typeof value === "object" && !Array.isArray(value));
 
@@ -59,13 +68,10 @@ function App() {
     const token = isSessionExpired ? null : storedToken;
     const navigate = useNavigate();
     const updatedLanguage = localStorage.getItem(Tokens.UPDATED_LANGUAGE);
-    const { selectedLanguage, config, language } = useSelector(
-        (state) => state
-    );
-    const [allLocales, setAllLocales] = useState(() => getFiles());
+    const { selectedLanguage, config } = useSelector((state) => state);
+    const allLocales = useMemo(() => getFiles(), []);
     const [messages, setMessages] = useState(() => {
-        const localeFiles = getFiles();
-        return isLocaleObject(localeFiles?.en) ? localeFiles.en : {};
+        return isLocaleObject(allLocales?.en) ? allLocales.en : {};
     });
     const redirectTo = getDefaultRedirectRoute(config);
     const lastFetchedTokenRef = useRef(null);
@@ -75,11 +81,6 @@ function App() {
     const [isAdminBootstrapping, setIsAdminBootstrapping] = useState(() =>
         Boolean(token && !isPublicAuthPath(location.pathname))
     );
-
-    useEffect(() => {
-        const getData = getFiles();
-        setAllLocales(getData);
-    }, [language, updateLanguage?.lang_json_array]);
 
     // updated language hendling
     useEffect(() => {
@@ -360,10 +361,14 @@ function App() {
                     <Route
                         path="app/*"
                         element={
-                            <AdminApp
-                                config={config}
-                                isBootstrapping={isAdminBootstrapping}
-                            />
+                            <Suspense
+                                fallback={<AppBootstrapLoader variant="shell" />}
+                            >
+                                <AdminApp
+                                    config={config}
+                                    isBootstrapping={isAdminBootstrapping}
+                                />
+                            </Suspense>
                         }
                     />
                     <Route
